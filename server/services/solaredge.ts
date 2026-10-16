@@ -47,8 +47,9 @@ async function saveTokens(db: Db, se: Integration, creds: SolarEdgeCredentials, 
 /** Drop the tokens so we stop spending credits until the owner signs in again */
 async function revoke(db: Db, se: Integration, key: string, message: string) {
   const { clientId, clientSecret } = se.creds
+  se.creds = { clientId, clientSecret }
   se.meta = { ...se.meta, authorized: false }
-  await updateIntegration(db, se.row.id, { creds: { clientId, clientSecret }, meta: se.meta }, key)
+  await updateIntegration(db, se.row.id, { creds: se.creds, meta: se.meta }, key)
   await markIntegration(db, se.row.id, message)
 }
 
@@ -97,6 +98,38 @@ export async function completeSolarEdgeAuth(db: Db, site: Site, key: string, cod
   await markIntegration(db, se.row.id, error)
   forgetSolarEdge(site.id)
   return { error }
+}
+
+/**
+ * "Save & test" without new credentials: check the stored sign-in with one read of the site
+ * (one credit, two when the access token needs a refresh) and record the result.
+ */
+export async function testSolarEdge(db: Db, site: Site, key: string) {
+  const se = await getIntegration<SolarEdgeCredentials>(db, site.id, 'solaredge', key)
+  if (!se) return { error: 'Save the SolarEdge client ID and secret first', meta: {} }
+  const seSiteId = se.meta.siteId as string | undefined
+  if (!se.creds.refreshToken || !seSiteId) return { error: 'Sign in with SolarEdge first', meta: se.meta }
+  const now = new Date()
+  const needed = seTokenNeedsRefresh(se.creds.expiresAt, now) ? 2 : 1
+  if (creditsLeftToday(se.meta.credits as CreditLedger | undefined, now, site.timezone) < needed) {
+    return { error: 'Daily SolarEdge credit budget used up, try again tomorrow', meta: se.meta }
+  }
+  let error: string | undefined
+  try {
+    const token = await accessToken(db, se, site, key, now)
+    await spend(db, se, site, key, now)
+    se.meta = { ...se.meta, lastTest: await solarEdgeSite(token, seSiteId) }
+    await updateIntegration(db, se.row.id, { meta: se.meta }, key)
+  } catch (err) {
+    error = (err as Error).message
+    // Token rejected before its expiry: refresh on the next call
+    if (err instanceof SolarEdgeError && err.kind === 'auth' && se.creds.refreshToken) {
+      await saveTokens(db, se, { ...se.creds, expiresAt: 0 }, key)
+    }
+  }
+  // accessToken() already marked the row and dropped the tokens when the refresh token was rejected
+  if (se.creds.refreshToken) await markIntegration(db, se.row.id, error)
+  return { error, meta: se.meta }
 }
 
 interface PollState {

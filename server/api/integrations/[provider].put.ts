@@ -3,7 +3,7 @@ import { tibberHomes, type TibberCredentials } from '../../providers/tibber'
 import { getIntegration, markIntegration, saveIntegration } from '../../services/integrations'
 import { refreshPrices } from '../../services/prices'
 import { syncPulse } from '../../services/pulse'
-import { forgetSolarEdge } from '../../services/solaredge'
+import { forgetSolarEdge, testSolarEdge } from '../../services/solaredge'
 import { runStrategy } from '../../services/strategy'
 
 const FIELDS: Record<Provider, string[]> = {
@@ -24,6 +24,12 @@ export default defineEventHandler(async (event) => {
   const body = await readBody<{ credentials?: Record<string, string>; meta?: Record<string, unknown> }>(event)
   const db = useDb()
   const key = encryptionKey()
+
+  // Nothing to save: test the stored sign-in instead of re-saving, which would reset the status
+  if (provider === 'solaredge' && !body.credentials) {
+    const { error, meta } = await testSolarEdge(db, site, key)
+    return { ok: !error, error: error ?? null, meta }
+  }
 
   const existing = await getIntegration<Record<string, string>>(db, site.id, provider, key)
   let creds = existing?.creds
