@@ -4,7 +4,7 @@
 
     <h3 class="section-title">Connections</h3>
     <div class="list">
-      <details v-for="i in integrations" :key="i.provider" class="conn">
+      <details v-for="i in integrations" :key="i.provider" class="conn" :open="i.provider === 'solaredge' && !!results.solaredge">
         <summary class="list-row indent">
           <div class="lead">
             <span class="icon-tile" :style="{ background: INFO[i.provider]!.tile }"><AppIcon :name="INFO[i.provider]!.icon" /></span>
