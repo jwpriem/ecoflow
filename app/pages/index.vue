@@ -7,28 +7,36 @@
     <p v-if="error" class="error">{{ error }}</p>
 
     <template v-if="d">
-      <!-- Hero: one ring per battery, the combined level in the middle -->
+      <!-- Hero: the combined level of all units -->
       <section class="card hero rise">
         <div class="glow" :class="state" />
         <div class="card-head">
           <span class="eyebrow"><AppIcon name="battery" :style="{ color: stateColor }" /> {{ stateLabel }}</span>
-          <span class="pill">{{ d.devices.length }} × STREAM Pro</span>
+          <span class="pill nowrap">{{ d.devices.length }} × STREAM Pro</span>
         </div>
-        <SocRings :batteries="d.devices" :reserve="soc?.reserveSoc ?? 0" />
-        <ul class="units">
-          <li v-for="(b, i) in d.devices" :key="b.id">
-            <span class="sw" :style="{ background: i === 0 ? 'var(--sys-green)' : 'var(--sys-teal)' }" />
-            <div class="u-main">
-              <div class="u-name">{{ b.name }} <span v-if="b.driver === 'mock'" class="muted">· simulated</span></div>
-              <div class="u-meta">
-                {{ b.powerW > 5 ? 'Charging' : b.powerW < -5 ? 'Discharging' : 'Idle' }}<template v-if="Math.abs(b.powerW) > 5"> · {{ watt(Math.abs(b.powerW)) }}</template>
-                · {{ MODE_LABEL[b.mode ?? ''] ?? '–' }}
-              </div>
-            </div>
-            <div class="u-pct">{{ b.soc == null ? '–' : Math.round(b.soc * 100) }}<small>%</small></div>
-          </li>
-        </ul>
+        <SocRing class="hero-ring" :value="combinedSoc" :power-w="totalPower" :reserve="soc?.reserveSoc ?? 0" :size="230" :stroke="24">
+          <div class="pct"><span>{{ Math.round(combinedSoc * 100) }}</span><small>%</small></div>
+          <div class="kwh">{{ storedKwhT.toFixed(2) }} <span>/ {{ capacityKwh.toFixed(2) }} kWh</span></div>
+        </SocRing>
       </section>
+
+      <!-- One tile per unit: up to six STREAM Pros -->
+      <div class="units" :style="{ '--cols': unitCols }">
+        <section v-for="b in d.devices" :key="b.id" class="card unit-tile rise">
+          <SocRing :value="b.soc ?? 0" :power-w="b.powerW" :size="68" :stroke="8">
+            <span class="u-pct">{{ b.soc == null ? '–' : Math.round(b.soc * 100) }}</span>
+          </SocRing>
+          <div class="u-main">
+            <div class="u-name">{{ b.name }}</div>
+            <div class="u-state" :class="unitState(b)">
+              <template v-if="unitState(b) === 'charging'">↑ {{ watt(b.powerW) }}</template>
+              <template v-else-if="unitState(b) === 'discharging'">↓ {{ watt(-b.powerW) }}</template>
+              <template v-else>Idle</template>
+            </div>
+            <div class="u-meta">{{ kwh(((b.soc ?? 0) * b.capacityWh) / 1000, 2) }}</div>
+          </div>
+        </section>
+      </div>
 
       <!-- Where the charge level has been and where the plan takes it -->
       <section class="card rise">
@@ -117,10 +125,20 @@ async function load() {
   }
 }
 
+const capacityKwh = computed(() => (d.value?.devices ?? []).reduce((s: number, b: any) => s + b.capacityWh, 0) / 1000)
+const storedKwh = computed(() => (d.value?.devices ?? []).reduce((s: number, b: any) => s + (b.soc ?? 0) * b.capacityWh, 0) / 1000)
+const storedKwhT = useTweened(() => storedKwh.value, { stiffness: 40 })
+const combinedSoc = computed(() => (capacityKwh.value ? storedKwh.value / capacityKwh.value : 0))
+// 1 → 1 column, 2 or 4 → 2, 3, 5 or 6 → 3
+const unitCols = computed(() => {
+  const n = d.value?.devices.length ?? 0
+  return n <= 2 ? Math.max(1, n) : n === 4 ? 2 : 3
+})
+const unitState = (b: any) => (b.powerW > 5 ? 'charging' : b.powerW < -5 ? 'discharging' : 'idle')
 const totalPower = computed(() => (d.value?.devices ?? []).reduce((s: number, b: any) => s + b.powerW, 0))
 const houseW = computed(() => (d.value?.live ? d.value.live.houseNetW + (d.value.live.solarW ?? 0) : null))
 const state = computed(() => (totalPower.value > 5 ? 'charging' : totalPower.value < -5 ? 'discharging' : 'idle'))
-const stateLabel = computed(() => ({ charging: `Charging · ${watt(totalPower.value)}`, discharging: `Powering the house · ${watt(-totalPower.value)}`, idle: 'Idle' })[state.value])
+const stateLabel = computed(() => ({ charging: `Charging · ${watt(totalPower.value)}`, discharging: `Discharging · ${watt(-totalPower.value)}`, idle: 'Idle' })[state.value])
 const stateColor = computed(() => ({ charging: 'var(--sys-green)', discharging: 'var(--sys-orange)', idle: 'var(--text-2)' })[state.value])
 const savedToday = computed(() => d.value?.today?.savingNaive ?? 0)
 const savedTodayT = useTweened(() => savedToday.value)
@@ -155,19 +173,25 @@ onBeforeUnmount(() => clearInterval(timer))
 .glow.discharging { background: radial-gradient(closest-side, rgba(255, 159, 10, 0.18), transparent); animation: drift 8s ease-in-out infinite alternate; }
 @keyframes drift { to { transform: translate3d(0, 6%, 0) scale(1.05); } }
 .hero > *:not(.glow) { position: relative; }
-.units { list-style: none; margin: 18px 0 0; padding: 0; }
-.units li { display: flex; align-items: center; gap: 12px; padding: 12px 0; }
-.units li + li { border-top: 0.5px solid var(--separator); }
-.sw { width: 10px; height: 10px; border-radius: 3px; flex: none; }
-.u-main { flex: 1; min-width: 0; }
-.u-name { font-size: 15px; font-weight: 600; }
-.u-meta { font-size: 13px; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.u-pct { font: 600 24px var(--font-rounded); font-variant-numeric: tabular-nums; }
-.u-pct small { font-size: 14px; color: var(--text-2); font-weight: 500; }
+.hero-ring { width: min(230px, 64vw) !important; margin: 4px auto 6px; }
+.pct { font: 600 52px/1 var(--font-rounded); letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+.pct small { font-size: 24px; font-weight: 500; color: var(--text-2); margin-left: 1px; }
+.kwh { font-size: 13px; font-weight: 500; font-variant-numeric: tabular-nums; margin-top: 4px; }
+.kwh span { color: var(--text-2); font-weight: 400; }
+.units { display: grid; grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
+.unit-tile { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px; padding: 16px 8px 14px; margin-bottom: 0; }
+.u-pct { font: 600 19px var(--font-rounded); font-variant-numeric: tabular-nums; }
+.u-main { min-width: 0; width: 100%; }
+.u-name { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.u-state { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text-2); }
+.u-state.charging { color: var(--sys-green); }
+.u-state.discharging { color: var(--sys-orange); }
+.u-meta { font-size: 12px; color: var(--text-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .tile .label { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
 .ti { width: 16px; height: 16px; }
 .tile .big { font-size: 28px; }
 .unit { font: 500 13px var(--font); color: var(--text-2); margin-left: 4px; letter-spacing: 0; }
+.nowrap { white-space: nowrap; }
 .banner { background: var(--fill-2); border-radius: 12px; padding: 10px 12px; font-size: 13px; margin: 0 0 10px; }
 .next { list-style: none; margin: 0; padding: 0; }
 .next li { display: grid; grid-template-columns: 10px auto 1fr auto; align-items: center; gap: 12px; padding: 11px 0; font-size: 15px; }
