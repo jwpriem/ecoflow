@@ -1,4 +1,4 @@
-import { createCipheriv, createDecipheriv, createHash, randomBytes, scrypt as scryptCb, timingSafeEqual } from 'node:crypto'
+import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, scrypt as scryptCb, timingSafeEqual } from 'node:crypto'
 import { promisify } from 'node:util'
 
 const scrypt = promisify(scryptCb) as (pw: string, salt: Buffer, len: number) => Promise<Buffer>
@@ -46,4 +46,21 @@ export function newToken(): string {
 
 export function sha256(value: string): string {
   return createHash('sha256').update(value).digest('hex')
+}
+
+/** Tamper-proof, expiring token for OAuth `state`: <payload>.<hmac>, both base64url */
+export function signState(payload: Record<string, unknown>, keyB64: string, ttlMs = 15 * 60_000): string {
+  const body = Buffer.from(JSON.stringify({ ...payload, exp: Date.now() + ttlMs })).toString('base64url')
+  const mac = createHmac('sha256', keyFrom(keyB64)).update(`state.${body}`).digest('base64url')
+  return `${body}.${mac}`
+}
+
+export function verifyState<T extends Record<string, unknown>>(state: string, keyB64: string): T | null {
+  const [body, mac] = state.split('.')
+  if (!body || !mac) return null
+  const expected = createHmac('sha256', keyFrom(keyB64)).update(`state.${body}`).digest()
+  const actual = Buffer.from(mac, 'base64url')
+  if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) return null
+  const data = JSON.parse(Buffer.from(body, 'base64url').toString('utf8')) as T & { exp: number }
+  return data.exp > Date.now() ? data : null
 }

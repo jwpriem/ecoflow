@@ -59,7 +59,8 @@ Inputs: 2× EcoFlow **STREAM Pro** (1920 Wh each, 3.84 kWh total), SolarEdge inv
 - We store `energy` (spot), `tax` and `total` (all-in, including energy tax and VAT) per slot.
 
 ### SolarEdge
-- Monitoring API with an API key and site ID. **Limit: 300 requests per day per site**, so we poll `currentPowerFlow`/`energyDetails` about every 10 min and back-fill 15-min energy. Live surplus comes from the Pulse anyway, so SolarEdge is mainly for production totals and attribution.
+- **Monitoring API v2** (`monitoringapi.solaredge.com/v2`; V1 stops on 3 November 2026). Site Access app: OAuth 2.0 authorization code via SolarEdge Connect (scopes `SITE_DATA DEVICE_DATA`, 24-month grant), access token 2 h, rotating refresh token 30 days, stored encrypted.
+- **Free tier: 2,000 credits a month, 10 calls a minute, one credit per call.** v2 has no live power flow; `/sites/{id}/power` gives 15-min average production. We read it once per 20-min slot from 05:00 to 22:00 site time: 51 reads + ~9 token refreshes = 60 credits/day, 1,860 per 31 days. A hard cap of 64 credits/day (2,000 / 31) covers any billing cycle; the ledger is kept in the integration's `meta.credits`. Load comes from the Pulse, so SolarEdge is only used for production.
 
 ## Data model (multi-tenant-ready)
 

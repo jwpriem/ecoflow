@@ -36,3 +36,20 @@ export async function markIntegration(db: Db, id: number, error?: string) {
     .set(error ? { status: 'error', lastError: error.slice(0, 500) } : { status: 'ok', lastError: null, lastOkAt: new Date() })
     .where(eq(integrations.id, id))
 }
+
+/** Replace the secrets and/or settings of an existing row without touching its status */
+export async function updateIntegration(
+  db: Db,
+  id: number,
+  patch: { creds?: unknown; meta?: Record<string, unknown> },
+  key: string,
+) {
+  await db
+    .update(integrations)
+    .set({
+      ...(patch.creds !== undefined ? { credentialsEnc: encryptJson(patch.creds, key) } : {}),
+      ...(patch.meta ? { meta: patch.meta } : {}),
+      updatedAt: new Date(),
+    })
+    .where(eq(integrations.id, id))
+}

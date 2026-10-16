@@ -22,6 +22,15 @@
           <p v-if="i.provider === 'tibber' && i.configured" class="small muted">
             Pulse realtime: {{ i.meta.realtime ? (i.pulse?.connected ? 'connected' : 'connecting…') : 'not available for this home' }}
           </p>
+          <template v-if="i.provider === 'solaredge'">
+            <p class="small muted">Redirect URI to register in the developer console: <code class="copy">{{ i.redirectUri }}</code></p>
+            <p v-if="i.configured" class="small muted">
+              {{ i.meta.authorized ? `Site ${i.meta.siteId}${(i.meta.lastTest as any)?.name ? ` · ${(i.meta.lastTest as any).name}` : ''}` : 'Not signed in with SolarEdge yet.' }}
+              <template v-if="i.meta.credits">
+                · Credits today {{ i.credits.today }}/{{ i.credits.dailyCap }}, {{ (i.meta.credits as any).month }}: {{ (i.meta.credits as any).monthUsed }}/{{ i.credits.monthly }}
+              </template>
+            </p>
+          </template>
           <label v-for="f in INFO[i.provider]!.fields" :key="f.key" class="field">
             <span>{{ f.label }}</span>
             <input v-model="forms[i.provider]![f.key]" :type="f.secret ? 'password' : 'text'" :placeholder="i.configured ? 'Saved · leave empty to keep' : ''" autocomplete="off" />
@@ -34,6 +43,9 @@
           </label>
           <div class="row">
             <button class="primary" type="submit" :disabled="busy === i.provider">{{ busy === i.provider ? 'Testing…' : 'Save & test' }}</button>
+            <button v-if="i.provider === 'solaredge' && i.configured" type="button" :disabled="busy === 'se-auth'" @click="signInSolarEdge">
+              {{ i.meta.authorized ? 'Sign in again' : 'Sign in with SolarEdge' }}
+            </button>
             <button v-if="i.configured" type="button" class="danger" @click="remove(i.provider)">Disconnect</button>
             <span v-if="results[i.provider]" class="small" :class="results[i.provider]!.ok ? 'pos' : 'error'">{{ results[i.provider]!.text }}</span>
           </div>
@@ -109,8 +121,8 @@ const INFO: Record<string, { title: string; help: string; icon: string; tile: st
     title: 'SolarEdge',
     icon: 'sun',
     tile: 'var(--c-discharge)',
-    help: 'Monitoring API key and site ID (monitoring portal → Admin → Site access). Polled every 6 minutes to stay under 300 calls/day.',
-    fields: [{ key: 'apiKey', label: 'API key', secret: true }, { key: 'siteId', label: 'Site ID' }],
+    help: 'Monitoring API v2. Create a Site Access application at developer.solaredge.com with the redirect URI below, save its client ID and secret here, then sign in with SolarEdge to grant access. Read every 20 minutes from 05:00 to 22:00: at most 64 credits a day, so the Free tier (2,000 a month) is never exceeded.',
+    fields: [{ key: 'clientId', label: 'Client ID' }, { key: 'clientSecret', label: 'Client secret', secret: true }],
   },
   ecoflow_app: {
     title: 'EcoFlow app login',
@@ -164,12 +176,25 @@ async function save(provider: string) {
       method: 'PUT',
       body: { ...(filled ? { credentials: f } : {}), meta: provider === 'tibber' && homeId.value ? { homeId: homeId.value } : {} },
     })
-    results[provider] = r.ok ? { ok: true, text: 'Connected' } : { ok: false, text: r.error ?? 'Saved, but the test failed' }
+    results[provider] = !r.ok
+      ? { ok: false, text: r.error ?? 'Saved, but the test failed' }
+      : { ok: true, text: provider === 'solaredge' && !r.meta.authorized ? 'Saved · now sign in with SolarEdge' : 'Connected' }
     forms[provider] = {}
     await load()
   } catch (e: any) {
     results[provider] = { ok: false, text: e?.data?.statusMessage ?? 'Failed' }
   } finally {
+    busy.value = ''
+  }
+}
+
+async function signInSolarEdge() {
+  busy.value = 'se-auth'
+  try {
+    const r: any = await api('/api/integrations/solaredge/authorize')
+    window.location.href = r.url
+  } catch (e: any) {
+    results.solaredge = { ok: false, text: e?.data?.statusMessage ?? 'Failed' }
     busy.value = ''
   }
 }
@@ -200,7 +225,16 @@ async function logout() {
   await navigateTo('/login')
 }
 
-onMounted(load)
+onMounted(async () => {
+  // Back from SolarEdge Connect: /settings?solaredge=ok or ?solaredge=<error>
+  const route = useRoute()
+  const se = route.query.solaredge
+  if (typeof se === 'string') {
+    results.solaredge = se === 'ok' ? { ok: true, text: 'Connected' } : { ok: false, text: se }
+    navigateTo({ query: {} }, { replace: true })
+  }
+  await load()
+})
 </script>
 
 <style scoped>
@@ -216,6 +250,7 @@ onMounted(load)
 .conn-body p { margin: 0 0 12px; }
 .unit-in { display: inline-flex; align-items: center; justify-content: flex-end; gap: 4px; color: var(--text-2); width: 55%; }
 .unit-in input { width: 100%; }
+.copy { user-select: all; word-break: break-all; }
 .foot { font-size: 13px; color: var(--text-2); margin: -6px 20px 0; }
 .wide { width: 100%; margin-top: 4px; }
 .list-row input.range { -webkit-appearance: none; appearance: none; height: 4px; padding: 0; border-radius: 2px; margin: 10px 0 6px; background: linear-gradient(90deg, var(--sys-green) calc(var(--p) * 100%), var(--fill) 0); }
