@@ -1,0 +1,91 @@
+import { and, asc, eq, gte, lt, sql } from 'drizzle-orm'
+import type { Db } from '../db/client'
+import { prices, type sites } from '../db/schema'
+import { fakePrice } from '../lib/fake'
+import { feedInPrice } from '../lib/feedin'
+import { addMs, SLOT_MS, slotStartOf } from '../lib/time'
+import type { PriceSlot } from '../lib/types'
+import { tibberPrices, type TibberCredentials } from '../providers/tibber'
+import { getIntegration, markIntegration } from './integrations'
+
+type Site = typeof sites.$inferSelect
+
+export function fakePriceRows(site: Site, from: Date, to: Date) {
+  const rows: (typeof prices.$inferInsert)[] = []
+  for (let t = slotStartOf(from); t < to; t = addMs(t, SLOT_MS)) {
+    const p = fakePrice(t, site.timezone)
+    rows.push({ siteId: site.id, slotStart: t, slotMinutes: 15, ...p, feedIn: feedInPrice(t, p.energy, p.total, site.strategy.feedIn), source: 'fake' })
+  }
+  return rows
+}
+
+export async function upsertPrices(db: Db, rows: (typeof prices.$inferInsert)[]) {
+  for (let i = 0; i < rows.length; i += 1000) {
+    await db
+      .insert(prices)
+      .values(rows.slice(i, i + 1000))
+      .onConflictDoUpdate({
+        target: [prices.siteId, prices.slotStart],
+        set: {
+          energy: sql`excluded.energy`,
+          tax: sql`excluded.tax`,
+          total: sql`excluded.total`,
+          feedIn: sql`excluded.feed_in`,
+          source: sql`excluded.source`,
+          slotMinutes: sql`excluded.slot_minutes`,
+        },
+      })
+  }
+}
+
+/** Fetch today + tomorrow from Tibber; without a Tibber connection, fill in fake prices. */
+export async function refreshPrices(db: Db, site: Site, key: string): Promise<{ source: 'tibber' | 'fake'; count: number }> {
+  const tibber = await getIntegration<TibberCredentials>(db, site.id, 'tibber', key)
+  const homeId = tibber?.meta.homeId as string | undefined
+  if (tibber && homeId) {
+    try {
+      const list = await tibberPrices(tibber.creds, homeId)
+      const rows = list.flatMap((p, i) => {
+        const start = new Date(p.startsAt)
+        const next = list[i + 1] ? new Date(list[i + 1]!.startsAt) : addMs(start, SLOT_MS)
+        const minutes = Math.round((next.getTime() - start.getTime()) / 60_000)
+        // If Tibber only returns hourly prices, spread them over 15-min slots so everything else stays uniform
+        const parts = minutes >= 60 ? 4 : 1
+        return Array.from({ length: parts }, (_, k) => {
+          const slotStart = addMs(start, k * SLOT_MS)
+          return {
+            siteId: site.id,
+            slotStart,
+            slotMinutes: 15,
+            energy: p.energy,
+            tax: p.tax,
+            total: p.total,
+            feedIn: feedInPrice(slotStart, p.energy, p.total, site.strategy.feedIn),
+            source: 'tibber' as const,
+          }
+        })
+      })
+      await upsertPrices(db, rows)
+      await markIntegration(db, tibber.row.id)
+      return { source: 'tibber', count: rows.length }
+    } catch (err) {
+      await markIntegration(db, tibber.row.id, (err as Error).message)
+      throw err
+    }
+  }
+  const from = slotStartOf(Date.now() - 12 * 3600_000)
+  const rows = fakePriceRows(site, from, addMs(from, 48 * 3600_000))
+  // never overwrite real prices with fake ones
+  await db.delete(prices).where(and(eq(prices.siteId, site.id), gte(prices.slotStart, from), eq(prices.source, 'fake')))
+  await db.insert(prices).values(rows).onConflictDoNothing()
+  return { source: 'fake', count: rows.length }
+}
+
+export async function getPrices(db: Db, siteId: number, from: Date, to: Date): Promise<(PriceSlot & { source: string })[]> {
+  const rows = await db
+    .select()
+    .from(prices)
+    .where(and(eq(prices.siteId, siteId), gte(prices.slotStart, from), lt(prices.slotStart, to)))
+    .orderBy(asc(prices.slotStart))
+  return rows.map((r) => ({ slotStart: r.slotStart, total: r.total, energy: r.energy, feedIn: r.feedIn, source: r.source }))
+}

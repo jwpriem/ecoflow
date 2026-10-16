@@ -43,7 +43,7 @@ Inputs: 2× EcoFlow **STREAM Pro** (1920 Wh each, 3.84 kWh total), SolarEdge inv
 ```
 
 - **One process does the background work.** App Platform can scale out, so the jobs take a Postgres advisory lock. That way a second instance never sends conflicting battery commands.
-- **Capacitor:** `nuxt generate` with `ssr: false` produces static files for Capacitor's `webDir`. The API base URL comes from `runtimeConfig.public.apiBase`. A cookie session is awkward from `capacitor://localhost`, so auth uses short-lived access tokens plus refresh tokens. They are stored with Capacitor Preferences or secure storage in the app, and in memory with an httpOnly refresh cookie on the web.
+- **Capacitor:** `nuxt generate` with `ssr: false` produces static files for Capacitor's `webDir`. The API base URL comes from `runtimeConfig.public.apiBase`. Auth uses opaque bearer session tokens (60 days, stored hashed in `sessions`), not cookies, so the same API works from `capacitor://localhost`. *Implemented:* the token sits in localStorage behind `useAuth()`, to be swapped for Capacitor Preferences.
 
 ## Integrations
 
@@ -69,7 +69,7 @@ sites            id, user_id, name, timezone, country          -- a household
 integrations     id, site_id, provider (ecoflow_official | ecoflow_app | tibber | solaredge),
                  credentials_enc (bytea), credentials_iv, status, last_ok_at, last_error
 devices          id, site_id, integration_id, serial, model, capacity_wh, max_charge_w, max_discharge_w
-refresh_tokens   id, user_id, token_hash, expires_at
+sessions         id, user_id, token_hash, user_agent, expires_at
 
 prices           site_id, slot_start, slot_minutes(15), energy, tax, total, feed_in   (PK site_id+slot_start)
 samples          device_id|site_id, ts, kind (battery|grid|solar), power_w, soc, energy_wh   -- 1-min, kept 90 days
@@ -126,6 +126,13 @@ The plan is stored in `plans` and shown in the app on the price chart.
 - **Savings:** hour/day/month/year bars, naive vs opportunity toggle, kWh charged from solar vs grid, kWh discharged
 - **Plan:** today's and tomorrow's 15-min price curve with charge/discharge slots, plus manual override
 - **Settings:** integrations (enter and test credentials), devices, strategy parameters
+
+## Progress (2026-10-16)
+
+- Phase 1 skeleton done: schema and migrations, auth, encrypted integrations, DO App Platform spec, CORS for Capacitor.
+- Collectors: real Tibber prices, Pulse and SolarEdge clients (untested against the live APIs so far), with a fake fallback for each.
+- EcoFlow: a **simulated STREAM Pro driver** (`mock`) stands in until phase 0. It reacts to real Pulse/SolarEdge data when connected.
+- Ledger, strategy, override and all four screens work. `npm run db:seed` produces 30 days of fake history through the real simulator, strategy and ledger code.
 
 ## Build phases
 

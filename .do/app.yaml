@@ -1,0 +1,33 @@
+# DigitalOcean App Platform spec. Create with: doctl apps create --spec .do/app.yaml
+# (or point the App Platform UI at this repo; it picks up the same settings).
+name: ecoflow-energy
+region: ams
+services:
+  - name: web
+    github:
+      repo: jwpriem/ecoflow
+      branch: main
+      deploy_on_push: true
+    environment_slug: node-js
+    build_command: npm ci && npm run build
+    run_command: npm start
+    http_port: 3000
+    # One instance: it runs the collectors, the Tibber Pulse stream and the battery control loop.
+    # A Postgres advisory lock prevents double work if you ever scale out.
+    instance_count: 1
+    instance_size_slug: apps-s-1vcpu-0.5gb
+    health_check:
+      http_path: /api/auth/status
+    envs:
+      - key: NUXT_DATABASE_URL
+        scope: RUN_TIME
+        type: SECRET
+      - key: NUXT_ENCRYPTION_KEY
+        scope: RUN_TIME
+        type: SECRET
+      - key: NUXT_JOBS_ENABLED
+        scope: RUN_TIME
+        value: "true"
+      - key: NODE_ENV
+        scope: RUN_AND_BUILD_TIME
+        value: production
