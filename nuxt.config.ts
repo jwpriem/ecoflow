@@ -15,6 +15,7 @@ export default defineNuxtConfig({
     databaseUrl: '', // NUXT_DATABASE_URL
     encryptionKey: '', // NUXT_ENCRYPTION_KEY (base64, 32 bytes)
     jobsEnabled: 'true', // NUXT_JOBS_ENABLED
+    setupCode: '', // NUXT_SETUP_CODE: required to create the first account when set
     public: {
       apiBase: '', // NUXT_PUBLIC_API_BASE, empty = same origin; set for the Capacitor build
     },
