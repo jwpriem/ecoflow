@@ -1,0 +1,39 @@
+import type { BatteryMode } from './types'
+
+export interface ForecastSlot {
+  slotStart: Date
+  action: BatteryMode
+  targetW?: number | null
+}
+
+export interface ForecastPoint {
+  ts: Date
+  soc: number
+  action: BatteryMode
+}
+
+/**
+ * Rough combined state-of-charge path that follows the plan, for the app's charge curve.
+ * Only grid charging and discharging are predictable; self-use and solar-only depend on
+ * the house and the sun, so they hold the level. Returns one point at the end of each slot,
+ * starting with the current level at the first slot's start.
+ */
+export function projectSoc(
+  startSoc: number,
+  slots: ForecastSlot[],
+  opts: { capacityWh: number; maxChargeW: number; maxDischargeW: number; avgLoadW: number; reserveSoc: number; maxSoc: number; legEfficiency: number },
+): ForecastPoint[] {
+  if (!slots.length || opts.capacityWh <= 0) return []
+  const out: ForecastPoint[] = [{ ts: slots[0]!.slotStart, soc: startSoc, action: slots[0]!.action }]
+  let soc = startSoc
+  for (const s of slots) {
+    let wh = 0
+    if (s.action === 'charge_grid') wh = (s.targetW || opts.maxChargeW) * 0.25 * opts.legEfficiency
+    else if (s.action === 'discharge') wh = -((s.targetW || Math.min(opts.avgLoadW, opts.maxDischargeW)) * 0.25) / opts.legEfficiency
+    const next = soc + wh / opts.capacityWh
+    if (wh > 0) soc = Math.max(soc, Math.min(opts.maxSoc, next))
+    else if (wh < 0) soc = Math.min(soc, Math.max(opts.reserveSoc, next))
+    out.push({ ts: new Date(s.slotStart.getTime() + 15 * 60_000), soc, action: s.action })
+  }
+  return out
+}

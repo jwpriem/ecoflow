@@ -1,13 +1,16 @@
 <template>
-  <div style="max-width: 380px; margin: 10vh auto 0">
-    <h1>{{ needsSetup ? 'Create your account' : 'Log in' }}</h1>
-    <form class="card" @submit.prevent="submit">
-      <label class="field"><span>Email</span><input v-model="email" type="email" autocomplete="username" required /></label>
-      <label class="field"><span>Password</span><input v-model="password" type="password" :autocomplete="needsSetup ? 'new-password' : 'current-password'" required minlength="8" /></label>
-      <label v-if="needsSetup" class="field"><span>Setup code</span><input v-model="setupCode" autocomplete="off" /></label>
-      <p v-if="needsSetup" class="muted small">First run: this creates the only account, with two simulated STREAM Pro batteries.</p>
+  <div class="login">
+    <div class="mark rise"><AppIcon name="battery" /></div>
+    <h1 class="rise">{{ needsSetup ? 'Create your account' : 'Welcome back' }}</h1>
+    <p class="muted rise lede">{{ needsSetup ? 'First run: this creates the only account, with two simulated STREAM Pro batteries.' : 'Log in to see your batteries.' }}</p>
+    <form class="rise" @submit.prevent="submit">
+      <div class="list">
+        <label class="list-row stack"><input v-model="email" type="email" placeholder="Email" autocomplete="username" required /></label>
+        <label class="list-row stack"><input v-model="password" type="password" placeholder="Password" :autocomplete="needsSetup ? 'new-password' : 'current-password'" required minlength="8" /></label>
+        <label v-if="needsSetup" class="list-row stack"><input v-model="setupCode" placeholder="Setup code" autocomplete="off" /></label>
+      </div>
       <p v-if="error" class="error">{{ error }}</p>
-      <button class="primary" type="submit" :disabled="busy" style="width: 100%">{{ needsSetup ? 'Create account' : 'Log in' }}</button>
+      <button class="primary" type="submit" :disabled="busy">{{ busy ? '…' : needsSetup ? 'Create account' : 'Log in' }}</button>
     </form>
   </div>
 </template>
@@ -43,3 +46,16 @@ async function submit() {
   }
 }
 </script>
+
+<style scoped>
+.login { max-width: 380px; margin: 12vh auto 0; text-align: center; }
+.mark { width: 84px; height: 84px; margin: 0 auto 20px; border-radius: 22px; display: grid; place-items: center; color: #fff; background: linear-gradient(160deg, var(--sys-green), var(--c-battery-1) 60%, #0f5f28); box-shadow: 0 12px 40px rgba(48, 209, 88, 0.3); }
+.mark svg { width: 46px; height: 46px; }
+h1 { margin: 0 0 6px; font-size: 28px; }
+.lede { font-size: 15px; margin: 0 0 24px; }
+.list { text-align: left; }
+.list-row.stack { padding: 4px 16px; }
+.list-row.stack input { background: none; padding: 10px 0; border-radius: 0; box-shadow: none; }
+button { width: 100%; padding: 14px; font-size: 17px; border-radius: 14px; }
+.error { margin: 0 0 12px; }
+</style>
