@@ -8,6 +8,7 @@ import { verifyState } from '../../../utils/crypto'
  * redirect, so the signed state says which of our sites this is for.
  */
 export default defineEventHandler(async (event) => {
+  if (getRouterParam(event, 'provider') !== 'solaredge') throw createError({ statusCode: 404, statusMessage: 'Not found' })
   const q = getQuery(event) as Record<string, string | undefined>
   const back = (result: string) => sendRedirect(event, `/settings?solaredge=${encodeURIComponent(result)}`)
   if (q.error) return back(String(q.error_description ?? q.error))
