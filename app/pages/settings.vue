@@ -235,7 +235,14 @@ onMounted(async () => {
     navigateTo({ query: {} }, { replace: true })
   }
   await load()
+  // Sign-in may finish in another window or on another device: refresh when the page is shown again
+  document.addEventListener('visibilitychange', onVisible)
 })
+onBeforeUnmount(() => document.removeEventListener('visibilitychange', onVisible))
+
+function onVisible() {
+  if (document.visibilityState === 'visible' && !busy.value) load().catch(() => undefined)
+}
 </script>
 
 <style scoped>
