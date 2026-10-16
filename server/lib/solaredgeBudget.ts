@@ -28,9 +28,14 @@ export function seTokenNeedsRefresh(expiresAt: number | undefined, now: Date): b
   return !expiresAt || expiresAt - SE_TOKEN_MARGIN_MS <= now.getTime()
 }
 
-/** Site-local wall-clock time without an offset, the format the v2 API expects (2026-05-01T00:00:00) */
+/** Site-local wall-clock time without an offset (2026-05-01T00:00:00), used for the ledger's day and month */
 export function seLocalIso(d: Date, timeZone: string): string {
   return new Date(d.getTime() + tzOffsetMs(d, timeZone)).toISOString().slice(0, 19)
+}
+
+/** UTC instant to the second (2026-05-01T10:15:00Z): the v2 API parses from/to as a Java Instant */
+export function seInstant(d: Date): string {
+  return d.toISOString().replace(/\.\d{3}Z$/, 'Z')
 }
 
 export interface CreditLedger {

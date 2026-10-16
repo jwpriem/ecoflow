@@ -8,7 +8,7 @@ import {
   type CreditLedger,
   SE_POLL_MS,
   seInWindow,
-  seLocalIso,
+  seInstant,
   sePollSlot,
   seTokenNeedsRefresh,
 } from '../lib/solaredgeBudget'
@@ -227,8 +227,8 @@ async function poll(db: Db, site: Site, key: string, st: PollState, now: Date): 
   try {
     const token = await accessToken(db, se, site, key, now)
     await spend(db, se, site, key, now)
-    const to = seLocalIso(now, site.timezone)
-    const from = seLocalIso(new Date(now.getTime() - 60 * 60_000), site.timezone)
+    const to = seInstant(now)
+    const from = seInstant(new Date(now.getTime() - 60 * 60_000))
     const w = await solarEdgePowerW(token, seSiteId, from, to)
     await markIntegration(db, se.row.id)
     return w
