@@ -1,6 +1,6 @@
 # EcoFlow energy app: design
 
-Status: draft for review · 2026-10-16
+Status: draft for review · 2026-10-16 (model confirmed: STREAM Pro)
 
 ## Goal
 
@@ -10,7 +10,7 @@ A personal app (web first, later a native app via Capacitor) that:
 2. Keeps a ledger of every kWh going in and out of the batteries and calculates what they save, per 15 min, hour, day, month and year.
 3. Steers the batteries: charge on solar surplus or in the cheapest grid slots, discharge in the most expensive slots.
 
-Inputs: EcoFlow Stream AC/AC Pro ×2, SolarEdge inverter, Tibber dynamic contract with a Tibber Pulse.
+Inputs: 2× EcoFlow **STREAM Pro** (1920 Wh each, 3.84 kWh total), SolarEdge inverter, Tibber dynamic contract with a Tibber Pulse.
 
 ## Decisions so far
 
@@ -24,6 +24,7 @@ Inputs: EcoFlow Stream AC/AC Pro ×2, SolarEdge inverter, Tibber dynamic contrac
 | Grid meter | Tibber Pulse (live import/export over the Tibber realtime API) |
 | Strategy v1 | Rule-based, with configurable thresholds |
 | EcoFlow control | The unofficial app-login/MQTT route is acceptable |
+| Devices | 2× STREAM Pro, 1920 Wh each. `capacity_wh` = 1920 per device; usable kWh = capacity × (max SoC − reserve SoC) |
 
 ## Architecture
 
@@ -94,6 +95,7 @@ The ledger runs every 15 minutes per battery, matching the price slots.
 1. **Attribute charging to a source.** With Pulse grid power `P_grid` (+ import, − export) and battery charge power `P_chg`:
    `grid_part = min(P_chg, max(0, P_grid))`, `solar_part = P_chg − grid_part`.
    In words: whatever charging wasn't drawn from the grid came from solar surplus. With two batteries, the split is in proportion to each battery's charge power.
+   If a STREAM Pro also reports **direct PV input** power, that part is counted as solar outright and only the AC charge power goes through the formula above.
 2. **Cost of energy in:**
    - solar: naive €0. Opportunity cost = `solar_kWh × feed_in_price` (what exporting would have paid).
    - grid: `grid_kWh × total_price` for both measures.
@@ -136,6 +138,7 @@ The plan is stored in `plans` and shown in the app on the price chart.
 
 ## Open questions
 
-- Exact model: Stream AC or Stream AC Pro (or Ultra)? This affects the available setters and capacity.
+- Are any solar panels wired directly into the STREAM Pro PV inputs, or are both units AC-coupled only (solar via SolarEdge)? Direct PV changes source attribution (see ledger).
+- Max AC charge/discharge power per unit as installed (the NL plug-in limit is typically 800 W). This is stored per device, not hardcoded.
 - Tibber feed-in terms after 2027 (spot price, spot minus a fee, or something else?), to configure `feed_in`.
 - Should grid charging also be allowed when it only pays off after 2027 rules apply, or only on spread?
