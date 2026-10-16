@@ -5,6 +5,8 @@ import { signState } from '../../../utils/crypto'
 
 /** URL of the SolarEdge Connect consent screen. The browser goes there; SolarEdge sends it back to the callback. */
 export default defineEventHandler(async (event) => {
+  // Lives under [provider]/ because a static solaredge/ folder would shadow PUT/DELETE /api/integrations/solaredge
+  if (getRouterParam(event, 'provider') !== 'solaredge') throw createError({ statusCode: 404, statusMessage: 'Not found' })
   const { site } = await requireSite(event)
   const key = encryptionKey()
   const se = await getIntegration<SolarEdgeCredentials>(useDb(), site.id, 'solaredge', key)

@@ -176,13 +176,14 @@ async function save(provider: string) {
       method: 'PUT',
       body: { ...(filled ? { credentials: f } : {}), meta: provider === 'tibber' && homeId.value ? { homeId: homeId.value } : {} },
     })
+    if (typeof r !== 'object' || r === null) throw new Error('Unexpected response from the server')
     results[provider] = !r.ok
       ? { ok: false, text: r.error ?? 'Saved, but the test failed' }
       : { ok: true, text: provider === 'solaredge' && !r.meta.authorized ? 'Saved · now sign in with SolarEdge' : 'Connected' }
     forms[provider] = {}
     await load()
   } catch (e: any) {
-    results[provider] = { ok: false, text: e?.data?.statusMessage ?? 'Failed' }
+    results[provider] = { ok: false, text: e?.data?.statusMessage ?? e?.message ?? 'Failed' }
   } finally {
     busy.value = ''
   }
