@@ -94,6 +94,30 @@
       <button class="primary wide" @click="saveStrategy">{{ strategyMsg || 'Save strategy' }}</button>
     </template>
 
+    <h3 class="section-title">Notifications</h3>
+    <div class="list">
+      <div v-if="push.state.value === 'loading'" class="list-row"><span class="muted">Checking…</span></div>
+      <div v-else-if="push.state.value === 'install'" class="list-row stack">
+        <span class="title">Add Battery to your Home Screen</span>
+        <span class="small muted">On iPhone, notifications only work from the Home Screen app (iOS 16.4 or later). In Safari tap Share, then <b>Add to Home Screen</b>, open Battery from there and come back to this page.</span>
+      </div>
+      <div v-else-if="push.state.value === 'unsupported'" class="list-row"><span class="small muted">This browser can't receive notifications.</span></div>
+      <div v-else-if="push.state.value === 'denied'" class="list-row stack">
+        <span class="title">Notifications are blocked</span>
+        <span class="small muted">{{ push.isIos() ? 'Allow them in the iPhone Settings app → Notifications → Battery, then reopen the app.' : 'Allow notifications for this site in your browser settings, then reload.' }}</span>
+      </div>
+      <div v-else-if="push.state.value === 'off'" class="list-row"><button class="plain" :disabled="push.busy.value" @click="push.enable()">{{ push.busy.value ? 'Turning on…' : 'Turn on notifications' }}</button></div>
+      <template v-else>
+        <label v-for="t in PUSH_TOPICS" :key="t.key" class="list-row">
+          <span class="stack-text"><span class="title">{{ t.label }}</span><span class="small muted">{{ t.help }}</span></span>
+          <span class="switch"><input type="checkbox" :checked="push.topics.value.includes(t.key)" @change="push.toggleTopic(t.key, ($event.target as HTMLInputElement).checked)" /><span /></span>
+        </label>
+        <div class="list-row"><button class="plain" :disabled="push.busy.value" @click="push.test()">{{ push.busy.value ? 'Sending…' : 'Send a test notification' }}</button></div>
+        <div class="list-row"><button class="plain danger" @click="push.disable()">Turn off on this device</button></div>
+      </template>
+    </div>
+    <p v-if="push.error.value" class="foot error">{{ push.error.value }}</p>
+
     <h3 class="section-title">Account</h3>
     <div class="list">
       <div class="list-row indent">
@@ -107,6 +131,7 @@
 <script setup lang="ts">
 const api = useApi()
 const { setToken } = useAuth()
+const push = usePush()
 
 type Field = { key: string; label: string; secret?: boolean }
 const INFO: Record<string, { title: string; help: string; icon: string; tile: string; fields: Field[] }> = {
@@ -221,6 +246,7 @@ async function saveStrategy() {
 }
 
 async function logout() {
+  await push.disable().catch(() => undefined)
   await api('/api/auth/logout', { method: 'POST' }).catch(() => undefined)
   setToken(null)
   await navigateTo('/login')
@@ -234,6 +260,7 @@ onMounted(async () => {
     results.solaredge = se === 'ok' ? { ok: true, text: 'Connected' } : { ok: false, text: se }
     navigateTo({ query: {} }, { replace: true })
   }
+  push.init().catch(() => (push.state.value = 'unsupported'))
   await load()
   // Sign-in may finish in another window or on another device: refresh when the page is shown again
   document.addEventListener('visibilitychange', onVisible)
@@ -261,6 +288,7 @@ function onVisible() {
 .copy { user-select: all; word-break: break-all; }
 .foot { font-size: 13px; color: var(--text-2); margin: -6px 20px 0; }
 .wide { width: 100%; margin-top: 4px; }
+.stack-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding-right: 12px; }
 .list-row input.range { -webkit-appearance: none; appearance: none; height: 4px; padding: 0; border-radius: 2px; margin: 10px 0 6px; background: linear-gradient(90deg, var(--sys-green) calc(var(--p) * 100%), var(--fill) 0); }
 .range::-webkit-slider-thumb { -webkit-appearance: none; width: 28px; height: 28px; border-radius: 50%; background: #fff; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3); }
 .range::-moz-range-thumb { width: 28px; height: 28px; border: 0; border-radius: 50%; background: #fff; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3); }

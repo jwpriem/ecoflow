@@ -8,7 +8,18 @@ export default defineNuxtConfig({
   app: {
     head: {
       title: 'Battery',
-      meta: [{ name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover' }],
+      meta: [
+        { name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover' },
+        // Installable as a PWA (Add to Home Screen); iOS needs that for Web Push
+        { name: 'mobile-web-app-capable', content: 'yes' },
+        { name: 'apple-mobile-web-app-capable', content: 'yes' },
+        { name: 'apple-mobile-web-app-title', content: 'Battery' },
+      ],
+      link: [
+        { rel: 'manifest', href: '/manifest.webmanifest' },
+        { rel: 'icon', type: 'image/png', sizes: '192x192', href: '/icon-192.png' },
+        { rel: 'apple-touch-icon', href: '/apple-touch-icon.png' },
+      ],
     },
   },
   runtimeConfig: {
@@ -27,6 +38,7 @@ export default defineNuxtConfig({
       '* * * * *': ['collect'],
       '*/15 * * * *': ['ledger', 'strategy'],
       '5 * * * *': ['prices'],
+      '0 * * * *': ['digest'],
     },
   },
   typescript: { strict: true },
