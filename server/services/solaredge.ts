@@ -1,6 +1,7 @@
+import { eq } from 'drizzle-orm'
 import { getRequestURL, type H3Event } from 'h3'
 import type { Db } from '../db/client'
-import type { sites } from '../db/schema'
+import { integrations, type sites } from '../db/schema'
 import {
   addCredits,
   creditsLeftToday,
@@ -130,6 +131,42 @@ export async function testSolarEdge(db: Db, site: Site, key: string) {
   // accessToken() already marked the row and dropped the tokens when the refresh token was rejected
   if (se.creds.refreshToken) await markIntegration(db, se.row.id, error)
   return { error, meta: se.meta }
+}
+
+const PENDING_AUTH_MS = 15 * 60_000
+
+/** Remember that this site started a sign-in, for a callback that comes back without `state` */
+export async function markSolarEdgeAuthStarted(db: Db, se: Integration, key: string) {
+  se.meta = { ...se.meta, pendingAuthUntil: Date.now() + PENDING_AUTH_MS }
+  await updateIntegration(db, se.row.id, { meta: se.meta }, key)
+}
+
+/** The one site with a sign-in started in the last 15 minutes, if there is exactly one */
+export async function pendingSolarEdgeSite(db: Db): Promise<number | undefined> {
+  const rows = await db
+    .select({ siteId: integrations.siteId, meta: integrations.meta })
+    .from(integrations)
+    .where(eq(integrations.provider, 'solaredge'))
+  const pending = rows.filter((r) => Number(r.meta.pendingAuthUntil ?? 0) > Date.now())
+  return pending.length === 1 ? pending[0]!.siteId : undefined
+}
+
+/**
+ * Keep what the last callback looked like (parameter names only, never values) and its outcome,
+ * so a failed sign-in shows up in Settings instead of only in the browser that was redirected.
+ */
+export async function recordSolarEdgeCallback(
+  db: Db,
+  siteId: number,
+  key: string,
+  info: { params: string[]; state: 'ok' | 'invalid' | 'missing'; error?: string },
+) {
+  const se = await getIntegration<SolarEdgeCredentials>(db, siteId, 'solaredge', key)
+  if (!se) return
+  const { pendingAuthUntil: _done, ...meta } = se.meta
+  const lastCallback = { at: new Date().toISOString(), params: info.params, state: info.state, result: info.error ?? 'ok' }
+  await updateIntegration(db, se.row.id, { meta: { ...meta, lastCallback } }, key)
+  if (info.error) await markIntegration(db, se.row.id, `SolarEdge sign-in: ${info.error}`)
 }
 
 interface PollState {
