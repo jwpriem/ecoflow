@@ -14,7 +14,7 @@ Design and reasoning: [`docs/plans/2026-10-16-energy-app-design.md`](docs/plans/
 | Part | Status |
 |---|---|
 | Tibber prices (15 min) and Pulse live meter | **Real** once you add your token in Settings. Without it, fake Dutch-style prices are used |
-| SolarEdge | **Real** once you add your API key + site ID. Polled every 6 min (limit is 300 calls/day) |
+| SolarEdge | **Real** once you add a Site Access client ID + secret (Monitoring API v2) and sign in with SolarEdge. Solar production read every 20 min from 05:00 to 22:00: ≤60 credits/day, ~1,860 per month, under the Free tier's 2,000 (hard cap 64/day) |
 | EcoFlow STREAM Pro | **Simulated**: two batteries that behave like the real ones (power limits, SoC, losses, modes) and react to your real Pulse/SolarEdge data |
 | History | `npm run db:seed` creates 30 days of fake history so the savings screens have something to show |
 
@@ -28,7 +28,7 @@ Background jobs (`server/tasks`):
 
 | Job | When | What |
 |---|---|---|
-| `collect` | every minute | grid (Pulse → SolarEdge → fake), solar, simulated batteries → `samples` |
+| `collect` | every minute | grid (Pulse → fake), solar (SolarEdge → fake), simulated batteries → `samples` |
 | `ledger` | every 15 min | books finished slots into `ledger` and updates each battery's cost pool |
 | `strategy` | every 15 min | rebuilds the plan and sends the current mode to the batteries |
 | `prices` | hourly at :05 | Tibber today + tomorrow (falls back to fake prices) |
@@ -71,7 +71,7 @@ Migrations run automatically on server start. After changing `server/db/schema.t
 1. Create a Neon project and copy the **pooled** connection string (`…-pooler…`, `sslmode=require`).
 2. Create the app from this repo, either in the UI or with `doctl apps create --spec .do/app.yaml`.
 3. Set the secrets `NUXT_DATABASE_URL` and `NUXT_ENCRYPTION_KEY`. Keep the encryption key safe: without it the saved credentials can't be decrypted.
-4. Deploy, open the app, create your account (or run the seed against Neon from your machine), then add Tibber and SolarEdge in Settings.
+4. Deploy, open the app, create your account (or run the seed against Neon from your machine), then add Tibber and SolarEdge in Settings. For SolarEdge, create a Site Access application at developer.solaredge.com and register the redirect URI that Settings shows (`<server>/api/integrations/solaredge/callback`; set `NUXT_APP_URL` if it comes out wrong behind a proxy).
 
 Keep one instance: it holds the Pulse websocket and runs the control loop. An advisory lock prevents double work if it ever scales out.
 

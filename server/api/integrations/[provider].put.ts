@@ -1,14 +1,14 @@
 import type { Provider } from '../../db/schema'
-import { solarEdgeOverview, type SolarEdgeCredentials } from '../../providers/solaredge'
 import { tibberHomes, type TibberCredentials } from '../../providers/tibber'
 import { getIntegration, markIntegration, saveIntegration } from '../../services/integrations'
 import { refreshPrices } from '../../services/prices'
 import { syncPulse } from '../../services/pulse'
+import { forgetSolarEdge } from '../../services/solaredge'
 import { runStrategy } from '../../services/strategy'
 
 const FIELDS: Record<Provider, string[]> = {
   tibber: ['token'],
-  solaredge: ['apiKey', 'siteId'],
+  solaredge: ['clientId', 'clientSecret'],
   ecoflow_app: ['email', 'password'],
   ecoflow_official: ['accessKey', 'secretKey'],
 }
@@ -48,9 +48,9 @@ export default defineEventHandler(async (event) => {
       meta.homeId = home.id
       meta.realtime = home.features?.realTimeConsumptionEnabled ?? false
       meta.homes = homes.map((h) => ({ id: h.id, name: h.appNickname || h.address?.address1 || h.id }))
-    } else if (provider === 'solaredge') {
-      const o = await solarEdgeOverview(creds as unknown as SolarEdgeCredentials)
-      meta.lastTest = o
+    } else if (provider === 'solaredge' && body.credentials) {
+      // New client credentials have no tokens yet: the owner signs in next (GET .../solaredge/authorize)
+      meta.authorized = false
     }
   } catch (err) {
     error = (err as Error).message
@@ -58,7 +58,8 @@ export default defineEventHandler(async (event) => {
 
   await saveIntegration(db, site.id, provider, creds, meta, key)
   const saved = await getIntegration(db, site.id, provider, key)
-  if (provider === 'tibber' || provider === 'solaredge') await markIntegration(db, saved!.row.id, error)
+  if (provider === 'tibber') await markIntegration(db, saved!.row.id, error)
+  if (provider === 'solaredge') forgetSolarEdge(site.id)
 
   if (provider === 'tibber' && !error) {
     await syncPulse(db, site, key)
