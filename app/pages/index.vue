@@ -1,105 +1,94 @@
 <template>
   <div>
-    <div class="spread">
+    <header class="page-head">
       <h1>Batteries</h1>
-      <span class="muted small" v-if="d">updated {{ time(d.now) }}</span>
-    </div>
+      <span v-if="d" class="sub"><span class="dot live" /> {{ time(d.now) }}</span>
+    </header>
     <p v-if="error" class="error">{{ error }}</p>
 
     <template v-if="d">
-      <div class="grid">
-        <div class="card">
-          <div class="label">Saved today (solar at €0)</div>
-          <div class="big" :class="(d.today?.savingNaive ?? 0) >= 0 ? 'pos' : 'neg'">{{ eur(d.today?.savingNaive ?? 0) }}</div>
-          <div class="small muted">vs exporting the solar instead: {{ eur(d.today?.savingOpportunity ?? 0) }}</div>
+      <!-- Hero: one ring per battery, the combined level in the middle -->
+      <section class="card hero rise">
+        <div class="glow" :class="state" />
+        <div class="card-head">
+          <span class="eyebrow"><AppIcon name="battery" :style="{ color: stateColor }" /> {{ stateLabel }}</span>
+          <span class="pill">{{ d.devices.length }} × STREAM Pro</span>
         </div>
-        <div class="card">
-          <div class="label">Price now</div>
-          <div class="big">{{ d.price ? eur(d.price.total, 3) : '–' }}</div>
-          <div class="small muted">per kWh · feed-in {{ d.price ? eur(d.price.feedIn, 3) : '–' }}</div>
+        <SocRings :batteries="d.devices" :reserve="soc?.reserveSoc ?? 0" />
+        <ul class="units">
+          <li v-for="(b, i) in d.devices" :key="b.id">
+            <span class="sw" :style="{ background: i === 0 ? 'var(--sys-green)' : 'var(--sys-teal)' }" />
+            <div class="u-main">
+              <div class="u-name">{{ b.name }} <span v-if="b.driver === 'mock'" class="muted">· simulated</span></div>
+              <div class="u-meta">
+                {{ b.powerW > 5 ? 'Charging' : b.powerW < -5 ? 'Discharging' : 'Idle' }}<template v-if="Math.abs(b.powerW) > 5"> · {{ watt(Math.abs(b.powerW)) }}</template>
+                · {{ MODE_LABEL[b.mode ?? ''] ?? '–' }}
+              </div>
+            </div>
+            <div class="u-pct">{{ b.soc == null ? '–' : Math.round(b.soc * 100) }}<small>%</small></div>
+          </li>
+        </ul>
+      </section>
+
+      <!-- Where the charge level has been and where the plan takes it -->
+      <section class="card rise">
+        <div class="card-head">
+          <span class="eyebrow">Charge level</span>
+          <span v-if="soc && projected != null" class="small muted">
+            <span :class="projected >= soc.socNow ? 'pos' : ''">{{ Math.round(projected * 100) }}%</span> in 12 h
+          </span>
         </div>
-        <div class="card">
-          <div class="label">Stored</div>
-          <div class="big">{{ kwh(storedKwh, 2) }}</div>
-          <div class="small muted">of {{ kwh(capacityKwh, 2) }} · {{ Math.round((storedKwh / capacityKwh) * 100 || 0) }}%</div>
-        </div>
-      </div>
+        <SocTimeline v-if="soc" :history="soc.history" :forecast="soc.forecast" :now="soc.now" :soc-now="soc.socNow" :reserve="soc.reserveSoc" />
+        <div v-else class="skeleton" style="height: 210px" />
+      </section>
 
       <div class="grid">
-        <div v-for="b in d.devices" :key="b.id" class="card">
-          <div class="spread">
-            <h2>{{ b.name }}</h2>
-            <span class="pill">{{ b.driver === 'mock' ? 'simulated' : b.model }}</span>
-          </div>
-          <div class="spread">
-            <span class="big">{{ b.soc == null ? '–' : Math.round(b.soc * 100) + '%' }}</span>
-            <span class="num" :class="b.powerW > 0 ? 'pos' : b.powerW < 0 ? 'neg' : 'muted'">
-              {{ b.powerW > 0 ? 'charging' : b.powerW < 0 ? 'discharging' : 'idle' }} {{ watt(Math.abs(b.powerW)) }}
-            </span>
-          </div>
-          <div class="bar" style="margin: 8px 0 10px"><div :style="{ width: (b.soc ?? 0) * 100 + '%' }" /></div>
-          <div class="small muted">
-            {{ MODE_LABEL[b.mode ?? ''] ?? '–' }} · {{ kwh(((b.soc ?? 0) * b.capacityWh) / 1000) }} stored
-            <template v-if="b.avgCostNaive != null"> · cost {{ eur(b.avgCostNaive, 3) }}/kWh</template>
-          </div>
-        </div>
+        <section class="card tile rise">
+          <div class="label"><AppIcon name="leaf" class="ti" style="color: var(--sys-green)" /> Saved today</div>
+          <div class="big" :class="savedToday >= 0 ? '' : 'neg'">{{ eur(savedTodayT) }}</div>
+          <div class="small muted">vs exporting: {{ eur(d.today?.savingOpportunity ?? 0) }}</div>
+        </section>
+        <section class="card tile rise">
+          <div class="label"><AppIcon name="euro" class="ti" style="color: var(--sys-blue)" /> Price now</div>
+          <div class="big">{{ d.price ? eur(priceT, 3).replace('€', '').trim() : '–' }}<small class="unit">€/kWh</small></div>
+          <div class="small muted">feed-in {{ d.price ? eur(d.price.feedIn, 3) : '–' }}</div>
+        </section>
       </div>
 
-      <div class="card">
-        <h2>Energy flow</h2>
-        <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(140px, 1fr))">
-          <div>
-            <div class="label">Solar</div>
-            <div class="num">{{ watt(d.live?.solarW) }}</div>
-            <div class="small muted">{{ d.live?.solarSource ?? 'no source' }}</div>
-          </div>
-          <div>
-            <div class="label">Grid</div>
-            <div class="num">{{ d.live ? (d.live.gridW >= 0 ? 'import ' : 'export ') + watt(Math.abs(d.live.gridW)) : '–' }}</div>
-            <div class="small muted">with batteries</div>
-          </div>
-          <div>
-            <div class="label">House net (no batteries)</div>
-            <div class="num">{{ watt(d.live?.houseNetW) }}</div>
-            <div class="small muted">{{ d.live?.houseSource ?? '–' }}</div>
-          </div>
-          <div>
-            <div class="label">Batteries</div>
-            <div class="num">{{ watt(totalPower) }}</div>
-            <div class="small muted">+ charging</div>
-          </div>
-        </div>
-      </div>
+      <section class="card rise">
+        <div class="card-head"><span class="eyebrow">Energy flow</span><span class="small muted">{{ d.live?.houseSource ?? '' }}</span></div>
+        <EnergyFlow :solar-w="d.live?.solarW ?? null" :grid-w="d.live?.gridW ?? null" :battery-w="totalPower" :house-w="houseW" />
+      </section>
 
-      <div class="card">
-        <div class="spread">
-          <h2>Next</h2>
+      <section class="card rise">
+        <div class="card-head">
+          <span class="eyebrow">Up next</span>
           <NuxtLink to="/plan" class="small">Full plan</NuxtLink>
         </div>
-        <p v-if="d.site.override" class="small">
+        <p v-if="d.site.override" class="banner">
           Override: <strong>{{ MODE_LABEL[d.site.override.mode] }}</strong> until {{ time(d.site.override.until) }}
         </p>
-        <p v-if="d.site.controlMode === 'manual'" class="small">Control is set to manual: monitoring only.</p>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>Time</th><th>Price</th><th>Action</th></tr></thead>
-            <tbody>
-              <tr v-for="p in d.next.slice(0, 8)" :key="String(p.slotStart)">
-                <td>{{ time(p.slotStart) }}</td>
-                <td>{{ eur(p.price, 3) }}</td>
-                <td>{{ MODE_LABEL[p.action] }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
+        <p v-if="d.site.controlMode === 'manual'" class="banner">Monitoring only: the plan is not sent to the batteries.</p>
+        <ol class="next">
+          <li v-for="p in nextRuns" :key="String(p.slotStart)">
+            <span class="dot" :style="{ background: ACTION_COLOR[p.action] }" />
+            <span class="n-time">{{ time(p.slotStart) }}<template v-if="p.end">–{{ time(p.end) }}</template></span>
+            <span class="n-act">{{ MODE_LABEL[p.action] }}</span>
+            <span class="n-price">{{ eur(p.price, 3) }}</span>
+          </li>
+        </ol>
+      </section>
 
-      <div class="row small muted">
+      <div class="row sources">
         <span class="pill"><span class="dot" :class="d.sources.pulse.connected ? 'ok' : ''" /> Tibber Pulse</span>
         <span v-for="i in d.sources.integrations" :key="i.provider" class="pill">
           <span class="dot" :class="i.status === 'ok' ? 'ok' : i.status === 'error' ? 'err' : ''" /> {{ i.provider }}
         </span>
       </div>
+    </template>
+    <template v-else-if="!error">
+      <div class="skeleton" style="height: 420px; margin-bottom: 14px" />
+      <div class="skeleton" style="height: 260px" />
     </template>
   </div>
 </template>
@@ -107,20 +96,49 @@
 <script setup lang="ts">
 const api = useApi()
 const d = ref<any>(null)
+const soc = ref<any>(null)
 const error = ref('')
+
+const ACTION_COLOR: Record<string, string> = {
+  charge_grid: 'var(--c-grid-charge)',
+  discharge: 'var(--c-discharge)',
+  self_use: 'var(--c-self-use)',
+  solar_only: 'var(--c-hold)',
+}
 
 async function load() {
   try {
-    d.value = await api('/api/dashboard')
+    const [dash, s] = await Promise.all([api('/api/dashboard'), api('/api/soc').catch(() => null)])
+    d.value = dash
+    if (s) soc.value = s
     error.value = ''
   } catch (e: any) {
     error.value = e?.data?.statusMessage || 'Could not load'
   }
 }
 
-const storedKwh = computed(() => (d.value?.devices ?? []).reduce((s: number, b: any) => s + ((b.soc ?? 0) * b.capacityWh) / 1000, 0))
-const capacityKwh = computed(() => (d.value?.devices ?? []).reduce((s: number, b: any) => s + b.capacityWh / 1000, 0))
 const totalPower = computed(() => (d.value?.devices ?? []).reduce((s: number, b: any) => s + b.powerW, 0))
+const houseW = computed(() => (d.value?.live ? d.value.live.houseNetW + (d.value.live.solarW ?? 0) : null))
+const state = computed(() => (totalPower.value > 5 ? 'charging' : totalPower.value < -5 ? 'discharging' : 'idle'))
+const stateLabel = computed(() => ({ charging: `Charging · ${watt(totalPower.value)}`, discharging: `Powering the house · ${watt(-totalPower.value)}`, idle: 'Idle' })[state.value])
+const stateColor = computed(() => ({ charging: 'var(--sys-green)', discharging: 'var(--sys-orange)', idle: 'var(--text-2)' })[state.value])
+const savedToday = computed(() => d.value?.today?.savingNaive ?? 0)
+const savedTodayT = useTweened(() => savedToday.value)
+const priceT = useTweened(() => d.value?.price?.total ?? 0)
+const projected = computed(() => soc.value?.forecast?.at(-1)?.soc ?? null)
+
+// Merge consecutive slots with the same action into runs: "14:00–15:30 Discharge"
+const nextRuns = computed(() => {
+  const out: { slotStart: string; end?: string; action: string; price: number }[] = []
+  for (const p of d.value?.next ?? []) {
+    const last = out[out.length - 1]
+    const end = new Date(new Date(p.slotStart).getTime() + 15 * 60_000).toISOString()
+    if (last && last.action === p.action) {
+      last.end = end
+    } else out.push({ slotStart: p.slotStart, end, action: p.action, price: p.price })
+  }
+  return out.slice(0, 5)
+})
 
 let timer: ReturnType<typeof setInterval>
 onMounted(() => {
@@ -129,3 +147,32 @@ onMounted(() => {
 })
 onBeforeUnmount(() => clearInterval(timer))
 </script>
+
+<style scoped>
+.hero { padding-bottom: 8px; }
+.glow { position: absolute; inset: -40% -20% auto; height: 120%; pointer-events: none; opacity: 0.5; transition: background 1.2s; background: radial-gradient(closest-side, rgba(120, 120, 128, 0.18), transparent); }
+.glow.charging { background: radial-gradient(closest-side, rgba(48, 209, 88, 0.2), transparent); animation: drift 8s ease-in-out infinite alternate; }
+.glow.discharging { background: radial-gradient(closest-side, rgba(255, 159, 10, 0.18), transparent); animation: drift 8s ease-in-out infinite alternate; }
+@keyframes drift { to { transform: translate3d(0, 6%, 0) scale(1.05); } }
+.hero > *:not(.glow) { position: relative; }
+.units { list-style: none; margin: 18px 0 0; padding: 0; }
+.units li { display: flex; align-items: center; gap: 12px; padding: 12px 0; }
+.units li + li { border-top: 0.5px solid var(--separator); }
+.sw { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+.u-main { flex: 1; min-width: 0; }
+.u-name { font-size: 15px; font-weight: 600; }
+.u-meta { font-size: 13px; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.u-pct { font: 600 24px var(--font-rounded); font-variant-numeric: tabular-nums; }
+.u-pct small { font-size: 14px; color: var(--text-2); font-weight: 500; }
+.tile .label { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+.ti { width: 16px; height: 16px; }
+.tile .big { font-size: 28px; }
+.unit { font: 500 13px var(--font); color: var(--text-2); margin-left: 4px; letter-spacing: 0; }
+.banner { background: var(--fill-2); border-radius: 12px; padding: 10px 12px; font-size: 13px; margin: 0 0 10px; }
+.next { list-style: none; margin: 0; padding: 0; }
+.next li { display: grid; grid-template-columns: 10px auto 1fr auto; align-items: center; gap: 12px; padding: 11px 0; font-size: 15px; }
+.next li + li { border-top: 0.5px solid var(--separator); }
+.n-time { font-variant-numeric: tabular-nums; color: var(--text-2); }
+.n-price { font-variant-numeric: tabular-nums; color: var(--text-2); font-size: 13px; }
+.sources { justify-content: center; margin-top: 8px; }
+</style>
