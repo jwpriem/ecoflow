@@ -116,7 +116,8 @@ export async function solarEdgeSite(accessToken: string, siteId: string) {
 const POWER_UNITS: Record<string, number> = { W: 1, KW: 1000, MW: 1_000_000 }
 
 /**
- * Latest 15-minute average PV production in W. from/to are site-local times without an offset.
+ * Latest 15-minute average PV production in W. from/to are UTC instants (2026-05-01T10:15:00Z);
+ * local times without an offset are rejected ("Failed to convert … to required type [Instant]").
  * Returns undefined when SolarEdge has no value yet for the window.
  */
 export async function solarEdgePowerW(accessToken: string, siteId: string, from: string, to: string): Promise<number | undefined> {

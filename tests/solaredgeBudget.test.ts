@@ -7,6 +7,7 @@ import {
   SE_DAILY_CREDIT_CAP,
   SE_MONTHLY_CREDITS,
   seInWindow,
+  seInstant,
   seLocalIso,
   sePollSlot,
   seTokenNeedsRefresh,
@@ -72,6 +73,10 @@ describe('SolarEdge credit budget', () => {
     const tomorrow = new Date('2026-06-22T04:00:00Z')
     expect(creditsLeftToday(ledger, tomorrow, TZ)).toBe(SE_DAILY_CREDIT_CAP)
     expect(addCredits(ledger, tomorrow, TZ)).toMatchObject({ day: '2026-06-22', dayUsed: 1, month: '2026-06', monthUsed: 65 })
+  })
+
+  it('formats API windows as UTC instants', () => {
+    expect(seInstant(new Date('2026-10-16T18:51:00.123Z'))).toBe('2026-10-16T18:51:00Z')
   })
 
   it('formats site-local times without an offset', () => {
