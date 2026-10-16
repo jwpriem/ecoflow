@@ -173,3 +173,28 @@ export const commandsLog = pgTable(
   },
   (t) => [index('commands_device_ts').on(t.deviceId, t.ts)],
 )
+
+export type PushTopic = 'plan' | 'prices' | 'errors' | 'daily'
+
+/** One row per browser/phone that allowed notifications (Web Push). */
+export const pushSubscriptions = pgTable(
+  'push_subscriptions',
+  {
+    id: serial('id').primaryKey(),
+    siteId: integer('site_id').notNull().references(() => sites.id, { onDelete: 'cascade' }),
+    endpoint: text('endpoint').notNull().unique(),
+    p256dh: text('p256dh').notNull(),
+    auth: text('auth').notNull(),
+    topics: jsonb('topics').$type<PushTopic[]>().notNull().default(['plan', 'prices', 'errors', 'daily']),
+    userAgent: text('user_agent'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    lastOkAt: ts('last_ok_at'),
+  },
+  (t) => [index('push_subscriptions_site').on(t.siteId)],
+)
+
+/** Server-wide settings that are generated once, e.g. the Web Push (VAPID) key pair. */
+export const appConfig = pgTable('app_config', {
+  key: text('key').primaryKey(),
+  value: text('value').notNull(),
+})

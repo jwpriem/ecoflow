@@ -2,11 +2,13 @@ import { and, desc, eq, gte, inArray } from 'drizzle-orm'
 import type { Db } from '../db/client'
 import { batteryPool, commandsLog, devices, plans, type sites } from '../db/schema'
 import type { SimState } from '../lib/simulator'
+import { planChangeMessage } from '../lib/notifications'
 import { buildPlan, type PlanSlot } from '../lib/strategy'
 import { addMs, SLOT_MS, slotStartOf } from '../lib/time'
 import type { BatteryMode } from '../lib/types'
 import { mockDriver } from '../providers/ecoflow'
 import { getPrices } from './prices'
+import { notify } from './push'
 
 type Site = typeof sites.$inferSelect
 
@@ -56,6 +58,9 @@ export async function runStrategy(db: Db, site: Site, now = new Date()) {
   const cmd = currentCommand(site, plan, now)
   const devs = await db.select().from(devices).where(eq(devices.siteId, site.id))
   const totalChargeW = devs.reduce((s, d) => s + d.maxChargeW, 0) || 1
+  // The last command actually sent, so re-running within a slot (e.g. after a settings change) stays quiet
+  const [last] = devs.length ? await recentCommands(db, [devs[0]!.id], 1) : []
+  const prevMode = last?.command as BatteryMode | undefined
   for (const d of devs) {
     // Split a total power target over the batteries in proportion to their charge power
     const powerW = cmd.powerW ? Math.round((cmd.powerW * d.maxChargeW) / totalChargeW) : undefined
@@ -70,6 +75,11 @@ export async function runStrategy(db: Db, site: Site, now = new Date()) {
       result = 'skipped: real EcoFlow control not implemented yet'
     }
     await db.insert(commandsLog).values({ deviceId: d.id, command: cmd.mode, payload: { powerW, source: cmd.source, validUntil: validUntil.toISOString() }, result })
+  }
+  // Tell the owner when the plan starts a grid-charge or discharge block (not for their own overrides)
+  if (cmd.source === 'plan' && devs.length) {
+    const msg = planChangeMessage(plan, now, prevMode, site.timezone)
+    if (msg) await notify(db, site.id, 'plan', msg)
   }
   return { plan, command: cmd }
 }

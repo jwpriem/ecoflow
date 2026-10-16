@@ -32,6 +32,7 @@ Background jobs (`server/tasks`):
 | `ledger` | every 15 min | books finished slots into `ledger` and updates each battery's cost pool |
 | `strategy` | every 15 min | rebuilds the plan and sends the current mode to the batteries |
 | `prices` | hourly at :05 | Tibber today + tomorrow (falls back to fake prices) |
+| `digest` | hourly at :00 | at 21:00 local time: push today's savings |
 
 ## Local development
 
@@ -74,6 +75,27 @@ Migrations run automatically on server start. After changing `server/db/schema.t
 4. Deploy, open the app, create your account (or run the seed against Neon from your machine), then add Tibber and SolarEdge in Settings. For SolarEdge, create a Site Access application at developer.solaredge.com and register the redirect URI that Settings shows (`<server>/api/integrations/solaredge/callback`; set `NUXT_APP_URL` if it comes out wrong behind a proxy).
 
 Keep one instance: it holds the Pulse websocket and runs the control loop. An advisory lock prevents double work if it ever scales out.
+
+## iPhone app (PWA) and notifications
+
+The app installs as a PWA and gets Web Push notifications, including on iPhone (iOS 16.4 or later):
+
+1. Open the deployed app in **Safari** on the iPhone and log in.
+2. Tap **Share → Add to Home Screen**, then open **Battery** from the Home Screen. On iOS, notifications only work from there, not in a Safari tab.
+3. Go to **Settings → Notifications → Turn on notifications** and allow them. Use **Send a test notification** to check.
+
+What gets pushed (each can be switched off per device):
+
+| Topic | When |
+|---|---|
+| Charging & discharging | the plan starts a grid-charge or discharge block (not for your own overrides) |
+| Tomorrow's prices | the first time Tibber's prices for tomorrow come in (around 13:00) |
+| Connection problems | Tibber or SolarEdge goes from working to failing |
+| Daily savings | 21:00 local time |
+
+The VAPID key pair that signs the pushes is generated on first use and stored in the database (private key encrypted with `NUXT_ENCRYPTION_KEY`). To manage it yourself, set `NUXT_VAPID_PUBLIC_KEY` and `NUXT_VAPID_PRIVATE_KEY` (`npx web-push generate-vapid-keys`). Changing the key means every device has to turn notifications on again. Apple wants a contact in the key: it uses the account email unless `NUXT_VAPID_SUBJECT` (`mailto:…` or `https://…`) is set.
+
+The icons in `public/` are rendered from `scripts/icon.svg`.
 
 ## Capacitor (later)
 

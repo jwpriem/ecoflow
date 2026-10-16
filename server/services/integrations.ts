@@ -1,7 +1,9 @@
 import { and, eq } from 'drizzle-orm'
 import type { Db } from '../db/client'
 import { integrations, type Provider } from '../db/schema'
+import { integrationErrorMessage } from '../lib/notifications'
 import { decryptJson, encryptJson } from '../utils/crypto'
+import { notify } from './push'
 
 export async function getIntegration<T>(db: Db, siteId: number, provider: Provider, key: string) {
   const [row] = await db
@@ -30,11 +32,15 @@ export async function saveIntegration(
     })
 }
 
+/** Record the outcome of a call. A connection that was working and now fails sends an `errors` notification. */
 export async function markIntegration(db: Db, id: number, error?: string) {
-  await db
+  const [before] = error ? await db.select({ status: integrations.status }).from(integrations).where(eq(integrations.id, id)) : []
+  const [row] = await db
     .update(integrations)
     .set(error ? { status: 'error', lastError: error.slice(0, 500) } : { status: 'ok', lastError: null, lastOkAt: new Date() })
     .where(eq(integrations.id, id))
+    .returning({ siteId: integrations.siteId, provider: integrations.provider })
+  if (error && row && before?.status === 'ok') await notify(db, row.siteId, 'errors', integrationErrorMessage(row.provider, error))
 }
 
 /** Replace the secrets and/or settings of an existing row without touching its status */
