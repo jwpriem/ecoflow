@@ -7,7 +7,10 @@
  */
 import { eq, inArray } from 'drizzle-orm'
 import { migrate } from 'drizzle-orm/postgres-js/migrator'
-import { createDb } from '../server/db/client'
+import { neon } from '@neondatabase/serverless'
+import { drizzle as drizzleNeonHttp } from 'drizzle-orm/neon-http'
+import { migrate as migrateNeonHttp } from 'drizzle-orm/neon-http/migrator'
+import { createDb, schema, type Db } from '../server/db/client'
 import { batteryPool, commandsLog, devices, ledger, plans, prices, samples, sites, users } from '../server/db/schema'
 import { fakeLoadW, fakeSolarW } from '../server/lib/fake'
 import { simulateStep, type SimState } from '../server/lib/simulator'
@@ -21,8 +24,15 @@ const email = (process.env.SEED_EMAIL ?? 'me@example.com').toLowerCase()
 const password = process.env.SEED_PASSWORD ?? 'change-me-please'
 const days = Number(process.env.SEED_DAYS ?? 30)
 
-const db = createDb(process.env.NUXT_DATABASE_URL ?? '')
-await migrate(db, { migrationsFolder: 'server/db/migrations' })
+const url = process.env.NUXT_DATABASE_URL ?? ''
+// SEED_NEON_HTTP=1 talks to Neon over HTTPS instead of the Postgres port (for networks that only allow HTTPS)
+const overHttp = process.env.SEED_NEON_HTTP === '1'
+const httpDb = overHttp ? drizzleNeonHttp(neon(url), { schema }) : undefined
+const db = (httpDb ?? createDb(url)) as unknown as Db
+if (httpDb) await migrateNeonHttp(httpDb, { migrationsFolder: 'server/db/migrations' })
+else await migrate(db, { migrationsFolder: 'server/db/migrations' })
+// Smaller batches over HTTP to keep request bodies small
+const batchSize = overHttp ? 2000 : 5000
 
 let [user] = await db.select().from(users).where(eq(users.email, email))
 let site: typeof sites.$inferSelect
@@ -64,7 +74,7 @@ const capacityKwh = devs.reduce((s, d) => s + d.capacityWh, 0) / 1000
 let plan = new Map<number, { action: SimState['mode']; targetW?: number }>()
 let buffer: (typeof samples.$inferInsert)[] = []
 const flush = async () => {
-  for (let i = 0; i < buffer.length; i += 5000) await db.insert(samples).values(buffer.slice(i, i + 5000))
+  for (let i = 0; i < buffer.length; i += batchSize) await db.insert(samples).values(buffer.slice(i, i + batchSize))
   buffer = []
 }
 

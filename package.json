@@ -15,6 +15,7 @@
     "typecheck": "nuxt typecheck"
   },
   "devDependencies": {
+    "@neondatabase/serverless": "^1.2.0",
     "@types/node": "^22.0.0",
     "@types/ws": "^8.18.2",
     "drizzle-kit": "^0.31.0",

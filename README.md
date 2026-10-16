@@ -43,6 +43,19 @@ npm run db:seed             # creates SEED_EMAIL / SEED_PASSWORD + 2 simulated b
 npm run dev                 # http://localhost:3000
 ```
 
+### Neon branches
+
+The Neon project `ecoflow-energy` has two branches:
+
+- `main`: production, schema only. Point App Platform at its **pooled** connection string. It only fills up with real data from the moment the app runs.
+- `dev`: the same schema plus 30 days of seeded demo history (login `demo@example.com`). Use it for local development or a preview deploy.
+
+To re-seed `dev` (or any Neon branch) from a network that only allows HTTPS, add `SEED_NEON_HTTP=1`:
+
+```bash
+NUXT_DATABASE_URL=<dev pooled url> SEED_NEON_HTTP=1 SEED_EMAIL=demo@example.com SEED_PASSWORD=… npm run db:seed
+```
+
 Without the seed, the first visit to `/login` lets you create the account (only while no user exists).
 
 ```bash
