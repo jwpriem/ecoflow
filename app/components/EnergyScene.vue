@@ -1,7 +1,7 @@
 <template>
   <div class="scene-card">
     <div class="scene" :style="{ background: `linear-gradient(180deg, ${sky.top} 0%, ${sky.horizon} 78%)` }">
-      <svg viewBox="0 0 390 290" role="img" :aria-label="aria" preserveAspectRatio="xMidYMid slice">
+      <svg class="scene-art" viewBox="0 0 390 290" role="img" :aria-label="aria" preserveAspectRatio="xMidYMid slice">
         <defs>
           <linearGradient id="scene-ground" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0" stop-color="#2d5236" />
@@ -75,7 +75,7 @@
       <span class="where">{{ HOME_LOCATION.name }} · {{ sunLabel }}</span>
 
       <div v-for="c in chips" :key="c.key" class="chip" :style="c.pos">
-        <span class="chip-icon" :style="{ background: c.active ? c.color : 'var(--surface-3)' }"><AppIcon :name="c.icon" /></span>
+        <span class="chip-icon" :style="{ background: c.active ? c.color : 'var(--surface-3)', color: c.active ? '#000' : 'var(--text-2)' }"><AppIcon :name="c.icon" /></span>
         <span class="chip-text">
           <span class="chip-label">{{ c.label }}</span>
           <span class="chip-value">{{ c.value }}</span>
@@ -177,7 +177,8 @@ const aria = computed(() => chips.value.map((c) => `${c.label} ${c.value}`).join
 
 <style scoped>
 .scene { position: relative; border-radius: 16px; overflow: hidden; aspect-ratio: 390 / 290; transition: background 2s; }
-svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+/* Only the illustration fills the scene; icons inside chips and the legend flow normally */
+.scene-art { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .wire { fill: none; stroke: rgba(255, 255, 255, 0.12); stroke-width: 2.5; stroke-linecap: round; }
 .pulse { fill: none; stroke-width: 3.5; stroke-linecap: round; stroke-dasharray: 2 9; animation: flow linear infinite; }
 .pulse.still { animation: none; }
@@ -191,8 +192,8 @@ svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 }
 .where { top: 8px; right: 8px; padding: 3px 9px; border-radius: 999px; font-size: 11px; color: rgba(235, 235, 245, 0.85); font-variant-numeric: tabular-nums; }
 .chip { display: flex; align-items: center; gap: 7px; padding: 4px 10px 4px 5px; border-radius: 14px; }
-.chip-icon { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; color: #000; flex: none; transition: background 0.4s; }
-.chip-icon svg { width: 14px; height: 14px; stroke-width: 2.4; }
+.chip-icon { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; flex: none; transition: background 0.4s, color 0.4s; }
+.chip-icon svg { width: 14px; height: 14px; display: block; stroke-width: 2.4; }
 .chip-text { display: flex; flex-direction: column; line-height: 1.15; }
 .chip-label { font-size: 10px; color: var(--text-2); }
 .chip-value { font: 600 13px var(--font-rounded); font-variant-numeric: tabular-nums; }
@@ -203,6 +204,6 @@ svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .s-bar > div { transition: width 0.8s var(--ease-out); }
 .s-legend { display: flex; flex-wrap: wrap; gap: 16px; font-size: 13px; color: var(--text-2); }
 .s-legend span { display: inline-flex; align-items: center; gap: 6px; }
-.s-legend svg { width: 15px; height: 15px; }
+.s-legend svg { width: 15px; height: 15px; display: block; flex: none; }
 .s-legend b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
 </style>
