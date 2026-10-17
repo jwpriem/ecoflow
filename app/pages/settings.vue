@@ -121,12 +121,12 @@
       <div v-if="push.state.value === 'loading'" class="list-row"><span class="muted">Checking…</span></div>
       <div v-else-if="push.state.value === 'install'" class="list-row stack">
         <span class="title">Add Battery to your Home Screen</span>
-        <span class="small muted">On iPhone, notifications only work from the Home Screen app (iOS 16.4 or later). In Safari tap Share, then <b>Add to Home Screen</b>, open Battery from there and come back to this page.</span>
+        <span class="small muted">On iPhone, notifications only work from the Home Screen app (iOS 16.4 or later). In Safari tap Share, then <b>Add to Home Screen</b>, open WattWise from there and come back to this page.</span>
       </div>
       <div v-else-if="push.state.value === 'unsupported'" class="list-row"><span class="small muted">This browser can't receive notifications.</span></div>
       <div v-else-if="push.state.value === 'denied'" class="list-row stack">
         <span class="title">Notifications are blocked</span>
-        <span class="small muted">{{ push.isIos() ? 'Allow them in the iPhone Settings app → Notifications → Battery, then reopen the app.' : 'Allow notifications for this site in your browser settings, then reload.' }}</span>
+        <span class="small muted">{{ push.isIos() ? 'Allow them in the iPhone Settings app → Notifications → WattWise, then reopen the app.' : 'Allow notifications for this site in your browser settings, then reload.' }}</span>
       </div>
       <div v-else-if="push.state.value === 'off'" class="list-row"><button class="plain" :disabled="push.busy.value" @click="push.enable()">{{ push.busy.value ? 'Turning on…' : 'Turn on notifications' }}</button></div>
       <template v-else>
