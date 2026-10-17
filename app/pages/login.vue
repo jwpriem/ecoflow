@@ -1,7 +1,7 @@
 <template>
   <div class="login">
-    <div class="mark rise"><AppIcon name="battery" /></div>
-    <h1 class="rise">{{ needsSetup ? 'Create your account' : 'Welcome back' }}</h1>
+    <img class="mark rise" src="/favicon.svg" alt="WattWise" width="84" height="84" />
+    <h1 class="rise">{{ needsSetup ? 'Welcome to WattWise' : 'Welcome back' }}</h1>
     <p class="muted rise lede">{{ needsSetup ? 'First run: this creates the only account, with two simulated STREAM Pro batteries.' : 'Log in to see your batteries.' }}</p>
     <form class="rise" @submit.prevent="submit">
       <div class="list">
@@ -49,8 +49,7 @@ async function submit() {
 
 <style scoped>
 .login { max-width: 380px; margin: 12vh auto 0; text-align: center; }
-.mark { width: 84px; height: 84px; margin: 0 auto 20px; border-radius: 22px; display: grid; place-items: center; color: #fff; background: linear-gradient(160deg, var(--sys-green), var(--c-battery-1) 60%, #0f5f28); box-shadow: 0 12px 40px rgba(48, 209, 88, 0.3); }
-.mark svg { width: 46px; height: 46px; }
+.mark { display: block; width: 84px; height: 84px; margin: 0 auto 18px; border-radius: 22px; box-shadow: 0 12px 40px rgba(48, 209, 88, 0.22); }
 h1 { margin: 0 0 6px; font-size: 28px; }
 .lede { font-size: 15px; margin: 0 0 24px; }
 .list { text-align: left; }
