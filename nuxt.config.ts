@@ -1,3 +1,10 @@
+import { readFileSync } from 'node:fs'
+
+// iOS's Add to Home Screen sheet loads the icon with its own loader, which can fail on a network URL
+// and then shows a letter tile. Inlining the 180x180 PNG as a data: URI sidesteps that; the files in
+// public/ (including the apple-touch-icon*.png names iOS probes at the root) stay for everything else.
+const appleTouchIcon = `data:image/png;base64,${readFileSync(new URL('./public/apple-touch-icon.png', import.meta.url)).toString('base64')}`
+
 // The whole UI is a client-rendered SPA so the same build can be wrapped by Capacitor.
 // The Nitro server (API + background jobs) is deployed separately on DO App Platform.
 export default defineNuxtConfig({
@@ -19,8 +26,8 @@ export default defineNuxtConfig({
         { rel: 'manifest', href: '/manifest.webmanifest' },
         { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
         { rel: 'icon', type: 'image/png', sizes: '32x32', href: '/favicon-32.png' },
-        // PNG only: iOS can't use SVG for the Home Screen icon. Bump ?v= when the icon changes.
-        { rel: 'apple-touch-icon', sizes: '180x180', href: '/apple-touch-icon.png?v=2' },
+        // PNG only: iOS can't use SVG for the Home Screen icon
+        { rel: 'apple-touch-icon', sizes: '180x180', href: appleTouchIcon },
       ],
     },
   },
