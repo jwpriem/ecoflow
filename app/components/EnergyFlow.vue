@@ -7,6 +7,7 @@
           v-if="l.active"
           :d="l.d"
           class="pulse"
+          :class="{ still: !animate }"
           :style="{ stroke: l.color, animationDuration: `${l.dur}s`, animationDirection: l.toHub ? 'normal' : 'reverse', strokeWidth: l.width }"
         />
       </g>
@@ -25,7 +26,7 @@
 </template>
 
 <script setup lang="ts">
-const props = defineProps<{ solarW: number | null; gridW: number | null; batteryW: number; houseW: number | null }>()
+const props = withDefaults(defineProps<{ solarW: number | null; gridW: number | null; batteryW: number; houseW: number | null; animate?: boolean }>(), { animate: true })
 
 const HUB = [170, 118] as const
 const POS = {
@@ -79,6 +80,7 @@ const aria = computed(() => nodes.value.map((n) => `${n.label} ${n.value}`).join
 svg { width: 100%; height: auto; display: block; overflow: visible; }
 .wire { fill: none; stroke: var(--fill); stroke-width: 3; stroke-linecap: round; }
 .pulse { fill: none; stroke-linecap: round; stroke-dasharray: 0 12; animation: flow linear infinite; }
+.pulse.still { animation: none; }
 @keyframes flow { to { stroke-dashoffset: -12; } }
 .hub { fill: var(--surface-3); }
 .node-bg { fill: var(--surface-2); transition: filter 0.6s; }

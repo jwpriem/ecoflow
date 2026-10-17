@@ -2,6 +2,28 @@
   <div>
     <header class="page-head"><h1>Settings</h1></header>
 
+    <h3 class="section-title">Energy flow</h3>
+    <div class="list" role="radiogroup" aria-label="Default energy flow view">
+      <button
+        v-for="o in FLOW_VIEWS" :key="o.value" type="button" role="radio" class="list-row indent row-btn"
+        :aria-checked="flow.defaultView.value === o.value" @click="flow.setDefault(o.value)"
+      >
+        <span class="lead">
+          <span class="icon-tile" :style="{ background: o.tile }"><AppIcon :name="o.icon" /></span>
+          <span class="stack-text"><span class="title">{{ o.label }}</span><span class="small muted">{{ o.help }}</span></span>
+        </span>
+        <AppIcon v-if="flow.defaultView.value === o.value" name="check" class="check" />
+      </button>
+      <label class="list-row indent">
+        <span class="lead">
+          <span class="icon-tile" style="background: var(--sys-green)"><AppIcon name="wave" /></span>
+          <span class="title">Animate flow</span>
+        </span>
+        <span class="switch"><input type="checkbox" :checked="flow.animate.value" @change="flow.setAnimate(($event.target as HTMLInputElement).checked)" /><span /></span>
+      </label>
+    </div>
+    <p class="foot">The view the Energy flow card opens with on this device. You can still switch on the card. Flow lines stay still when Reduce Motion is on.</p>
+
     <h3 class="section-title">Connections</h3>
     <div class="list">
       <details v-for="i in integrations" :key="i.provider" class="conn" :open="i.provider === 'solaredge' && !!results.solaredge">
@@ -129,6 +151,11 @@
 </template>
 
 <script setup lang="ts">
+const flow = useFlowView()
+const FLOW_VIEWS = [
+  { value: 'clean', label: 'Clean', help: 'Sources and live values', icon: 'nodes', tile: 'var(--surface-3)' },
+  { value: 'detailed', label: 'Detailed', help: 'Your house, the sky and where power comes from', icon: 'house', tile: 'var(--sys-blue)' },
+] as const
 const api = useApi()
 const { setToken } = useAuth()
 const push = usePush()
@@ -273,6 +300,9 @@ function onVisible() {
 </script>
 
 <style scoped>
+.row-btn { width: 100%; background: none; border-radius: 0; text-align: left; font: inherit; color: var(--text); }
+.row-btn:active { transform: none; background: var(--fill-2); }
+.check { width: 20px; height: 20px; color: var(--accent); stroke-width: 2.6; flex: none; }
 .conn > summary { list-style: none; cursor: pointer; }
 .conn > summary::-webkit-details-marker { display: none; }
 .conn + .conn > summary::before { content: ''; position: absolute; top: 0; left: 58px; right: 0; height: 0.5px; background: var(--separator); }

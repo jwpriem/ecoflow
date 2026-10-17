@@ -2,7 +2,7 @@
 
 Personal energy app for 2× EcoFlow STREAM Pro (1920 Wh each), SolarEdge solar and a Tibber dynamic contract with a Tibber Pulse.
 
-- **Batteries**: live state of both batteries, energy flow, current price and what the plan does next
+- **Batteries**: energy flow on top (a clean node view, or a detailed house scene with the real day/night sky over Waddinxveen and where the house's power comes from), live state of both batteries, current price and what the plan does next. The default view is set per device in Settings
 - **Savings**: a 15-minute ledger of every kWh in and out, with savings per hour, day, week, month and year. Two views: solar stored at €0, and solar stored at the feed-in price you gave up
 - **Plan**: today's and tomorrow's 15-minute prices with the charge/discharge plan, plus a manual override
 - **Settings**: connect Tibber, SolarEdge and EcoFlow (credentials are encrypted in the database), set battery limits and tune the strategy

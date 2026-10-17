@@ -7,6 +7,21 @@
     <p v-if="error" class="error">{{ error }}</p>
 
     <template v-if="d">
+      <!-- Energy flow first: clean node view or the detailed house scene -->
+      <section class="card rise">
+        <div class="card-head flow-head">
+          <span class="flow-title">
+            <span class="eyebrow">Energy flow</span>
+            <span class="small muted">{{ sourceLabel }}</span>
+          </span>
+          <Segmented v-model="view" :options="VIEW_OPTIONS" />
+        </div>
+        <Transition name="swap" mode="out-in">
+          <EnergyFlow v-if="view === 'clean'" key="clean" :solar-w="d.live?.solarW ?? null" :grid-w="d.live?.gridW ?? null" :battery-w="totalPower" :house-w="houseW" :animate="animate" />
+          <EnergyScene v-else key="detailed" :solar-w="d.live?.solarW ?? null" :grid-w="d.live?.gridW ?? null" :battery-w="totalPower" :house-w="houseW" :soc="combinedSoc" :animate="animate" />
+        </Transition>
+      </section>
+
       <!-- Hero: the combined level of all units -->
       <section class="card hero rise">
         <div class="glow" :class="state" />
@@ -64,11 +79,6 @@
       </div>
 
       <section class="card rise">
-        <div class="card-head"><span class="eyebrow">Energy flow</span><span class="small muted">{{ d.live?.houseSource ?? '' }}</span></div>
-        <EnergyFlow :solar-w="d.live?.solarW ?? null" :grid-w="d.live?.gridW ?? null" :battery-w="totalPower" :house-w="houseW" />
-      </section>
-
-      <section class="card rise">
         <div class="card-head">
           <span class="eyebrow">Up next</span>
           <NuxtLink to="/plan" class="small">Full plan</NuxtLink>
@@ -106,6 +116,12 @@ const api = useApi()
 const d = ref<any>(null)
 const soc = ref<any>(null)
 const error = ref('')
+const { view, animate } = useFlowView()
+const VIEW_OPTIONS = [
+  { value: 'clean', label: 'Clean' },
+  { value: 'detailed', label: 'Detailed' },
+] as const
+const sourceLabel = computed(() => ({ pulse: 'Live · Tibber Pulse', fake: 'Simulated' } as Record<string, string>)[d.value?.live?.houseSource] ?? '')
 
 const ACTION_COLOR: Record<string, string> = {
   charge_grid: 'var(--c-grid-charge)',
@@ -167,6 +183,10 @@ onBeforeUnmount(() => clearInterval(timer))
 </script>
 
 <style scoped>
+.flow-head { align-items: flex-start; }
+.flow-title { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.swap-enter-active, .swap-leave-active { transition: opacity 0.2s, transform 0.3s var(--ease-out); }
+.swap-enter-from, .swap-leave-to { opacity: 0; transform: scale(0.98); }
 .hero { padding-bottom: 8px; }
 .glow { position: absolute; inset: -40% -20% auto; height: 120%; pointer-events: none; opacity: 0.5; transition: background 1.2s; background: radial-gradient(closest-side, rgba(120, 120, 128, 0.18), transparent); }
 .glow.charging { background: radial-gradient(closest-side, rgba(48, 209, 88, 0.2), transparent); animation: drift 8s ease-in-out infinite alternate; }
