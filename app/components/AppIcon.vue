@@ -39,6 +39,16 @@
       <path d="M5 19c0-8 5-13 15-14-1 10-6 15-14 15" />
       <path d="M5 19 13 11" />
     </template>
+    <template v-else-if="name === 'check'">
+      <path d="m5 12.5 4.5 4.5L19 7" />
+    </template>
+    <template v-else-if="name === 'nodes'">
+      <circle cx="12" cy="4.5" r="2.2" /><circle cx="4.5" cy="12" r="2.2" /><circle cx="19.5" cy="12" r="2.2" /><circle cx="12" cy="19.5" r="2.2" />
+      <path d="M12 6.7v10.6M6.7 12h10.6" />
+    </template>
+    <template v-else-if="name === 'wave'">
+      <path d="M3 12h3l2.5-6 4 12 2.5-6h6" />
+    </template>
     <template v-else-if="name === 'chevron'">
       <path d="m9 6 6 6-6 6" />
     </template>
