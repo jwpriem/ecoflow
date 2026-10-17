@@ -19,7 +19,8 @@ export default defineNuxtConfig({
         { rel: 'manifest', href: '/manifest.webmanifest' },
         { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
         { rel: 'icon', type: 'image/png', sizes: '32x32', href: '/favicon-32.png' },
-        { rel: 'apple-touch-icon', href: '/apple-touch-icon.png' },
+        // PNG only: iOS can't use SVG for the Home Screen icon. Bump ?v= when the icon changes.
+        { rel: 'apple-touch-icon', sizes: '180x180', href: '/apple-touch-icon.png?v=2' },
       ],
     },
   },
