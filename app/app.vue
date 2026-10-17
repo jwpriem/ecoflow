@@ -13,7 +13,7 @@
 <script setup lang="ts">
 const { loggedIn } = useAuth()
 const tabs = [
-  { to: '/', label: 'Batteries', icon: 'battery' },
+  { to: '/', label: 'Home', icon: 'house' },
   { to: '/savings', label: 'Savings', icon: 'chart' },
   { to: '/plan', label: 'Plan', icon: 'calendar' },
   { to: '/settings', label: 'Settings', icon: 'gear' },

@@ -1,7 +1,7 @@
 <template>
   <div>
     <header class="page-head">
-      <h1>Batteries</h1>
+      <h1 class="brand"><img src="/brand/wattwise-logo-dark.svg" alt="WattWise" /></h1>
       <span v-if="d" class="sub"><span class="dot live" /> {{ time(d.now) }}</span>
     </header>
     <p v-if="error" class="error">{{ error }}</p>
@@ -219,4 +219,6 @@ onBeforeUnmount(() => clearInterval(timer))
 .n-time { font-variant-numeric: tabular-nums; color: var(--text-2); }
 .n-price { font-variant-numeric: tabular-nums; color: var(--text-2); font-size: 13px; }
 .sources { justify-content: center; margin-top: 8px; }
+.brand { display: flex; align-items: center; }
+.brand img { height: 34px; width: auto; display: block; }
 </style>
