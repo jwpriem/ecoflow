@@ -112,12 +112,15 @@ export async function startEcoFlowMqtt(siteId: number, creds: EcoFlowCredentials
 
   client.on('connect', () => {
     conn.error = undefined
-    client.subscribe(serials.flatMap((sn) => [quotaTopic(account, sn), getReplyTopic(account, sn)]), (err, granted) => {
-      // The broker answers a refused topic with QoS 128 instead of an error
-      const refused = (granted ?? []).filter((g) => g.qos === 128).map((g) => g.topic.split('/').slice(-2).join('/'))
-      if (err || refused.length) conn.error = err?.message ?? `subscription refused: ${refused.join(', ')}`
-      conn.subscribedAt = Date.now()
-    })
+    // One topic per SUBSCRIBE: the broker refuses a whole packet with one error, which hides which topic it was
+    const refused: string[] = []
+    for (const topic of serials.flatMap((sn) => [quotaTopic(account, sn), getReplyTopic(account, sn)])) {
+      client.subscribe(topic, (err) => {
+        if (err) refused.push(`${topic.split('/').slice(-2).join('/')} (${err.message})`)
+        conn.error = refused.length ? `subscription refused: ${refused.join(', ')}` : undefined
+        conn.subscribedAt = Date.now()
+      })
+    }
   })
   client.on('message', (topic, payload) => {
     const sn = serials.find((s) => topic.includes(`/${s}/`))
