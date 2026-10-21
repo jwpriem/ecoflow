@@ -4,11 +4,20 @@
       <img class="logo" :src="`/brand/wattwise-logo-${sky === 'night' ? 'dark' : 'light'}.svg`" alt="WattWise" />
       <span v-if="d" class="clock"><span class="dot live" /> {{ time(d.now) }}</span>
     </header>
-    <p v-if="error" class="error">{{ error }}</p>
+    <!-- A failed refresh keeps the last data on screen and says how old it is -->
+    <p v-if="error && d" class="note stale">Not updated since {{ time(d.now) }}: the server isn't answering. WattWise tries again every 30 seconds.</p>
+    <LoadError v-else-if="error" :error="error" what="your batteries" :busy="loading" auto @retry="load" />
 
     <template v-if="d">
+      <!-- No batteries yet: say what to do instead of showing a 0% pack -->
+      <section v-if="!d.devices.length" class="status">
+        <h1 class="headline">Connect your batteries</h1>
+        <p class="detail">Save your EcoFlow developer keys in Settings. Every STREAM unit on the account then shows up here, with its charge level and what the plan does next.</p>
+        <NuxtLink to="/settings" class="go">Open Settings</NuxtLink>
+      </section>
+
       <!-- What the batteries are doing, in words -->
-      <section class="status" aria-live="polite">
+      <section v-else class="status" aria-live="polite">
         <h1 class="headline" :class="state">{{ headline }}</h1>
         <p class="detail">{{ detail }}</p>
         <p v-if="d.site.override" class="note">Your override holds {{ MODE_LABEL[d.site.override.mode]?.toLowerCase() }} until {{ time(d.site.override.until) }}.</p>
@@ -16,7 +25,7 @@
       </section>
 
       <!-- The battery as one bar, split into the real units -->
-      <section class="pack" :aria-label="`Batteries ${Math.round(combinedSoc * 100)}%`">
+      <section v-if="d.devices.length" class="pack" :aria-label="`Batteries ${Math.round(combinedSoc * 100)}%`">
         <div class="pack-figure">
           <span class="pct">{{ Math.round(socT * 100) }}<small>%</small></span>
           <span class="kwh">{{ storedKwhT.toFixed(2) }} of {{ capacityKwh.toFixed(2) }} kWh</span>
@@ -47,13 +56,14 @@
           <NuxtLink to="/plan">Open plan</NuxtLink>
         </div>
         <DayStrip
-          v-if="soc && plan"
+          v-if="soc && plan?.slots.length"
           :slots="plan.slots" :history="soc.history" :forecast="soc.forecast" :now="soc.now" :soc-now="soc.socNow" :reserve="soc.reserveSoc"
         />
+        <p v-else-if="plan" class="empty-text">No prices yet. Add your Tibber token in Settings: today's 15-minute prices and the plan appear within a minute.</p>
         <div v-else class="skeleton" style="height: 230px" />
       </section>
 
-      <section class="figures">
+      <section v-if="d.devices.length" class="figures">
         <div>
           <span class="f-label">Saved today</span>
           <span class="f-value" :class="{ neg: savedToday < 0 }">{{ eur(savedTodayT) }}</span>
@@ -61,12 +71,15 @@
         </div>
         <div>
           <span class="f-label">Price now</span>
-          <span class="f-value">{{ d.price ? cents(priceT) : '–' }}<small> per kWh</small></span>
-          <span class="f-note">You get {{ d.price ? cents(d.price.feedIn) : '–' }} for feeding in</span>
+          <template v-if="d.price">
+            <span class="f-value">{{ cents(priceT) }}<small> per kWh</small></span>
+            <span class="f-note">You get {{ cents(d.price.feedIn) }} for feeding in</span>
+          </template>
+          <span v-else class="f-note">No price for this quarter yet</span>
         </div>
       </section>
 
-      <section class="block">
+      <section v-if="d.devices.length || d.live" class="block">
         <div class="block-head">
           <h2>Energy flow</h2>
           <Segmented v-model="view" :options="VIEW_OPTIONS" />
@@ -77,7 +90,7 @@
         </Transition>
       </section>
 
-      <section class="block">
+      <section v-if="nextRuns.length" class="block">
         <div class="block-head"><h2>Up next</h2></div>
         <ol class="next">
           <li v-for="p in nextRuns" :key="String(p.slotStart)">
@@ -108,7 +121,8 @@ const api = useApi()
 const d = ref<any>(null)
 const soc = ref<any>(null)
 const plan = ref<any>(null)
-const error = ref('')
+const error = ref<any>(null)
+const loading = ref(false)
 const sky = useState<'day' | 'night'>('sky', () => 'day')
 const { view, animate } = useFlowView()
 const VIEW_OPTIONS = [
@@ -125,14 +139,17 @@ const ACTION_COLOR: Record<string, string> = {
 const cents = (p: number) => `${(p * 100).toFixed(1).replace('.', ',')} ct`
 
 async function load() {
+  loading.value = true
   try {
     const [dash, s, p] = await Promise.all([api('/api/dashboard'), api('/api/soc').catch(() => null), api('/api/plan').catch(() => null)])
     d.value = dash
     if (s) soc.value = s
     if (p) plan.value = p
-    error.value = ''
-  } catch (e: any) {
-    error.value = e?.data?.statusMessage || 'Could not reach the server. Pull down or wait 30 seconds to try again.'
+    error.value = null
+  } catch (e) {
+    error.value = e
+  } finally {
+    loading.value = false
   }
 }
 
@@ -205,6 +222,11 @@ onBeforeUnmount(() => clearInterval(timer))
   letter-spacing: -0.025em; margin: 0 0 12px; max-width: 14ch; text-wrap: balance;
 }
 .detail { font-size: 18px; line-height: 1.4; color: var(--text-2); margin: 0; max-width: 34ch; font-variant-numeric: tabular-nums; }
+
+/* Empty and stale states */
+.go { display: inline-block; margin-top: 16px; font-weight: 600; }
+.stale { margin: -16px 0 24px; }
+.empty-text { margin: 0; color: var(--text-2); max-width: 46ch; }
 
 /* Battery pack */
 .pack { margin-bottom: 40px; }

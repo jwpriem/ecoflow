@@ -10,6 +10,14 @@
       <p v-if="data.steering === 'ecoflow_ai'" class="note">EcoFlow AI steers the batteries. This plan is only shown.</p>
       <p v-else-if="data.controlMode === 'manual'" class="note">Monitoring only: this plan isn't sent to the batteries.</p>
 
+      <!-- No prices: nothing to plan with -->
+      <section v-if="!data.slots.length" class="no-prices">
+        <h2>No prices yet</h2>
+        <p>WattWise plans from Tibber's 15-minute prices. Add your Tibber token in Settings: today's prices and the plan appear within a minute, tomorrow's around 13:00.</p>
+        <NuxtLink to="/settings">Open Settings</NuxtLink>
+      </section>
+
+      <template v-else>
       <!-- Readout for the selected quarter; it starts on now -->
       <section class="readout" aria-live="polite">
         <template v-if="picked">
@@ -47,6 +55,7 @@
         </template>
         <button v-if="hiddenRuns > 0" class="plain more" @click="allRuns = true">Show {{ hiddenRuns }} more</button>
       </section>
+      </template>
 
       <section class="block">
         <div class="block-head"><h2>Who steers the batteries</h2></div>
@@ -112,7 +121,7 @@
 
       <Transition name="toast"><p v-if="message" class="toast" role="status">{{ message }}</p></Transition>
     </template>
-    <p v-else-if="error" class="error">{{ error }}</p>
+    <LoadError v-else-if="error" :error="error" what="the plan" :busy="busy" @retry="retry" />
     <div v-else class="skeleton" style="height: 320px" />
   </div>
 </template>
@@ -120,7 +129,7 @@
 <script setup lang="ts">
 const api = useApi()
 const data = ref<any>(null)
-const error = ref('')
+const error = ref<any>(null)
 const minutes = ref(60)
 const overrideMode = ref<string | null>(null)
 const message = ref('')
@@ -210,10 +219,17 @@ async function load() {
     data.value = await api('/api/plan')
     now.value = Date.now()
     if (selected.value < 0 || selected.value >= data.value.slots.length) selected.value = nowIndex.value
-    error.value = ''
-  } catch (e: any) {
-    error.value = e?.data?.statusMessage ?? 'Could not load the plan. Check your connection and reload.'
+    error.value = null
+  } catch (e) {
+    // Keep showing the last plan if a refresh fails; the error block is for a first load that fails
+    if (!data.value) error.value = e
   }
+}
+
+async function retry() {
+  busy.value = true
+  await load()
+  busy.value = false
 }
 
 let toast: ReturnType<typeof setTimeout>
@@ -274,6 +290,11 @@ onBeforeUnmount(() => clearInterval(tick))
 .override { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 0 0 20px; padding: 10px 0 10px 12px; border-left: 3px solid var(--text); font-size: 15px; }
 .override .plain { flex: none; }
 .note { margin: 0 0 20px; }
+
+.no-prices { border-top: 1px solid var(--rule); padding-top: 18px; margin-bottom: 36px; }
+.no-prices h2 { font-size: 21px; font-weight: 700; font-stretch: 112%; margin: 0 0 6px; }
+.no-prices p { margin: 0 0 14px; color: var(--text-2); max-width: 46ch; }
+.no-prices a { font-weight: 600; }
 
 .readout { min-height: 92px; margin-bottom: 14px; position: relative; }
 .r-act { display: flex; align-items: center; gap: 10px; font-size: 28px; line-height: 1.1; font-weight: 700; font-stretch: 112%; letter-spacing: -0.01em; margin: 0 0 6px; }

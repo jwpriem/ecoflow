@@ -1,13 +1,13 @@
 <template>
   <div class="login">
-    <img class="mark rise" src="/favicon.svg" alt="WattWise" width="84" height="84" />
-    <h1 class="rise">{{ needsSetup ? 'Welcome to WattWise' : 'Welcome back' }}</h1>
-    <p class="muted rise lede">{{ needsSetup ? 'First run: this creates the only account. Add your EcoFlow developer keys in Settings to bring in the batteries.' : 'Log in to see your batteries.' }}</p>
-    <form class="rise" @submit.prevent="submit">
+    <img class="mark" src="/favicon.svg" alt="WattWise" width="64" height="64" />
+    <h1>{{ needsSetup ? 'Welcome to WattWise' : 'Welcome back' }}</h1>
+    <p class="muted lede">{{ needsSetup ? 'First run: this creates the only account. Add your EcoFlow developer keys in Settings to bring in the batteries.' : 'Log in to see your batteries.' }}</p>
+    <form @submit.prevent="submit">
       <div class="list">
-        <label class="list-row stack"><input v-model="email" type="email" placeholder="Email" autocomplete="username" required /></label>
-        <label class="list-row stack"><input v-model="password" type="password" placeholder="Password" :autocomplete="needsSetup ? 'new-password' : 'current-password'" required minlength="8" /></label>
-        <label v-if="needsSetup" class="list-row stack"><input v-model="setupCode" placeholder="Setup code" autocomplete="off" /></label>
+        <label class="list-row stack"><input v-model="email" type="email" placeholder="Email" aria-label="Email" autocomplete="username" required /></label>
+        <label class="list-row stack"><input v-model="password" type="password" placeholder="Password" aria-label="Password" :autocomplete="needsSetup ? 'new-password' : 'current-password'" required minlength="8" /></label>
+        <label v-if="needsSetup" class="list-row stack"><input v-model="setupCode" placeholder="Setup code" aria-label="Setup code" autocomplete="off" /></label>
       </div>
       <p v-if="error" class="error">{{ error }}</p>
       <button class="primary" type="submit" :disabled="busy">{{ busy ? (needsSetup ? 'Creating account…' : 'Logging in…') : needsSetup ? 'Create account' : 'Log in' }}</button>
@@ -40,7 +40,7 @@ async function submit() {
     setToken(res.token)
     await navigateTo('/')
   } catch (e: any) {
-    error.value = e?.data?.statusMessage || e?.statusMessage || 'Login failed'
+    error.value = e?.data?.statusMessage || e?.statusMessage || 'Logging in failed. Check your email and password, then try again.'
   } finally {
     busy.value = false
   }
