@@ -42,12 +42,18 @@ export interface DeviceState {
   commandW?: number
   /** Last raw reading from the API, kept for debugging the key mapping */
   quota?: Record<string, unknown>
+  /** MQTT stream health for this unit */
+  mqtt?: Record<string, unknown>
 }
 
 export interface StreamReading {
   soc: number | null
   powerW: number
   pvW: number
+  /** The unit's own pack level (bmsBattSoc, from MQTT) */
+  packSoc?: number | null
+  /** The system level (cmsBattSoc); only the leader of a multi-unit system reports it */
+  systemSoc?: number | null
 }
 
 /**
@@ -126,13 +132,11 @@ export function deviceQuota(creds: EcoFlowCredentials, sn: string, opts?: Reques
   return ecoflowRequest<Record<string, unknown>>(creds, 'GET', '/iot-open/sign/device/quota/all', { sn }, opts).then((d) => d ?? {})
 }
 
-/** Specific keys via POST. Used for per-unit pack values that quota/all may leave out. */
-export function deviceQuotaKeys(creds: EcoFlowCredentials, sn: string, quotas: string[], opts?: RequestOptions) {
-  return ecoflowRequest<Record<string, unknown>>(creds, 'POST', '/iot-open/sign/device/quota', { sn, params: { quotas } }, opts).then((d) => d ?? {})
-}
-
-/** Per-pack keys of the STREAM BMS; the cms* keys are the system (leader) values */
-export const PACK_KEYS = ['bmsBattSoc', 'bmsChgDsgState', 'bmsBattSoh', 'cmsBattFullEnergy', 'powGetBp', 'powGetPv', 'powGetPv2']
+/**
+ * Per-pack keys of the STREAM BMS, pushed over MQTT (the REST quota leaves them out).
+ * The cms* keys are the system values, which only the leader of a multi-unit system reports.
+ */
+export const PACK_KEYS = ['bmsBattSoc', 'f32ShowSoc', 'bmsDesignCap', 'vol', 'amp', 'accuChgEnergy', 'accuDsgEnergy', 'distributedDeviceStatus', 'bmsChgDsgState']
 
 const num = (v: unknown): number | undefined => {
   const n = typeof v === 'string' && v.trim() !== '' ? Number(v) : v
@@ -148,8 +152,10 @@ const num = (v: unknown): number | undefined => {
  * - powGetPvSum (or powGetPv + powGetPv2...): direct PV input in W
  */
 export function parseStreamQuota(q: Record<string, unknown>): StreamReading {
-  const pack = num(q.bmsBattSoc)
-  const socPct = pack ? pack : (num(q.cmsBattSoc) ?? pack ?? num(q.soc))
+  const pack = num(q.f32ShowSoc) || num(q.bmsBattSoc)
+  const system = num(q.cmsBattSoc)
+  const socPct = pack ? pack : (system ?? pack ?? num(q.soc))
+  const pct = (v: number | undefined) => (v === undefined ? null : Math.min(1, Math.max(0, v / 100)))
   const bp = num(q.powGetBpCms) ?? 0
   const state = num(q.cmsChgDsgState) ?? num(q.bmsChgDsgState)
   let powerW = -bp // app convention: + = charging
@@ -159,9 +165,11 @@ export function parseStreamQuota(q: Record<string, unknown>): StreamReading {
     num(q.powGetPvSum) ??
     ['powGetPv', 'powGetPv2', 'powGetPv3', 'powGetPv4'].reduce((s, k) => s + (num(q[k]) ?? 0), 0)
   return {
-    soc: socPct === undefined ? null : Math.min(1, Math.max(0, socPct / 100)),
+    soc: pct(socPct),
     powerW: Math.round(powerW) || 0,
     pvW: Math.max(0, Math.round(pvW)),
+    packSoc: pack ? pct(pack) : null,
+    systemSoc: pct(system),
   }
 }
 
@@ -174,17 +182,19 @@ export function streamDevices(list: EcoFlowDevice[]): EcoFlowDevice[] {
 /**
  * Several STREAM units on one account work as one system: the leader reports the system values
  * (charge level, battery power, PV) and the followers report 0 for all of them. Share the leader's
- * reading over all units by capacity, so the combined level and power come out right.
+ * power and PV over all units by capacity, so the totals come out right. Each unit keeps its own
+ * pack level when MQTT delivered it, otherwise it gets the system level.
  * Units that all report something are left as they are.
  */
 export function shareSystemReading<T extends { capacityWh: number; reading: StreamReading }>(units: T[]): T[] {
-  const silent = (r: StreamReading) => !r.soc && !r.powerW && !r.pvW
-  const leaders = units.filter((u) => !silent(u.reading))
+  const isLeader = (r: StreamReading) => !!(r.systemSoc || r.powerW || r.pvW)
+  const leaders = units.filter((u) => isLeader(u.reading))
   if (units.length < 2 || leaders.length !== 1) return units
   const lead = leaders[0]!.reading
   const totalCap = units.reduce((s, u) => s + u.capacityWh, 0) || 1
   return units.map((u) => {
     const share = u.capacityWh / totalCap
-    return { ...u, reading: { soc: lead.soc, powerW: Math.round(lead.powerW * share), pvW: Math.round(lead.pvW * share) } }
+    const soc = u.reading.packSoc || (lead.systemSoc ?? lead.soc)
+    return { ...u, reading: { ...u.reading, soc, powerW: Math.round(lead.powerW * share), pvW: Math.round(lead.pvW * share) } }
   })
 }

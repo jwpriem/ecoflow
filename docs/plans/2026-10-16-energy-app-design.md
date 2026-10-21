@@ -141,6 +141,7 @@ The plan is stored in `plans` and shown in the app on the price chart.
 - EcoFlow read via the developer API (`ecoflow_official`): saving the keys lists the STREAM units on the account and adds them as batteries; `quota/all` is read every minute (`cmsBattSoc`, `powGetBpCms`, `powGetPvSum`). The raw quota is kept in `devices.state.quota` to confirm the key mapping and sign convention on the real units.
 - Control is still open (phase 0): commands are logged as skipped.
 - Live check 2026-10-21: both units found and read. The two STREAM Pros act as one system: the leader reports the system SoC/power/PV, the follower reports 0 for all of them, so the leader's reading is shared over the units by capacity. Sign of `powGetBpCms` still to confirm while (dis)charging.
+- Per-unit levels: the REST quota has no pack keys and POST quota returns none either. The developer MQTT (certification endpoint, same keys) pushes `bmsBattSoc`, `f32ShowSoc`, `vol`/`amp`, `accuChg/DsgEnergy` and `distributedDeviceStatus` per unit; the app keeps an MQTT connection for those and REST for the system values.
 
 ## Build phases
 

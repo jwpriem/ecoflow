@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm'
 import { integrations, type Provider } from '../../db/schema'
 import { creditsLeftToday, type CreditLedger, SE_DAILY_CREDIT_CAP, SE_MONTHLY_CREDITS } from '../../lib/solaredgeBudget'
+import { ecoflowMqttStatus } from '../../providers/ecoflow/mqtt'
 import { pulseStatus } from '../../providers/tibberPulse'
 import { solarEdgeRedirectUri } from '../../services/solaredge'
 
@@ -20,6 +21,7 @@ export default defineEventHandler(async (event) => {
       lastError: r?.lastError ?? null,
       meta: r?.meta ?? {},
       ...(provider === 'tibber' ? { pulse: pulseStatus(site.id) } : {}),
+      ...(provider === 'ecoflow_official' ? { mqtt: ecoflowMqttStatus(site.id) } : {}),
       ...(provider === 'solaredge'
         ? {
             redirectUri: solarEdgeRedirectUri(event),
