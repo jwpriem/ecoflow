@@ -135,6 +135,12 @@ The plan is stored in `plans` and shown in the app on the price chart.
 - EcoFlow: a **simulated STREAM Pro driver** (`mock`) stands in until phase 0. It reacts to real Pulse/SolarEdge data when connected.
 - Ledger, strategy, override and all four screens work. `npm run db:seed` produces 30 days of fake history through the real simulator, strategy and ledger code.
 
+## Progress (2026-10-21)
+
+- Demo data removed: no fake prices, load, solar, simulated batteries or seed script. A source that is not connected is left out.
+- EcoFlow read via the developer API (`ecoflow_official`): saving the keys lists the STREAM units on the account and adds them as batteries; `quota/all` is read every minute (`cmsBattSoc`, `powGetBpCms`, `powGetPvSum`). The raw quota is kept in `devices.state.quota` to confirm the key mapping and sign convention on the real units.
+- Control is still open (phase 0): commands are logged as skipped.
+
 ## Build phases
 
 0. **EcoFlow spike:** request developer keys; prove reading *and* control (SoC limits, TOU task, charge/discharge) via the app-login MQTT route on one Stream. Outcome: a confirmed list of commands.

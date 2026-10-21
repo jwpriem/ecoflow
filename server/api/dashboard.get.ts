@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, gte, inArray } from 'drizzle-orm'
 import { batteryPool, devices, integrations, plans, samples } from '../db/schema'
-import type { SimState } from '../lib/simulator'
+import type { DeviceState } from '../providers/ecoflow'
 import { slotStartOf, startOfLocalDay } from '../lib/time'
 import { liveState } from '../services/collector'
 import { getPrices } from '../services/prices'
@@ -18,7 +18,7 @@ export default defineEventHandler(async (event) => {
   if (!live) {
     const [grid] = await db.select().from(samples).where(and(eq(samples.siteId, site.id), eq(samples.kind, 'grid'))).orderBy(desc(samples.ts)).limit(1)
     const [solar] = await db.select().from(samples).where(and(eq(samples.siteId, site.id), eq(samples.kind, 'solar'))).orderBy(desc(samples.ts)).limit(1)
-    if (grid) live = { ts: grid.ts.toISOString(), gridW: grid.powerW, houseNetW: grid.powerW, solarW: solar?.powerW ?? null, houseSource: 'fake', solarSource: null }
+    if (grid) live = { ts: grid.ts.toISOString(), gridW: grid.powerW, houseNetW: grid.powerW - devs.reduce((t, d) => t + ((d.state as DeviceState).powerW ?? 0), 0), solarW: solar?.powerW ?? null, houseSource: 'pulse', solarSource: solar ? 'solaredge' : null }
   }
 
   const slot = slotStartOf(now)
@@ -34,7 +34,7 @@ export default defineEventHandler(async (event) => {
     now: now.toISOString(),
     site: { name: site.name, controlMode: site.controlMode, override: site.override },
     devices: devs.map((d) => {
-      const s = d.state as unknown as SimState
+      const s = d.state as DeviceState
       const pool = pools.find((p) => p.deviceId === d.id)
       return {
         id: d.id,

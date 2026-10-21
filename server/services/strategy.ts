@@ -1,12 +1,11 @@
 import { and, desc, eq, gte, inArray } from 'drizzle-orm'
 import type { Db } from '../db/client'
 import { batteryPool, commandsLog, devices, plans, type sites } from '../db/schema'
-import type { SimState } from '../lib/simulator'
 import { planChangeMessage } from '../lib/notifications'
 import { buildPlan, type PlanSlot } from '../lib/strategy'
 import { addMs, SLOT_MS, slotStartOf } from '../lib/time'
 import type { BatteryMode } from '../lib/types'
-import { mockDriver } from '../providers/ecoflow'
+import type { DeviceState } from '../providers/ecoflow'
 import { getPrices } from './prices'
 import { notify } from './push'
 
@@ -21,7 +20,7 @@ export async function computePlan(db: Db, site: Site, now = new Date()): Promise
     : []
   const poolKwh = pools.reduce((s, p) => s + p.kwh, 0)
   const poolCost = pools.reduce((s, p) => s + p.costOpportunity, 0)
-  const storedKwh = devs.reduce((s, d) => s + (((d.state as unknown as SimState).soc ?? 0) * d.capacityWh) / 1000, 0)
+  const storedKwh = devs.reduce((s, d) => s + (((d.state as DeviceState).soc ?? 0) * d.capacityWh) / 1000, 0)
 
   return buildPlan({
     prices: priceList,
@@ -64,16 +63,12 @@ export async function runStrategy(db: Db, site: Site, now = new Date()) {
   for (const d of devs) {
     // Split a total power target over the batteries in proportion to their charge power
     const powerW = cmd.powerW ? Math.round((cmd.powerW * d.maxChargeW) / totalChargeW) : undefined
-    const state = d.state as unknown as SimState
+    const state = d.state as DeviceState
     if (state.mode === cmd.mode && state.commandW === powerW) continue
     const validUntil = addMs(from, SLOT_MS + 5 * 60_000)
-    let result = 'ok'
-    if (d.driver === 'mock') {
-      const next = mockDriver.apply(state.ts ? state : mockDriver.initialState(now), { mode: cmd.mode, powerW, validUntil })
-      await db.update(devices).set({ state: next as unknown as Record<string, unknown> }).where(eq(devices.id, d.id))
-    } else {
-      result = 'skipped: real EcoFlow control not implemented yet'
-    }
+    // Reading works through the developer API; sending modes to the STREAM Pro still has to be proven (phase 0)
+    const result = 'skipped: EcoFlow control not implemented yet'
+    await db.update(devices).set({ state: { ...state, mode: cmd.mode, commandW: powerW } as Record<string, unknown> }).where(eq(devices.id, d.id))
     await db.insert(commandsLog).values({ deviceId: d.id, command: cmd.mode, payload: { powerW, source: cmd.source, validUntil: validUntil.toISOString() }, result })
   }
   // Tell the owner when the plan starts a grid-charge or discharge block (not for their own overrides)

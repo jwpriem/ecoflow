@@ -2,7 +2,7 @@
   <div>
     <header class="page-head">
       <h1>Plan</h1>
-      <span v-if="data?.slots[0]" class="sub">{{ data.slots[0].source === 'tibber' ? 'Tibber prices' : 'Fake prices' }}</span>
+      <span v-if="data?.slots[0]" class="sub">Tibber prices</span>
     </header>
 
     <template v-if="data">

@@ -10,12 +10,11 @@
     "postinstall": "nuxt prepare",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx scripts/migrate.ts",
-    "db:seed": "tsx scripts/seed.ts",
     "test": "vitest run",
+    "test:live": "vitest run tests/ecoflow.live.test.ts",
     "typecheck": "nuxt typecheck"
   },
   "devDependencies": {
-    "@neondatabase/serverless": "^1.2.0",
     "@types/node": "^22.0.0",
     "@types/web-push": "^3.6.4",
     "@types/ws": "^8.18.2",

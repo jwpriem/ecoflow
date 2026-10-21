@@ -1,11 +1,12 @@
 import { resolve } from 'node:path'
 import { migrate } from 'drizzle-orm/postgres-js/migrator'
 import { sites } from '../db/schema'
+import { syncEcoFlowDevices } from '../services/ecoflow'
 import { refreshPrices } from '../services/prices'
 import { syncPulse } from '../services/pulse'
 import { runStrategy } from '../services/strategy'
 
-/** On boot: apply migrations, start the Tibber Pulse streams and make sure there are prices and a plan. */
+/** On boot: apply migrations, check the EcoFlow units, start the Tibber Pulse streams and make sure there are prices and a plan. */
 export default defineNitroPlugin(() => {
   const cfg = useRuntimeConfig()
   if (!cfg.databaseUrl && !process.env.NUXT_DATABASE_URL) {
@@ -25,6 +26,8 @@ export default defineNitroPlugin(() => {
     const key = cfg.encryptionKey || process.env.NUXT_ENCRYPTION_KEY || ''
     for (const site of await db.select().from(sites)) {
       try {
+        const ef = await syncEcoFlowDevices(db, site, key)
+        if (ef.error) console.error(`[startup] site ${site.id}: EcoFlow: ${ef.error}`)
         await syncPulse(db, site, key)
         await refreshPrices(db, site, key)
         await runStrategy(db, site)

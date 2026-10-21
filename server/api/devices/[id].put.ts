@@ -8,7 +8,7 @@ export default defineEventHandler(async (event) => {
   const update: Partial<typeof devices.$inferInsert> = {}
   if (typeof b.name === 'string' && b.name.trim()) update.name = b.name.trim().slice(0, 60)
   if (typeof b.serial === 'string' && b.serial.trim()) update.serial = b.serial.trim()
-  if (b.driver === 'mock' || b.driver === 'ecoflow_app' || b.driver === 'ecoflow_official') update.driver = b.driver
+  if (b.driver === 'ecoflow_app' || b.driver === 'ecoflow_official') update.driver = b.driver
   for (const k of ['capacityWh', 'maxChargeW', 'maxDischargeW'] as const) {
     if (b[k] !== undefined) {
       const n = Math.round(Number(b[k]))

@@ -64,21 +64,25 @@ export const integrations = pgTable(
   (t) => [uniqueIndex('integrations_site_provider').on(t.siteId, t.provider)],
 )
 
-export const devices = pgTable('devices', {
-  id: serial('id').primaryKey(),
-  siteId: integer('site_id').notNull().references(() => sites.id, { onDelete: 'cascade' }),
-  /** mock = simulated battery; ecoflow_app / ecoflow_official = real device */
-  driver: text('driver').$type<'mock' | 'ecoflow_app' | 'ecoflow_official'>().notNull().default('mock'),
-  serial: text('serial').notNull(),
-  name: text('name').notNull(),
-  model: text('model').notNull().default('STREAM Pro'),
-  capacityWh: integer('capacity_wh').notNull().default(1920),
-  maxChargeW: integer('max_charge_w').notNull().default(1200),
-  maxDischargeW: integer('max_discharge_w').notNull().default(800),
-  /** Last known reading / simulator state */
-  state: jsonb('state').$type<Record<string, unknown>>().notNull().default({}),
-  createdAt: ts('created_at').notNull().defaultNow(),
-})
+export const devices = pgTable(
+  'devices',
+  {
+    id: serial('id').primaryKey(),
+    siteId: integer('site_id').notNull().references(() => sites.id, { onDelete: 'cascade' }),
+    /** ecoflow_official = read through the developer API; ecoflow_app = app login (MQTT), for control later */
+    driver: text('driver').$type<'ecoflow_app' | 'ecoflow_official'>().notNull().default('ecoflow_official'),
+    serial: text('serial').notNull(),
+    name: text('name').notNull(),
+    model: text('model').notNull().default('STREAM Pro'),
+    capacityWh: integer('capacity_wh').notNull().default(1920),
+    maxChargeW: integer('max_charge_w').notNull().default(1200),
+    maxDischargeW: integer('max_discharge_w').notNull().default(800),
+    /** Last known reading (see DeviceState in providers/ecoflow) */
+    state: jsonb('state').$type<Record<string, unknown>>().notNull().default({}),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('devices_site_serial').on(t.siteId, t.serial)],
+)
 
 /** Prices in EUR/kWh per slot. total = what you pay for importing (incl. energy tax + VAT). */
 export const prices = pgTable(
@@ -91,7 +95,7 @@ export const prices = pgTable(
     tax: doublePrecision('tax').notNull(),
     total: doublePrecision('total').notNull(),
     feedIn: doublePrecision('feed_in').notNull(),
-    source: text('source').$type<'tibber' | 'fake'>().notNull(),
+    source: text('source').$type<'tibber'>().notNull(),
   },
   (t) => [primaryKey({ columns: [t.siteId, t.slotStart] })],
 )
