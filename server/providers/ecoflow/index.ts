@@ -126,6 +126,14 @@ export function deviceQuota(creds: EcoFlowCredentials, sn: string, opts?: Reques
   return ecoflowRequest<Record<string, unknown>>(creds, 'GET', '/iot-open/sign/device/quota/all', { sn }, opts).then((d) => d ?? {})
 }
 
+/** Specific keys via POST. Used for per-unit pack values that quota/all may leave out. */
+export function deviceQuotaKeys(creds: EcoFlowCredentials, sn: string, quotas: string[], opts?: RequestOptions) {
+  return ecoflowRequest<Record<string, unknown>>(creds, 'POST', '/iot-open/sign/device/quota', { sn, params: { quotas } }, opts).then((d) => d ?? {})
+}
+
+/** Per-pack keys of the STREAM BMS; the cms* keys are the system (leader) values */
+export const PACK_KEYS = ['bmsBattSoc', 'bmsChgDsgState', 'bmsBattSoh', 'cmsBattFullEnergy', 'powGetBp', 'powGetPv', 'powGetPv2']
+
 const num = (v: unknown): number | undefined => {
   const n = typeof v === 'string' && v.trim() !== '' ? Number(v) : v
   return typeof n === 'number' && Number.isFinite(n) ? n : undefined
@@ -133,13 +141,15 @@ const num = (v: unknown): number | undefined => {
 
 /**
  * Map a STREAM quota to what the app stores. Keys as reported for the STREAM series:
- * - cmsBattSoc: charge level in % (a follower unit in a multi-unit system may report 0)
+ * - bmsBattSoc: this unit's own pack level in %, when the API returns it
+ * - cmsBattSoc: charge level in % (a follower unit in a multi-unit system reports 0)
  * - powGetBpCms: battery pack power in W, positive when the battery delivers power
  * - cmsChgDsgState / bmsChgDsgState: 0 idle, 1 discharging, 2 charging; wins over the sign when present
  * - powGetPvSum (or powGetPv + powGetPv2...): direct PV input in W
  */
 export function parseStreamQuota(q: Record<string, unknown>): StreamReading {
-  const socPct = num(q.cmsBattSoc) ?? num(q.bmsBattSoc) ?? num(q.soc)
+  const pack = num(q.bmsBattSoc)
+  const socPct = pack ? pack : (num(q.cmsBattSoc) ?? pack ?? num(q.soc))
   const bp = num(q.powGetBpCms) ?? 0
   const state = num(q.cmsChgDsgState) ?? num(q.bmsChgDsgState)
   let powerW = -bp // app convention: + = charging

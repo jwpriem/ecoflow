@@ -3,9 +3,11 @@ import type { Db } from '../db/client'
 import { devices, type sites } from '../db/schema'
 import {
   deviceQuota,
+  deviceQuotaKeys,
   type DeviceState,
   type EcoFlowCredentials,
   listDevices,
+  PACK_KEYS,
   parseStreamQuota,
   type RequestOptions,
   shareSystemReading,
@@ -79,6 +81,9 @@ export async function readEcoFlow(db: Db, site: Site, key: string, now = new Dat
   for (const d of rows) {
     try {
       const quota = await deviceQuota(integ.creds, d.serial, integ.opts)
+      // Ask for the pack keys too: they hold each unit's own level where quota/all only has the system's
+      const pack = await deviceQuotaKeys(integ.creds, d.serial, PACK_KEYS, integ.opts).catch((err: Error) => ({ packError: err.message }))
+      Object.assign(quota, pack)
       read.push({ device: d, capacityWh: d.capacityWh, reading: parseStreamQuota(quota), quota })
     } catch (err) {
       errors.push(`${d.name}: ${(err as Error).message}`)

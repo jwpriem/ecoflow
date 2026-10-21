@@ -85,6 +85,11 @@ describe('STREAM quota mapping', () => {
     expect(parseStreamQuota({ cmsBattSoc: 64, powGetBpCms: -800 })).toEqual({ soc: 0.64, powerW: 800, pvW: 0 })
   })
 
+  it("prefers the unit's own pack level over the system level", () => {
+    expect(parseStreamQuota({ cmsBattSoc: 42, bmsBattSoc: 40 }).soc).toBe(0.4)
+    expect(parseStreamQuota({ cmsBattSoc: 42, bmsBattSoc: 0 }).soc).toBe(0.42)
+  })
+
   it('lets the charge/discharge state decide the direction', () => {
     expect(parseStreamQuota({ powGetBpCms: 500, cmsChgDsgState: 2 }).powerW).toBe(500)
     expect(parseStreamQuota({ powGetBpCms: -500, cmsChgDsgState: 1 }).powerW).toBe(-500)
