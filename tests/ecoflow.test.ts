@@ -147,11 +147,13 @@ describe('multi-unit STREAM systems', () => {
 })
 
 describe('EcoFlow MQTT messages', () => {
-  it('takes the values from params, param or a bare object', () => {
+  it('takes the values from params, param, data or the flat message', () => {
     expect(quotaFromMessage(JSON.stringify({ typeCode: 'x', params: { bmsBattSoc: 40 } }))).toEqual({ bmsBattSoc: 40 })
     expect(quotaFromMessage(JSON.stringify({ param: { vol: 51.2 } }))).toEqual({ vol: 51.2 })
     expect(quotaFromMessage(JSON.stringify({ data: { quotaMap: { amp: -3 } } }))).toEqual({ amp: -3 })
+    expect(quotaFromMessage(JSON.stringify({ bmsBattSoc: 19, powGetSysLoadFromBp: 793.7 }))).toEqual({ bmsBattSoc: 19, powGetSysLoadFromBp: 793.7 })
     expect(quotaFromMessage('not json')).toBeNull()
+    expect(quotaFromMessage('[1,2]')).toBeNull()
   })
 
   it('keeps a readable sample of JSON and base64 of binary payloads', () => {

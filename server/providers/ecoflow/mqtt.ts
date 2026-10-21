@@ -23,7 +23,7 @@ export const quotaTopic = (account: string, sn: string) => `/open/${account}/${s
 export const getTopic = (account: string, sn: string) => `/open/${account}/${sn}/get`
 export const getReplyTopic = (account: string, sn: string) => `/open/${account}/${sn}/get_reply`
 
-/** Messages wrap the values as `params`, `param` or `data(.quotaMap)` */
+/** Messages wrap the values as `params`, `param` or `data(.quotaMap)`; the STREAM sends them flat, e.g. {"powGetSysLoadFromBp":793.7} */
 export function quotaFromMessage(raw: Buffer | string): Record<string, unknown> | null {
   let msg: unknown
   try {
@@ -33,7 +33,7 @@ export function quotaFromMessage(raw: Buffer | string): Record<string, unknown> 
   }
   if (!msg || typeof msg !== 'object') return null
   const m = msg as Record<string, unknown>
-  const inner = (m.params ?? m.param ?? (m.data as Record<string, unknown> | undefined)?.quotaMap ?? m.data) as unknown
+  const inner = (m.params ?? m.param ?? (m.data as Record<string, unknown> | undefined)?.quotaMap ?? m.data ?? m) as unknown
   if (inner && typeof inner === 'object' && !Array.isArray(inner)) return inner as Record<string, unknown>
   return null
 }
