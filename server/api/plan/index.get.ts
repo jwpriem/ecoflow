@@ -2,6 +2,8 @@ import { and, asc, eq, gte, lt } from 'drizzle-orm'
 import { devices, plans } from '../../db/schema'
 import { addMs, startOfLocalDay } from '../../lib/time'
 import { getPrices } from '../../services/prices'
+import { steeringOf } from '../../services/ecoflow'
+import { getIntegration } from '../../services/integrations'
 import { recentCommands } from '../../services/strategy'
 
 /** Prices for today + tomorrow with the planned action per slot */
@@ -15,9 +17,11 @@ export default defineEventHandler(async (event) => {
     db.select().from(plans).where(and(eq(plans.siteId, site.id), gte(plans.slotStart, from), lt(plans.slotStart, to))).orderBy(asc(plans.slotStart)),
     db.select({ id: devices.id }).from(devices).where(eq(devices.siteId, site.id)),
   ])
+  const ecoflow = await getIntegration(db, site.id, 'ecoflow_official', encryptionKey()).catch(() => null)
   const planBySlot = new Map(planRows.map((p) => [p.slotStart.getTime(), p]))
   return {
     controlMode: site.controlMode,
+    steering: ecoflow ? steeringOf(ecoflow.meta) : null,
     override: site.override,
     strategy: site.strategy,
     slots: priceList.map((p) => {

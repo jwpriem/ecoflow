@@ -86,7 +86,7 @@
       </div>
     </template>
     <p v-if="!devs.length" class="foot">No batteries yet: save the EcoFlow developer API keys above to add the STREAM units on your account.</p>
-    <p v-else class="foot">Read live through the EcoFlow developer API. Steering the batteries comes after phase 0.</p>
+    <p v-else class="foot">Read live through the EcoFlow developer API. Choose who steers them (EcoFlow AI or WattWise) on the Plan page.</p>
 
     <template v-if="strategy">
       <h3 class="section-title">Strategy</h3>

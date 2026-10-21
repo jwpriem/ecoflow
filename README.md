@@ -18,7 +18,7 @@ Everything shown comes from the real sources; there is no demo or fake data. A s
 | Prices (15 min) and the live grid meter | Tibber API and Tibber Pulse, once you add your token in Settings. Without Tibber the strategy uses the fallback price |
 | Solar | SolarEdge Monitoring API v2, once you add a Site Access client ID + secret and sign in with SolarEdge. Read every 20 min from 05:00 to 22:00: ≤60 credits/day, ~1,860 per month, under the Free tier's 2,000 (hard cap 64/day) |
 | EcoFlow STREAM Pro | EcoFlow developer API (access key + secret key from developer-eu.ecoflow.com, saved in Settings). Saving the keys adds every STREAM unit on the account as a battery; charge level, battery power and direct PV are read once a minute |
-| Battery control | Not yet: the plan is computed and logged, but sending modes to the STREAM Pro waits for phase 0 (see the design doc) |
+| Battery control | Choose on the Plan page: EcoFlow AI (the app only plans) or WattWise (each plan mode is applied through the backup reserve in Self-Powered mode; see `backupReserveFor`) |
 
 ## Stack
 
