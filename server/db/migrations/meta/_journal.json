@@ -15,6 +15,13 @@
       "when": 1792179345815,
       "tag": "0001_push",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792592661301,
+      "tag": "0002_ecoflow_devices",
+      "breakpoints": true
     }
   ]
 }

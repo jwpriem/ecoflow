@@ -121,7 +121,7 @@ const VIEW_OPTIONS = [
   { value: 'clean', label: 'Clean' },
   { value: 'detailed', label: 'Detailed' },
 ] as const
-const sourceLabel = computed(() => ({ pulse: 'Live · Tibber Pulse', fake: 'Simulated' } as Record<string, string>)[d.value?.live?.houseSource] ?? '')
+const sourceLabel = computed(() => ({ pulse: 'Live · Tibber Pulse' } as Record<string, string>)[d.value?.live?.houseSource] ?? '')
 
 const ACTION_COLOR: Record<string, string> = {
   charge_grid: 'var(--c-grid-charge)',
@@ -152,7 +152,7 @@ const unitCols = computed(() => {
 })
 const unitState = (b: any) => (b.powerW > 5 ? 'charging' : b.powerW < -5 ? 'discharging' : 'idle')
 const totalPower = computed(() => (d.value?.devices ?? []).reduce((s: number, b: any) => s + b.powerW, 0))
-const houseW = computed(() => (d.value?.live ? d.value.live.houseNetW + (d.value.live.solarW ?? 0) : null))
+const houseW = computed(() => (d.value?.live?.houseNetW != null ? d.value.live.houseNetW + (d.value.live.solarW ?? 0) : null))
 const state = computed(() => (totalPower.value > 5 ? 'charging' : totalPower.value < -5 ? 'discharging' : 'idle'))
 const stateLabel = computed(() => ({ charging: `Charging · ${watt(totalPower.value)}`, discharging: `Discharging · ${watt(-totalPower.value)}`, idle: 'Idle' })[state.value])
 const stateColor = computed(() => ({ charging: 'var(--sys-green)', discharging: 'var(--sys-orange)', idle: 'var(--text-2)' })[state.value])

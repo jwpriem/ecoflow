@@ -1,7 +1,6 @@
 import { and, asc, eq, gte, lt, sql } from 'drizzle-orm'
 import type { Db } from '../db/client'
 import { prices, type sites } from '../db/schema'
-import { fakePrice } from '../lib/fake'
 import { feedInPrice } from '../lib/feedin'
 import { pricesMessage } from '../lib/notifications'
 import { addMs, SLOT_MS, slotStartOf, startOfLocalDay } from '../lib/time'
@@ -11,15 +10,6 @@ import { getIntegration, markIntegration } from './integrations'
 import { notify } from './push'
 
 type Site = typeof sites.$inferSelect
-
-export function fakePriceRows(site: Site, from: Date, to: Date) {
-  const rows: (typeof prices.$inferInsert)[] = []
-  for (let t = slotStartOf(from); t < to; t = addMs(t, SLOT_MS)) {
-    const p = fakePrice(t, site.timezone)
-    rows.push({ siteId: site.id, slotStart: t, slotMinutes: 15, ...p, feedIn: feedInPrice(t, p.energy, p.total, site.strategy.feedIn), source: 'fake' })
-  }
-  return rows
-}
 
 export async function upsertPrices(db: Db, rows: (typeof prices.$inferInsert)[]) {
   for (let i = 0; i < rows.length; i += 1000) {
@@ -40,8 +30,8 @@ export async function upsertPrices(db: Db, rows: (typeof prices.$inferInsert)[])
   }
 }
 
-/** Fetch today + tomorrow from Tibber; without a Tibber connection, fill in fake prices. */
-export async function refreshPrices(db: Db, site: Site, key: string): Promise<{ source: 'tibber' | 'fake'; count: number }> {
+/** Fetch today + tomorrow from Tibber. Without a Tibber connection there are no prices (the strategy then uses fallbackPrice). */
+export async function refreshPrices(db: Db, site: Site, key: string): Promise<{ source: 'tibber' | null; count: number }> {
   const tibber = await getIntegration<TibberCredentials>(db, site.id, 'tibber', key)
   const homeId = tibber?.meta.homeId as string | undefined
   if (tibber && homeId) {
@@ -83,12 +73,7 @@ export async function refreshPrices(db: Db, site: Site, key: string): Promise<{ 
       throw err
     }
   }
-  const from = slotStartOf(Date.now() - 12 * 3600_000)
-  const rows = fakePriceRows(site, from, addMs(from, 48 * 3600_000))
-  // never overwrite real prices with fake ones
-  await db.delete(prices).where(and(eq(prices.siteId, site.id), gte(prices.slotStart, from), eq(prices.source, 'fake')))
-  await db.insert(prices).values(rows).onConflictDoNothing()
-  return { source: 'fake', count: rows.length }
+  return { source: null, count: 0 }
 }
 
 export async function getPrices(db: Db, siteId: number, from: Date, to: Date): Promise<(PriceSlot & { source: string })[]> {

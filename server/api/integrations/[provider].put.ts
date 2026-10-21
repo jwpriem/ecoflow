@@ -2,6 +2,7 @@ import type { Provider } from '../../db/schema'
 import { tibberHomes, type TibberCredentials } from '../../providers/tibber'
 import { getIntegration, markIntegration, saveIntegration } from '../../services/integrations'
 import { refreshPrices } from '../../services/prices'
+import { syncEcoFlowDevices } from '../../services/ecoflow'
 import { syncPulse } from '../../services/pulse'
 import { forgetSolarEdge, testSolarEdge } from '../../services/solaredge'
 import { runStrategy } from '../../services/strategy'
@@ -66,6 +67,13 @@ export default defineEventHandler(async (event) => {
   const saved = await getIntegration(db, site.id, provider, key)
   if (provider === 'tibber') await markIntegration(db, saved!.row.id, error)
   if (provider === 'solaredge') forgetSolarEdge(site.id)
+
+  // Lists the units on the EcoFlow account, adds them as batteries and records the outcome
+  if (provider === 'ecoflow_official') {
+    const r = await syncEcoFlowDevices(db, site, key)
+    const synced = await getIntegration(db, site.id, provider, key)
+    return { ok: !r.error, error: r.error ?? null, meta: synced?.meta ?? meta }
+  }
 
   if (provider === 'tibber' && !error) {
     await syncPulse(db, site, key)

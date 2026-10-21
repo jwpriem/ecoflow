@@ -2,7 +2,7 @@
   <div class="login">
     <img class="mark rise" src="/favicon.svg" alt="WattWise" width="84" height="84" />
     <h1 class="rise">{{ needsSetup ? 'Welcome to WattWise' : 'Welcome back' }}</h1>
-    <p class="muted rise lede">{{ needsSetup ? 'First run: this creates the only account, with two simulated STREAM Pro batteries.' : 'Log in to see your batteries.' }}</p>
+    <p class="muted rise lede">{{ needsSetup ? 'First run: this creates the only account. Add your EcoFlow developer keys in Settings to bring in the batteries.' : 'Log in to see your batteries.' }}</p>
     <form class="rise" @submit.prevent="submit">
       <div class="list">
         <label class="list-row stack"><input v-model="email" type="email" placeholder="Email" autocomplete="username" required /></label>

@@ -9,16 +9,16 @@ Personal energy app for 2× EcoFlow STREAM Pro (1920 Wh each), SolarEdge solar a
 
 Design and reasoning: [`docs/plans/2026-10-16-energy-app-design.md`](docs/plans/2026-10-16-energy-app-design.md).
 
-## What's real and what's fake (for now)
+## Data sources
 
-| Part | Status |
+Everything shown comes from the real sources; there is no demo or fake data. A source that is not connected is left out.
+
+| Part | Source |
 |---|---|
-| Tibber prices (15 min) and Pulse live meter | **Real** once you add your token in Settings. Without it, fake Dutch-style prices are used |
-| SolarEdge | **Real** once you add a Site Access client ID + secret (Monitoring API v2) and sign in with SolarEdge. Solar production read every 20 min from 05:00 to 22:00: ≤60 credits/day, ~1,860 per month, under the Free tier's 2,000 (hard cap 64/day) |
-| EcoFlow STREAM Pro | **Simulated**: two batteries that behave like the real ones (power limits, SoC, losses, modes) and react to your real Pulse/SolarEdge data |
-| History | `npm run db:seed` creates 30 days of fake history so the savings screens have something to show |
-
-The batteries are simulated until phase 0 proves which EcoFlow commands actually work on the STREAM Pro (see the design doc).
+| Prices (15 min) and the live grid meter | Tibber API and Tibber Pulse, once you add your token in Settings. Without Tibber the strategy uses the fallback price |
+| Solar | SolarEdge Monitoring API v2, once you add a Site Access client ID + secret and sign in with SolarEdge. Read every 20 min from 05:00 to 22:00: ≤60 credits/day, ~1,860 per month, under the Free tier's 2,000 (hard cap 64/day) |
+| EcoFlow STREAM Pro | EcoFlow developer API (access key + secret key from developer-eu.ecoflow.com, saved in Settings). Saving the keys adds every STREAM unit on the account as a battery; charge level, battery power and direct PV are read once a minute |
+| Battery control | Not yet: the plan is computed and logged, but sending modes to the STREAM Pro waits for phase 0 (see the design doc) |
 
 ## Stack
 
@@ -28,10 +28,10 @@ Background jobs (`server/tasks`):
 
 | Job | When | What |
 |---|---|---|
-| `collect` | every minute | grid (Pulse → fake), solar (SolarEdge → fake), simulated batteries → `samples` |
+| `collect` | every minute | grid (Pulse), solar (SolarEdge), batteries (EcoFlow) → `samples` |
 | `ledger` | every 15 min | books finished slots into `ledger` and updates each battery's cost pool |
 | `strategy` | every 15 min | rebuilds the plan and sends the current mode to the batteries |
-| `prices` | hourly at :05 | Tibber today + tomorrow (falls back to fake prices) |
+| `prices` | hourly at :05 | Tibber today + tomorrow |
 | `digest` | hourly at :00 | at 21:00 local time: push today's savings |
 
 ## Local development
@@ -40,7 +40,6 @@ Background jobs (`server/tasks`):
 npm install
 cp .env.example .env        # fill in NUXT_DATABASE_URL (Neon or local Postgres) and NUXT_ENCRYPTION_KEY
 node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"   # → NUXT_ENCRYPTION_KEY
-npm run db:seed             # creates SEED_EMAIL / SEED_PASSWORD + 2 simulated batteries + 30 days of history
 npm run dev                 # http://localhost:3000
 ```
 
@@ -48,19 +47,14 @@ npm run dev                 # http://localhost:3000
 
 The Neon project `ecoflow-energy` has two branches:
 
-- `main`: production, schema only. Point App Platform at its **pooled** connection string. It only fills up with real data from the moment the app runs.
-- `dev`: the same schema plus 30 days of seeded demo history (login `demo@example.com`). Use it for local development or a preview deploy.
+- `main`: production. Point App Platform at its **pooled** connection string.
+- `dev`: for local development or a preview deploy.
 
-To re-seed `dev` (or any Neon branch) from a network that only allows HTTPS, add `SEED_NEON_HTTP=1`:
-
-```bash
-NUXT_DATABASE_URL=<dev pooled url> SEED_NEON_HTTP=1 SEED_EMAIL=demo@example.com SEED_PASSWORD=… npm run db:seed
-```
-
-Without the seed, the first visit to `/login` lets you create the account (only while no user exists).
+The first visit to `/login` lets you create the account (only while no user exists).
 
 ```bash
-npm test          # ledger, strategy, simulator, crypto
+npm test          # ledger, strategy, EcoFlow client, crypto
+ECOFLOW_ACCESS_KEY=… ECOFLOW_SECRET_KEY=… npm run test:live   # live check of the EcoFlow developer API
 npm run typecheck
 npm run build
 ```
@@ -72,7 +66,7 @@ Migrations run automatically on server start. After changing `server/db/schema.t
 1. Create a Neon project and copy the **pooled** connection string (`…-pooler…`, `sslmode=require`).
 2. Create the app from this repo, either in the UI or with `doctl apps create --spec .do/app.yaml`.
 3. Set the secrets `NUXT_DATABASE_URL` and `NUXT_ENCRYPTION_KEY`. Keep the encryption key safe: without it the saved credentials can't be decrypted.
-4. Deploy, open the app, create your account (or run the seed against Neon from your machine), then add Tibber and SolarEdge in Settings. For SolarEdge, create a Site Access application at developer.solaredge.com and register the redirect URI that Settings shows (`<server>/api/integrations/solaredge/callback`; set `NUXT_APP_URL` if it comes out wrong behind a proxy).
+4. Deploy, open the app, create your account, then add Tibber, SolarEdge and the EcoFlow developer keys in Settings. For SolarEdge, create a Site Access application at developer.solaredge.com and register the redirect URI that Settings shows (`<server>/api/integrations/solaredge/callback`; set `NUXT_APP_URL` if it comes out wrong behind a proxy).
 
 Keep one instance: it holds the Pulse websocket and runs the control loop. An advisory lock prevents double work if it ever scales out.
 

@@ -85,7 +85,8 @@
         <div class="list-row"><button class="plain" @click="saveDevice(d)">Save {{ d.name }}</button><span v-if="deviceMsg === d.id" class="small pos">Saved</span></div>
       </div>
     </template>
-    <p class="foot">Both batteries run on the simulated driver until the EcoFlow connection is proven (phase 0).</p>
+    <p v-if="!devs.length" class="foot">No batteries yet: save the EcoFlow developer API keys above to add the STREAM units on your account.</p>
+    <p v-else class="foot">Read live through the EcoFlow developer API. Steering the batteries comes after phase 0.</p>
 
     <template v-if="strategy">
       <h3 class="section-title">Strategy</h3>
@@ -180,14 +181,14 @@ const INFO: Record<string, { title: string; help: string; icon: string; tile: st
     title: 'EcoFlow app login',
     icon: 'battery',
     tile: 'var(--c-battery-1)',
-    help: 'Stored encrypted for the phase 0 control test (unofficial MQTT route). Not used yet; the batteries are simulated.',
+    help: 'Stored encrypted for the phase 0 control test (unofficial MQTT route). Not used yet.',
     fields: [{ key: 'email', label: 'EcoFlow email' }, { key: 'password', label: 'EcoFlow password', secret: true }],
   },
   ecoflow_official: {
     title: 'EcoFlow developer API',
     icon: 'key',
     tile: 'var(--surface-3)',
-    help: 'Access key and secret key from developer-eu.ecoflow.com. Stored for later; not used yet.',
+    help: 'Access key and secret key from developer-eu.ecoflow.com. Reads charge level, battery power and PV of every STREAM unit on the account, once a minute.',
     fields: [{ key: 'accessKey', label: 'Access key', secret: true }, { key: 'secretKey', label: 'Secret key', secret: true }],
   },
 }

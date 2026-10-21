@@ -1,6 +1,6 @@
 import { and, asc, eq, gte, inArray } from 'drizzle-orm'
 import { devices, plans, samples } from '../db/schema'
-import type { SimState } from '../lib/simulator'
+import type { DeviceState } from '../providers/ecoflow'
 import { projectSoc } from '../lib/socForecast'
 import { SLOT_MS, slotStartOf } from '../lib/time'
 
@@ -44,7 +44,7 @@ export default defineEventHandler(async (event) => {
       return { ts: new Date(k + SLOT_MS / 2), soc: devs.reduce((s, d, i) => s + per[i]! * d.capacityWh, 0) / (capacityWh || 1), devices: per }
     })
 
-  const states = devs.map((d) => d.state as unknown as SimState)
+  const states = devs.map((d) => d.state as DeviceState)
   const socNow = capacityWh ? devs.reduce((s, d, i) => s + (states[i]!.soc ?? 0) * d.capacityWh, 0) / capacityWh : 0
   const cfg = site.strategy
   const planRows = await db
