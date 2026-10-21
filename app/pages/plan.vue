@@ -26,13 +26,28 @@
 
       <h3 class="section-title">Control</h3>
       <section class="card rise">
-        <Segmented
-          :model-value="data.controlMode"
-          :options="[{ value: 'auto', label: 'Automatic' }, { value: 'manual', label: 'Monitor only' }]"
-          full
-          @update:model-value="(v) => send({ controlMode: v })"
-        />
-        <p class="small muted hint">{{ data.controlMode === 'auto' ? 'The plan is sent to the batteries every 15 minutes.' : 'The batteries run on their own; the plan is only shown.' }}</p>
+        <template v-if="data.steering">
+          <Segmented
+            :model-value="data.steering"
+            :options="[{ value: 'ecoflow_ai', label: 'EcoFlow AI' }, { value: 'wattwise', label: 'WattWise' }]"
+            full
+            @update:model-value="(v) => setSteering(v)"
+          />
+          <p class="small muted hint">
+            <template v-if="steeringError"><span class="error">{{ steeringError }}</span></template>
+            <template v-else-if="data.steering === 'ecoflow_ai'">EcoFlow's AI mode steers the batteries; the plan is only shown.</template>
+            <template v-else>WattWise steers the batteries through the backup reserve, in Self-Powered mode.</template>
+          </p>
+        </template>
+        <template v-if="data.steering !== 'ecoflow_ai'">
+          <Segmented
+            :model-value="data.controlMode"
+            :options="[{ value: 'auto', label: 'Automatic' }, { value: 'manual', label: 'Monitor only' }]"
+            full
+            @update:model-value="(v) => send({ controlMode: v })"
+          />
+          <p class="small muted hint">{{ data.controlMode === 'auto' ? 'The plan is sent to the batteries every 15 minutes.' : 'The batteries run on their own; the plan is only shown.' }}</p>
+        </template>
 
         <div v-if="data.override" class="override">
           <span class="dot" :style="{ background: `var(${colorOf(data.override.mode)})` }" />
@@ -145,6 +160,17 @@ async function load() {
   data.value = await api('/api/plan')
 }
 let toast: ReturnType<typeof setTimeout>
+const steeringError = ref('')
+async function setSteering(steering: string) {
+  steeringError.value = ''
+  try {
+    await api('/api/ecoflow/steering', { method: 'PUT', body: { steering } })
+    await load()
+  } catch (e: any) {
+    steeringError.value = e?.data?.statusMessage ?? e?.message ?? 'Switching failed'
+  }
+}
+
 async function send(body: Record<string, unknown>) {
   const r: any = await api('/api/plan/override', { method: 'POST', body })
   message.value = `Batteries now: ${MODE_LABEL[r.command.mode]} (${r.command.source})`

@@ -6,6 +6,7 @@ import { buildPlan, type PlanSlot } from '../lib/strategy'
 import { addMs, SLOT_MS, slotStartOf } from '../lib/time'
 import type { BatteryMode } from '../lib/types'
 import type { DeviceState } from '../providers/ecoflow'
+import { controlEcoFlow } from './ecoflow'
 import { getPrices } from './prices'
 import { notify } from './push'
 
@@ -44,7 +45,7 @@ export function currentCommand(site: Site, plan: PlanSlot[], now: Date): { mode:
   return { mode: slot.action, powerW: slot.targetW, source: 'plan' }
 }
 
-export async function runStrategy(db: Db, site: Site, now = new Date()) {
+export async function runStrategy(db: Db, site: Site, now = new Date(), send?: (mode: BatteryMode) => Promise<string>) {
   const plan = await computePlan(db, site, now)
   const from = slotStartOf(now)
   await db.delete(plans).where(and(eq(plans.siteId, site.id), gte(plans.slotStart, from)))
@@ -60,16 +61,25 @@ export async function runStrategy(db: Db, site: Site, now = new Date()) {
   // The last command actually sent, so re-running within a slot (e.g. after a settings change) stays quiet
   const [last] = devs.length ? await recentCommands(db, [devs[0]!.id], 1) : []
   const prevMode = last?.command as BatteryMode | undefined
-  for (const d of devs) {
-    // Split a total power target over the batteries in proportion to their charge power
-    const powerW = cmd.powerW ? Math.round((cmd.powerW * d.maxChargeW) / totalChargeW) : undefined
-    const state = d.state as DeviceState
-    if (state.mode === cmd.mode && state.commandW === powerW) continue
+  // The STREAM units work as one system: one setting on the main unit steers them all.
+  // Monitor only (manual) sends nothing; a failed send is retried on the next run.
+  const changed = devs.some((d) => (d.state as DeviceState).mode !== cmd.mode)
+  const result = !changed
+    ? null
+    : cmd.source === 'manual'
+      ? 'skipped: monitor only'
+      : await (send ?? ((m: BatteryMode) => controlEcoFlow(db, site, encryptionKey(), m)))(cmd.mode)
+  if (result !== null) {
     const validUntil = addMs(from, SLOT_MS + 5 * 60_000)
-    // Reading works through the developer API; sending modes to the STREAM Pro still has to be proven (phase 0)
-    const result = 'skipped: EcoFlow control not implemented yet'
-    await db.update(devices).set({ state: { ...state, mode: cmd.mode, commandW: powerW } as Record<string, unknown> }).where(eq(devices.id, d.id))
-    await db.insert(commandsLog).values({ deviceId: d.id, command: cmd.mode, payload: { powerW, source: cmd.source, validUntil: validUntil.toISOString() }, result })
+    for (const d of devs) {
+      // Split a total power target over the batteries in proportion to their charge power (for the log; the STREAM picks its own power)
+      const powerW = cmd.powerW ? Math.round((cmd.powerW * d.maxChargeW) / totalChargeW) : undefined
+      const state = d.state as DeviceState
+      if (!result.startsWith('error')) {
+        await db.update(devices).set({ state: { ...state, mode: cmd.mode, commandW: powerW } as Record<string, unknown> }).where(eq(devices.id, d.id))
+      }
+      await db.insert(commandsLog).values({ deviceId: d.id, command: cmd.mode, payload: { powerW, source: cmd.source, validUntil: validUntil.toISOString() }, result })
+    }
   }
   // Tell the owner when the plan starts a grid-charge or discharge block (not for their own overrides)
   if (cmd.source === 'plan' && devs.length) {

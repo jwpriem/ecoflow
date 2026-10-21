@@ -6,7 +6,7 @@ export type DeviceRow = typeof devices.$inferSelect
 
 /**
  * EcoFlow IoT Open API (developer-eu.ecoflow.com): access key + secret key, every request signed with HMAC-SHA256.
- * Used for reading the STREAM Pro. Control still has to be proven (phase 0, see docs/plans).
+ * Used for reading the STREAM Pro and for steering it through the backup reserve (setStreamConfig).
  */
 export const ECOFLOW_HOST = 'https://api-e.ecoflow.com'
 const UA = 'ecoflow-energy/0.1'
@@ -132,6 +132,32 @@ export function listDevices(creds: EcoFlowCredentials, opts?: RequestOptions) {
 
 export function deviceQuota(creds: EcoFlowCredentials, sn: string, opts?: RequestOptions) {
   return ecoflowRequest<Record<string, unknown>>(creds, 'GET', '/iot-open/sign/device/quota/all', { sn }, opts).then((d) => d ?? {})
+}
+
+/** Envelope of a STREAM setting change (PUT quota), as used by evcc and the EcoFlow app */
+const STREAM_SET = { cmdId: 17, cmdFunc: 254, dirDest: 1, dirSrc: 1, dest: 2, needAck: true }
+
+/** Change settings on a STREAM system; send it to the main unit (distributedDeviceStatus MASTER) */
+export function setStreamConfig(creds: EcoFlowCredentials, sn: string, params: Record<string, unknown>, opts?: RequestOptions) {
+  return ecoflowRequest<unknown>(creds, 'PUT', '/iot-open/sign/device/quota', { sn, ...STREAM_SET, params }, opts)
+}
+
+/**
+ * The developer API has no "charge/discharge now" for the STREAM. The plan's modes are mapped onto the
+ * backup reserve (cfgBackupReverseSoc) while the system runs in Self-Powered mode, like evcc does:
+ * - self_use / discharge: reserve at the strategy minimum, the STREAM covers the house load itself
+ * - solar_only (hold): reserve at the current level, so it stops discharging but still takes in solar
+ * - charge_grid: reserve at the charge target, the STREAM charges from the grid to reach it
+ * The unit rejects a reserve less than 3 above its own discharge limit (cmsMinDsgSoc).
+ */
+export function backupReserveFor(
+  mode: BatteryMode,
+  s: { socPct: number; reservePct: number; targetPct: number; minDsgPct: number; maxChgPct: number },
+): number {
+  const lo = s.minDsgPct + 3
+  const hi = Math.max(lo, Math.min(100, s.maxChgPct))
+  const want = mode === 'solar_only' ? Math.ceil(s.socPct) : mode === 'charge_grid' ? s.targetPct : s.reservePct
+  return Math.round(Math.min(hi, Math.max(lo, want)))
 }
 
 /**

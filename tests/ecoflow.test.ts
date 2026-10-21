@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
+  backupReserveFor,
   deviceQuota,
   ecoflowRequest,
   flattenParams,
@@ -177,5 +178,22 @@ describe('EcoFlow MQTT messages', () => {
 
   it('builds the per-unit topic', () => {
     expect(quotaTopic('open-abc', 'BK12')).toBe('/open/open-abc/BK12/quota')
+  })
+})
+
+describe('STREAM control through the backup reserve', () => {
+  const base = { socPct: 41.3, reservePct: 10, targetPct: 100, minDsgPct: 0, maxChgPct: 95 }
+
+  it('maps each plan mode onto a reserve level', () => {
+    expect(backupReserveFor('self_use', base)).toBe(10)
+    expect(backupReserveFor('discharge', base)).toBe(10)
+    expect(backupReserveFor('solar_only', base)).toBe(42) // hold: no discharge below the current level
+    expect(backupReserveFor('charge_grid', base)).toBe(95) // capped at the unit's own max charge level
+  })
+
+  it('keeps the reserve 3 above the discharge limit, as the unit requires', () => {
+    expect(backupReserveFor('self_use', { ...base, reservePct: 0 })).toBe(3)
+    expect(backupReserveFor('self_use', { ...base, reservePct: 5, minDsgPct: 10 })).toBe(13)
+    expect(backupReserveFor('solar_only', { ...base, socPct: 1 })).toBe(3)
   })
 })

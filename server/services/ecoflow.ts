@@ -1,13 +1,16 @@
 import { and, eq } from 'drizzle-orm'
 import type { Db } from '../db/client'
 import { devices, type sites } from '../db/schema'
+import type { BatteryMode } from '../lib/types'
 import {
+  backupReserveFor,
   deviceQuota,
   type DeviceState,
   type EcoFlowCredentials,
   listDevices,
   parseStreamQuota,
   type RequestOptions,
+  setStreamConfig,
   shareSystemReading,
   type StreamReading,
   streamDevices,
@@ -117,4 +120,73 @@ export async function readEcoFlow(db: Db, site: Site, key: string, now = new Dat
   }
   await markIntegration(db, integ.row.id, errors.length ? errors.join('; ') : undefined)
   return out
+}
+
+/** Who steers the STREAM: EcoFlow's own AI mode, or WattWise through the backup reserve (Self-Powered mode) */
+export type EcoFlowSteering = 'ecoflow_ai' | 'wattwise'
+
+export function steeringOf(meta: Record<string, unknown> | undefined): EcoFlowSteering {
+  return meta?.steering === 'wattwise' ? 'wattwise' : 'ecoflow_ai'
+}
+
+/** The unit that takes settings for the whole system: the one reporting MASTER, else the one with system values */
+async function mainUnit(db: Db, site: Site) {
+  const rows = await db
+    .select()
+    .from(devices)
+    .where(and(eq(devices.siteId, site.id), eq(devices.driver, 'ecoflow_official')))
+  const quota = (d: (typeof rows)[number]) => (d.state as DeviceState).quota ?? {}
+  return (
+    rows.find((d) => quota(d).distributedDeviceStatus === 'MASTER') ??
+    rows.find((d) => Number(quota(d).cmsBattSoc) > 0) ??
+    rows[0]
+  )
+}
+
+const operateMode = (steering: EcoFlowSteering) =>
+  steering === 'wattwise' ? { operateSelfPoweredOpen: true } : { operateIntelligentScheduleModeOpen: true }
+
+/** Switch the system between EcoFlow AI and WattWise. Returns an error message, or nothing when it worked. */
+export async function setEcoFlowSteering(db: Db, site: Site, key: string, steering: EcoFlowSteering): Promise<string | undefined> {
+  const integ = await credentials(db, site, key)
+  if (!integ) return 'EcoFlow developer API is not connected'
+  const main = await mainUnit(db, site)
+  if (!main) return 'No STREAM units found'
+  try {
+    await setStreamConfig(integ.creds, main.serial, { cfgEnergyStrategyOperateMode: operateMode(steering) }, integ.opts)
+    await updateIntegration(db, integ.row.id, { meta: { ...integ.meta, steering } }, key)
+    return undefined
+  } catch (err) {
+    return (err as Error).message
+  }
+}
+
+/**
+ * Apply one plan mode to the STREAM system. Only when WattWise steers; with EcoFlow AI nothing is sent.
+ * Returns what to put in the command log.
+ */
+export async function controlEcoFlow(db: Db, site: Site, key: string, mode: BatteryMode): Promise<string> {
+  const integ = await credentials(db, site, key)
+  if (!integ) return 'skipped: EcoFlow developer API not connected'
+  if (steeringOf(integ.meta) !== 'wattwise') return 'skipped: EcoFlow AI mode steers the batteries'
+  const main = await mainUnit(db, site)
+  if (!main) return 'skipped: no STREAM units'
+  const q = (main.state as DeviceState).quota ?? {}
+  const n = (k: string, d: number) => (Number.isFinite(Number(q[k])) && q[k] !== null && q[k] !== undefined ? Number(q[k]) : d)
+  const reserve = backupReserveFor(mode, {
+    socPct: n('cmsBattSoc', 0),
+    reservePct: site.strategy.reserveSoc * 100,
+    targetPct: site.strategy.maxSoc * 100,
+    minDsgPct: n('cmsMinDsgSoc', 0),
+    maxChgPct: n('cmsMaxChgSoc', 100),
+  })
+  try {
+    // The app (or a reset) may have switched AI mode back on; WattWise only works in Self-Powered mode
+    const switchMode = q['energyStrategyOperateMode.operateSelfPoweredOpen'] === false
+    if (switchMode) await setStreamConfig(integ.creds, main.serial, { cfgEnergyStrategyOperateMode: operateMode('wattwise') }, integ.opts)
+    await setStreamConfig(integ.creds, main.serial, { cfgBackupReverseSoc: reserve }, integ.opts)
+    return `ok: backup reserve ${reserve}%${switchMode ? ', switched to Self-Powered mode' : ''}`
+  } catch (err) {
+    return `error: ${(err as Error).message}`
+  }
 }
