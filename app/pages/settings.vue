@@ -1,6 +1,7 @@
 <template>
   <div>
     <header class="page-head"><h1>Settings</h1></header>
+    <LoadError v-if="loadError" :error="loadError" what="your settings" :busy="busy === 'load'" @retry="retryLoad" />
 
     <h3 class="section-title">Energy flow</h3>
     <div class="list" role="radiogroup" aria-label="Default energy flow view">
@@ -85,7 +86,7 @@
         <div class="list-row"><button class="plain" @click="saveDevice(d)">Save {{ d.name }}</button><span v-if="deviceMsg === d.id" class="small pos">Saved</span></div>
       </div>
     </template>
-    <p v-if="!devs.length" class="foot">No batteries yet: save the EcoFlow developer API keys above to add the STREAM units on your account.</p>
+    <p v-if="!devs.length && !loadError" class="foot">No batteries yet: save the EcoFlow developer API keys above to add the STREAM units on your account.</p>
     <p v-else class="foot">Read live through the EcoFlow developer API. Choose who steers them (EcoFlow AI or WattWise) on the Plan page.</p>
 
     <template v-if="strategy">
@@ -280,6 +281,21 @@ async function logout() {
   await navigateTo('/login')
 }
 
+const loadError = ref<any>(null)
+async function safeLoad() {
+  try {
+    await load()
+    loadError.value = null
+  } catch (e) {
+    loadError.value = e
+  }
+}
+async function retryLoad() {
+  busy.value = 'load'
+  await safeLoad()
+  busy.value = ''
+}
+
 onMounted(async () => {
   // Back from SolarEdge Connect: /settings?solaredge=ok or ?solaredge=<error>
   const route = useRoute()
@@ -289,14 +305,14 @@ onMounted(async () => {
     navigateTo({ query: {} }, { replace: true })
   }
   push.init().catch(() => (push.state.value = 'unsupported'))
-  await load()
+  await safeLoad()
   // Sign-in may finish in another window or on another device: refresh when the page is shown again
   document.addEventListener('visibilitychange', onVisible)
 })
 onBeforeUnmount(() => document.removeEventListener('visibilitychange', onVisible))
 
 function onVisible() {
-  if (document.visibilityState === 'visible' && !busy.value) load().catch(() => undefined)
+  if (document.visibilityState === 'visible' && !busy.value) safeLoad()
 }
 </script>
 

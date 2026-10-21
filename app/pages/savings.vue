@@ -4,7 +4,13 @@
 
     <Segmented v-model="period" :options="periods" full aria-label="Period" />
 
-    <template v-if="data">
+    <template v-if="data && !data.rows.length">
+      <section class="nothing">
+        <h2>Nothing booked yet</h2>
+        <p>Every 15 minutes WattWise books what went into and out of the batteries, with the price at that moment. Savings show up here after the first charge and discharge.</p>
+      </section>
+    </template>
+    <template v-else-if="data">
       <section class="total">
         <p class="t-value" :class="{ neg: savingTotal < 0 }">{{ eur(savingT) }}</p>
         <p class="t-line">saved {{ rangeLabel }}</p>
@@ -31,7 +37,7 @@
       </section>
 
       <!-- Where the charge came from: one bar split solar / grid -->
-      <section class="block">
+      <section v-if="chargedTotal > 0" class="block">
         <div class="block-head"><h2>Where the charge came from</h2></div>
         <div class="split" role="img" :aria-label="`Solar ${solarShare}%, grid ${100 - solarShare}%`">
           <div class="seg solar" :style="{ flexGrow: data.totals.chargedSolarKwh || 0.0001 }" />
@@ -83,6 +89,7 @@
         </div>
       </details>
     </template>
+    <LoadError v-else-if="error" :error="error" what="your savings" :busy="loading" @retry="load" />
     <div v-else class="skeleton" style="height: 340px; margin-top: 24px" />
   </div>
 </template>
@@ -103,10 +110,21 @@ const bases = [
 const period = ref<(typeof periods)[number]['value']>('day')
 const basis = ref<'naive' | 'opportunity'>('naive')
 const data = ref<any>(null)
+const error = ref<any>(null)
+const loading = ref(false)
 
 watch(period, load, { immediate: true })
 async function load() {
-  data.value = await api('/api/savings', { query: { period: period.value } })
+  loading.value = true
+  try {
+    data.value = await api('/api/savings', { query: { period: period.value } })
+    error.value = null
+  } catch (e) {
+    data.value = null
+    error.value = e
+  } finally {
+    loading.value = false
+  }
 }
 
 const rangeLabel = computed(() => ({ hour: 'in the last 48 hours', day: 'in the last 31 days', week: 'in the last 17 weeks', month: 'in the last 13 months', year: 'since the start' })[period.value])
@@ -115,6 +133,7 @@ const savingTotal = computed(() => (basis.value === 'naive' ? data.value?.totals
 const savingT = useTweened(() => savingTotal.value, { stiffness: 60 })
 const dischargedT = useTweened(() => data.value?.totals.dischargedKwh ?? 0, { stiffness: 60 })
 const chargedT = useTweened(() => (data.value ? data.value.totals.chargedSolarKwh + data.value.totals.chargedGridKwh : 0), { stiffness: 60 })
+const chargedTotal = computed(() => (data.value ? data.value.totals.chargedSolarKwh + data.value.totals.chargedGridKwh : 0))
 const solarShare = computed(() => {
   const t = data.value?.totals
   const all = t ? t.chargedSolarKwh + t.chargedGridKwh : 0
@@ -133,6 +152,9 @@ function fmtBucket(b: string) {
 </script>
 
 <style scoped>
+.nothing { margin: 28px 0 0; }
+.nothing h2 { font-size: 21px; font-weight: 700; font-stretch: 112%; margin: 0 0 6px; }
+.nothing p { margin: 0; color: var(--text-2); max-width: 46ch; }
 .total { margin: 28px 0 14px; }
 .t-value { margin: 0; font-size: clamp(56px, 17vw, 80px); line-height: 0.95; font-weight: 650; font-stretch: 75%; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
 .t-value.neg { color: var(--alert); }
