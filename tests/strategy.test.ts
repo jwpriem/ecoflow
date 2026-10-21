@@ -44,4 +44,72 @@ describe('buildPlan', () => {
     const plan = buildPlan(input([0.5, 0.1], 0.384))
     expect(plan[1]!.action).not.toBe('charge_grid')
   })
+
+  describe('daily cycle', () => {
+    // 96 quarter-hours of one day (UTC midnight = 01:00/02:00 Amsterdam, so use UTC for clean days)
+    const day = (fn: (i: number) => number) => Array.from({ length: 96 }, (_, i) => fn(i))
+    const flat = day((i) => (i < 24 ? 0.2 : i >= 72 ? 0.24 : 0.22)) // night cheap, evening barely dearer: no arbitrage
+    const cycle = (totals: number[], storedKwh: number, extra = {}) =>
+      buildPlan({ ...input(totals, storedKwh, { avgLoadW: 450, maxOutputW: 800, dailyCycleKwh: 3.84, ...extra }), timeZone: 'UTC' })
+    const discharged = (plan: ReturnType<typeof buildPlan>) => plan.filter((p) => p.action === 'discharge').length * 0.1125
+
+    it('cycles the full usable range even when the spread does not pay', () => {
+      expect(buildPlan(input(flat, 0.384, { avgLoadW: 450 })).some((p) => p.action === 'discharge')).toBe(false)
+      const plan = cycle(flat, 0.384)
+      // usable range 3.84 * (1 - 0.1) = 3.456 kWh at 450 W = 0.1125 kWh per slot -> 30.7 slots
+      expect(plan.filter((p) => p.action === 'discharge').length).toBe(31) // the last one runs into reserve
+      // charged in the cheap night, discharged in the whole dear evening first
+      const firstDis = plan.findIndex((p) => p.action === 'discharge')
+      const lastChg = plan.map((p) => p.action).lastIndexOf('charge_grid')
+      expect(plan.slice(72).every((p) => p.action === 'discharge')).toBe(true)
+      expect(plan.slice(24).some((p) => p.action === 'charge_grid')).toBe(false)
+      expect(lastChg).toBeLessThan(firstDis)
+    })
+
+    it('stays between reserve and max charge', () => {
+      const plan = cycle(flat, 0.384)
+      let soc = 0.384
+      for (const p of plan) {
+        if (p.action === 'charge_grid') soc += ((p.targetW! * 0.25) / 1000) * Math.sqrt(0.85)
+        if (p.action === 'discharge') soc -= 0.1125
+        expect(soc).toBeGreaterThanOrEqual(0.384 - 0.1125) // the last slot may run into reserve
+        expect(soc).toBeLessThanOrEqual(3.84 + 0.01)
+      }
+    })
+
+    it('uses stored energy first and buys only the rest', () => {
+      // stored energy cost above every price, so only the daily cycle discharges it
+      const plan = buildPlan({ ...input(flat, 3.84, { avgLoadW: 450, dailyCycleKwh: 3.84 }), poolAvgCost: 0.5, timeZone: 'UTC' })
+      expect(plan.some((p) => p.action === 'charge_grid')).toBe(false)
+      expect(plan.filter((p) => p.action === 'discharge').length).toBe(31)
+    })
+
+    it('discharges no faster than the output limit', () => {
+      const plan = buildPlan({ ...input(flat, 3.84, { avgLoadW: 2000, maxOutputW: 800, dailyCycleKwh: 3.84 }), poolAvgCost: 0.5, timeZone: 'UTC' })
+      // 800 W = 0.2 kWh per slot -> 3.456 / 0.2 = 17.3 slots
+      expect(plan.filter((p) => p.action === 'discharge').length).toBe(18)
+    })
+
+    it('counts what was already discharged today', () => {
+      const plan = buildPlan({ ...input(flat, 3.84, { avgLoadW: 450, dailyCycleKwh: 3.84 }), poolAvgCost: 0.5, timeZone: 'UTC', dischargedTodayKwh: 3 })
+      expect(plan.filter((p) => p.action === 'discharge').length).toBe(5) // (3.456 - 3) / 0.1125 = 4.05 slots
+    })
+
+    it('plans each day on its own', () => {
+      const plan = cycle([...flat, ...flat], 0.384)
+      expect(discharged(plan.slice(0, 96))).toBeGreaterThan(3.456 - 0.06)
+      expect(discharged(plan.slice(96))).toBeGreaterThan(3.456 - 0.06)
+      // the second day refills in its own cheap night
+      expect(plan.slice(96, 120).some((p) => p.action === 'charge_grid')).toBe(true)
+    })
+
+    it('never buys dearer than it sells', () => {
+      const plan = cycle(day((i) => 0.4 - i * 0.001), 0.384) // prices only fall: nothing cheaper before any slot
+      expect(plan.some((p) => p.action !== 'solar_only')).toBe(false)
+    })
+
+    it('is off by default', () => {
+      expect(buildPlan(input(flat, 0.384, { avgLoadW: 450 })).some((p) => p.action === 'discharge')).toBe(false)
+    })
+  })
 })

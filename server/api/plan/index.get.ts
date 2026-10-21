@@ -1,6 +1,7 @@
 import { and, asc, eq, gte, lt } from 'drizzle-orm'
 import { devices, plans } from '../../db/schema'
 import { addMs, startOfLocalDay } from '../../lib/time'
+import { defaultStrategy } from '../../lib/types'
 import { getPrices } from '../../services/prices'
 import { steeringOf } from '../../services/ecoflow'
 import { getIntegration } from '../../services/integrations'
@@ -23,7 +24,7 @@ export default defineEventHandler(async (event) => {
     controlMode: site.controlMode,
     steering: ecoflow ? steeringOf(ecoflow.meta) : null,
     override: site.override,
-    strategy: site.strategy,
+    strategy: { ...defaultStrategy, ...site.strategy },
     slots: priceList.map((p) => {
       const plan = planBySlot.get(p.slotStart.getTime())
       return { slotStart: p.slotStart, total: p.total, feedIn: p.feedIn, source: p.source, action: plan?.action ?? null, targetW: plan?.targetW ?? null, reason: plan?.reason ?? null }

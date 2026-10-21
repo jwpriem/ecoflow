@@ -13,6 +13,13 @@ export interface StrategyConfig {
   gridCharge: boolean
   /** Typical household load while discharging, W (the Stream follows the load, it does not export) */
   avgLoadW: number
+  /** Most the batteries together can deliver to the house, W (the STREAM system's AC output limit) */
+  maxOutputW: number
+  /**
+   * Minimum kWh to discharge every day, filled from the cheapest grid slots and used in the most
+   * expensive ones even when the spread does not pay. 0 = off. Capped at the usable range (max - reserve).
+   */
+  dailyCycleKwh: number
   /** How solar you store is valued when you could have exported it instead */
   feedIn: {
     /** Until this date (exclusive) exported kWh are netted at the full price (saldering) */
@@ -32,6 +39,8 @@ export const defaultStrategy: StrategyConfig = {
   minSpread: 0.03,
   gridCharge: true,
   avgLoadW: 450,
+  maxOutputW: 800,
+  dailyCycleKwh: 0,
   feedIn: { nettingUntil: '2027-01-01', factor: 1, feeEur: 0 },
   fallbackPrice: 0.25,
 }
