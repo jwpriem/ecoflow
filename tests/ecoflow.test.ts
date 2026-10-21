@@ -139,6 +139,20 @@ describe('multi-unit STREAM systems', () => {
     ])
   })
 
+  it("uses each unit's own power from vol x amp (as pushed over MQTT)", () => {
+    // Real values 2026-10-21: the leader discharged 855 W, the follower 3 W, while REST only had the system -662 W
+    const lead = parseStreamQuota({ cmsBattSoc: 7, powGetBpCms: -662.37, f32ShowSoc: 4.76, vol: 18137, amp: -47170, bmsChgDsgState: 0 })
+    const follower = parseStreamQuota({ cmsBattSoc: 0, powGetBpCms: 0, f32ShowSoc: 9.02, vol: 19270, amp: -160, bmsChgDsgState: 1 })
+    expect(lead.powerW).toBe(-856)
+    const out = shareSystemReading([
+      { id: 1, capacityWh: 1920, reading: follower },
+      { id: 2, capacityWh: 1920, reading: lead },
+    ])
+    expect(out.map((u) => u.reading.powerW)).toEqual([-3, -856])
+    expect(out[0]!.reading.soc).toBeCloseTo(0.0902, 4)
+    expect(out[1]!.reading.soc).toBeCloseTo(0.0476, 4)
+  })
+
   it('leaves units alone when each reports its own values, or when there is only one', () => {
     const both = [unit(1, 0.3, 100), unit(2, 0.6, -200)]
     expect(shareSystemReading(both)).toEqual(both)
