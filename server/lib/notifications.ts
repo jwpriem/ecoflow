@@ -10,7 +10,6 @@ const hhmm = (d: Date, timeZone: string) => d.toLocaleTimeString('nl-NL', { time
 const PROVIDER_NAME: Record<string, string> = {
   tibber: 'Tibber',
   solaredge: 'SolarEdge',
-  ecoflow_app: 'EcoFlow',
   ecoflow_official: 'EcoFlow developer API',
 }
 

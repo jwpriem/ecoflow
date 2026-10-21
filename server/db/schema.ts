@@ -44,7 +44,7 @@ export const sites = pgTable('sites', {
   createdAt: ts('created_at').notNull().defaultNow(),
 })
 
-export type Provider = 'tibber' | 'solaredge' | 'ecoflow_app' | 'ecoflow_official'
+export type Provider = 'tibber' | 'solaredge' | 'ecoflow_official'
 
 export const integrations = pgTable(
   'integrations',
@@ -69,8 +69,8 @@ export const devices = pgTable(
   {
     id: serial('id').primaryKey(),
     siteId: integer('site_id').notNull().references(() => sites.id, { onDelete: 'cascade' }),
-    /** ecoflow_official = read through the developer API; ecoflow_app = app login (MQTT), for control later */
-    driver: text('driver').$type<'ecoflow_app' | 'ecoflow_official'>().notNull().default('ecoflow_official'),
+    /** ecoflow_official = read and steered through the developer API */
+    driver: text('driver').$type<'ecoflow_official'>().notNull().default('ecoflow_official'),
     serial: text('serial').notNull(),
     name: text('name').notNull(),
     model: text('model').notNull().default('STREAM Pro'),

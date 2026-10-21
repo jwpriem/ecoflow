@@ -180,13 +180,6 @@ const INFO: Record<string, { title: string; help: string; icon: string; tile: st
     help: 'Monitoring API v2. Create a Site Access application at developer.solaredge.com with the redirect URI below, save its client ID and secret here, then sign in with SolarEdge to grant access. Read every 20 minutes from 05:00 to 22:00: at most 64 credits a day, so the Free tier (2,000 a month) is never exceeded.',
     fields: [{ key: 'clientId', label: 'Client ID' }, { key: 'clientSecret', label: 'Client secret', secret: true }],
   },
-  ecoflow_app: {
-    title: 'EcoFlow app login',
-    icon: 'battery',
-    tile: 'var(--c-battery-1)',
-    help: 'Stored encrypted for the phase 0 control test (unofficial MQTT route). Not used yet.',
-    fields: [{ key: 'email', label: 'EcoFlow email' }, { key: 'password', label: 'EcoFlow password', secret: true }],
-  },
   ecoflow_official: {
     title: 'EcoFlow developer API',
     icon: 'key',
@@ -197,7 +190,7 @@ const INFO: Record<string, { title: string; help: string; icon: string; tile: st
 }
 
 const integrations = ref<any[]>([])
-const forms = reactive<Record<string, Record<string, string>>>({ tibber: {}, solaredge: {}, ecoflow_app: {}, ecoflow_official: {} })
+const forms = reactive<Record<string, Record<string, string>>>({ tibber: {}, solaredge: {}, ecoflow_official: {} })
 const results = reactive<Record<string, { ok: boolean; text: string } | undefined>>({})
 const busy = ref('')
 const homeId = ref('')
