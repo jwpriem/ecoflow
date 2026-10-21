@@ -110,7 +110,7 @@ export async function readEcoFlow(db: Db, site: Site, key: string, now = new Dat
       online: true,
       ts: now.toISOString(),
       quota,
-      mqtt: { connected: mqtt.connected, error: mqtt.error ?? null, ...(mqtt.units?.[d.serial] ?? {}), lastGetReply: mqtt.lastGetReply ?? null },
+      mqtt: { connected: mqtt.connected, error: mqtt.error ?? null, ...(mqtt.units?.[d.serial] ?? {}), lastGetReply: mqtt.lastGetReply ?? null, raw: mqtt.raw ?? null },
     }
     await db.update(devices).set({ state: state as Record<string, unknown> }).where(eq(devices.id, d.id))
     out.push({ deviceId: d.id, state })

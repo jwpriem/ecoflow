@@ -10,7 +10,7 @@ import {
   signString,
   streamDevices,
 } from '../server/providers/ecoflow'
-import { quotaFromMessage, quotaTopic } from '../server/providers/ecoflow/mqtt'
+import { quotaFromMessage, quotaTopic, rawSample } from '../server/providers/ecoflow/mqtt'
 
 const creds = { accessKey: 'Fp4SvIprYSDPXtYJidEtUAd1o', secretKey: 'WIbFEKre0s6sLnh4ei7SPUeYnptHG6V' }
 const fixed = { now: () => 1671171709428, nonce: () => '345164' }
@@ -152,6 +152,11 @@ describe('EcoFlow MQTT messages', () => {
     expect(quotaFromMessage(JSON.stringify({ param: { vol: 51.2 } }))).toEqual({ vol: 51.2 })
     expect(quotaFromMessage(JSON.stringify({ data: { quotaMap: { amp: -3 } } }))).toEqual({ amp: -3 })
     expect(quotaFromMessage('not json')).toBeNull()
+  })
+
+  it('keeps a readable sample of JSON and base64 of binary payloads', () => {
+    expect(rawSample(Buffer.from('{"params":{"vol":51}}'))).toBe('{"params":{"vol":51}}')
+    expect(rawSample(Buffer.from([0x0a, 0x8f, 0x01, 0xff]))).toBe('base64:Co8B/w==')
   })
 
   it('builds the per-unit topic', () => {

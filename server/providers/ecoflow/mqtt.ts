@@ -38,6 +38,13 @@ export function quotaFromMessage(raw: Buffer | string): Record<string, unknown> 
   return null
 }
 
+/** Start of a payload for the status: text as is, binary (e.g. protobuf) as base64 */
+export function rawSample(payload: Buffer): string {
+  const head = payload.subarray(0, 300)
+  const text = head.toString('utf8')
+  return /^[\x09\x0a\x0d\x20-\x7e\u00a0-\uffff]*$/.test(text) && !text.includes('\ufffd') ? text : `base64:${head.toString('base64')}`
+}
+
 interface UnitState {
   quota: Record<string, unknown>
   lastAt: number
@@ -50,6 +57,8 @@ interface Conn {
   account?: string
   units: Map<string, UnitState>
   lastGetReply?: { at: number; sn: string; body: string }
+  /** Every message that came in, parsed or not, so a payload format we don't understand still shows up */
+  raw?: { count: number; unparsed: number; at: number; topic: string; sample: string }
   pollTimer?: ReturnType<typeof setInterval>
   stopped: boolean
   error?: string
@@ -76,6 +85,7 @@ export function ecoflowMqttStatus(siteId: number) {
       [...c.units].map(([sn, u]) => [sn, { messages: u.messages, firstAt: new Date(u.firstAt).toISOString(), lastAt: new Date(u.lastAt).toISOString(), keys: Object.keys(u.quota).length }]),
     ),
     lastGetReply: c.lastGetReply ? { ...c.lastGetReply, at: new Date(c.lastGetReply.at).toISOString() } : null,
+    raw: c.raw ? { ...c.raw, at: new Date(c.raw.at).toISOString() } : null,
   }
 }
 
@@ -123,10 +133,12 @@ export async function startEcoFlowMqtt(siteId: number, creds: EcoFlowCredentials
     }
   })
   client.on('message', (topic, payload) => {
+    const q = quotaFromMessage(payload)
+    const raw = conn.raw ?? { count: 0, unparsed: 0, at: 0, topic: '', sample: '' }
+    conn.raw = { count: raw.count + 1, unparsed: raw.unparsed + (q ? 0 : 1), at: Date.now(), topic: topic.split('/').slice(-2).join('/'), sample: rawSample(payload) }
     const sn = serials.find((s) => topic.includes(`/${s}/`))
     if (!sn) return
     if (topic.endsWith('/get_reply')) conn.lastGetReply = { at: Date.now(), sn, body: payload.toString().slice(0, 2000) }
-    const q = quotaFromMessage(payload)
     if (!q) return
     const now = Date.now()
     const u = conn.units.get(sn) ?? { quota: {}, lastAt: now, messages: 0, firstAt: now }
