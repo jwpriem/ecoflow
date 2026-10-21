@@ -53,6 +53,7 @@ interface Conn {
   pollTimer?: ReturnType<typeof setInterval>
   stopped: boolean
   error?: string
+  subscribedAt?: number
 }
 
 const conns = new Map<number, Conn>()
@@ -70,6 +71,7 @@ export function ecoflowMqttStatus(siteId: number) {
   return {
     connected: !!c.client?.connected,
     error: c.error ?? null,
+    subscribedAt: c.subscribedAt ? new Date(c.subscribedAt).toISOString() : null,
     units: Object.fromEntries(
       [...c.units].map(([sn, u]) => [sn, { messages: u.messages, firstAt: new Date(u.firstAt).toISOString(), lastAt: new Date(u.lastAt).toISOString(), keys: Object.keys(u.quota).length }]),
     ),
@@ -110,7 +112,12 @@ export async function startEcoFlowMqtt(siteId: number, creds: EcoFlowCredentials
 
   client.on('connect', () => {
     conn.error = undefined
-    client.subscribe(serials.flatMap((sn) => [quotaTopic(account, sn), getReplyTopic(account, sn)]))
+    client.subscribe(serials.flatMap((sn) => [quotaTopic(account, sn), getReplyTopic(account, sn)]), (err, granted) => {
+      // The broker answers a refused topic with QoS 128 instead of an error
+      const refused = (granted ?? []).filter((g) => g.qos === 128).map((g) => g.topic.split('/').slice(-2).join('/'))
+      if (err || refused.length) conn.error = err?.message ?? `subscription refused: ${refused.join(', ')}`
+      conn.subscribedAt = Date.now()
+    })
   })
   client.on('message', (topic, payload) => {
     const sn = serials.find((s) => topic.includes(`/${s}/`))
