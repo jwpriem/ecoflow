@@ -126,6 +126,14 @@ export function deviceQuota(creds: EcoFlowCredentials, sn: string, opts?: Reques
   return ecoflowRequest<Record<string, unknown>>(creds, 'GET', '/iot-open/sign/device/quota/all', { sn }, opts).then((d) => d ?? {})
 }
 
+/** Specific keys via POST. Used for per-unit pack values that quota/all may leave out. */
+export function deviceQuotaKeys(creds: EcoFlowCredentials, sn: string, quotas: string[], opts?: RequestOptions) {
+  return ecoflowRequest<Record<string, unknown>>(creds, 'POST', '/iot-open/sign/device/quota', { sn, params: { quotas } }, opts).then((d) => d ?? {})
+}
+
+/** Per-pack keys of the STREAM BMS; the cms* keys are the system (leader) values */
+export const PACK_KEYS = ['bmsBattSoc', 'bmsChgDsgState', 'bmsBattSoh', 'cmsBattFullEnergy', 'powGetBp', 'powGetPv', 'powGetPv2']
+
 const num = (v: unknown): number | undefined => {
   const n = typeof v === 'string' && v.trim() !== '' ? Number(v) : v
   return typeof n === 'number' && Number.isFinite(n) ? n : undefined
@@ -133,13 +141,15 @@ const num = (v: unknown): number | undefined => {
 
 /**
  * Map a STREAM quota to what the app stores. Keys as reported for the STREAM series:
- * - cmsBattSoc: charge level in % (a follower unit in a multi-unit system may report 0)
+ * - bmsBattSoc: this unit's own pack level in %, when the API returns it
+ * - cmsBattSoc: charge level in % (a follower unit in a multi-unit system reports 0)
  * - powGetBpCms: battery pack power in W, positive when the battery delivers power
  * - cmsChgDsgState / bmsChgDsgState: 0 idle, 1 discharging, 2 charging; wins over the sign when present
  * - powGetPvSum (or powGetPv + powGetPv2...): direct PV input in W
  */
 export function parseStreamQuota(q: Record<string, unknown>): StreamReading {
-  const socPct = num(q.cmsBattSoc) ?? num(q.bmsBattSoc) ?? num(q.soc)
+  const pack = num(q.bmsBattSoc)
+  const socPct = pack ? pack : (num(q.cmsBattSoc) ?? pack ?? num(q.soc))
   const bp = num(q.powGetBpCms) ?? 0
   const state = num(q.cmsChgDsgState) ?? num(q.bmsChgDsgState)
   let powerW = -bp // app convention: + = charging
@@ -159,4 +169,22 @@ export function parseStreamQuota(q: Record<string, unknown>): StreamReading {
 export function streamDevices(list: EcoFlowDevice[]): EcoFlowDevice[] {
   const streams = list.filter((d) => /stream/i.test(d.productName ?? '') || /stream/i.test(d.deviceName ?? ''))
   return streams.length ? streams : list
+}
+
+/**
+ * Several STREAM units on one account work as one system: the leader reports the system values
+ * (charge level, battery power, PV) and the followers report 0 for all of them. Share the leader's
+ * reading over all units by capacity, so the combined level and power come out right.
+ * Units that all report something are left as they are.
+ */
+export function shareSystemReading<T extends { capacityWh: number; reading: StreamReading }>(units: T[]): T[] {
+  const silent = (r: StreamReading) => !r.soc && !r.powerW && !r.pvW
+  const leaders = units.filter((u) => !silent(u.reading))
+  if (units.length < 2 || leaders.length !== 1) return units
+  const lead = leaders[0]!.reading
+  const totalCap = units.reduce((s, u) => s + u.capacityWh, 0) || 1
+  return units.map((u) => {
+    const share = u.capacityWh / totalCap
+    return { ...u, reading: { soc: lead.soc, powerW: Math.round(lead.powerW * share), pvW: Math.round(lead.pvW * share) } }
+  })
 }

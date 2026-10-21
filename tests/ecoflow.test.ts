@@ -5,6 +5,7 @@ import {
   flattenParams,
   listDevices,
   parseStreamQuota,
+  shareSystemReading,
   sign,
   signString,
   streamDevices,
@@ -84,6 +85,11 @@ describe('STREAM quota mapping', () => {
     expect(parseStreamQuota({ cmsBattSoc: 64, powGetBpCms: -800 })).toEqual({ soc: 0.64, powerW: 800, pvW: 0 })
   })
 
+  it("prefers the unit's own pack level over the system level", () => {
+    expect(parseStreamQuota({ cmsBattSoc: 42, bmsBattSoc: 40 }).soc).toBe(0.4)
+    expect(parseStreamQuota({ cmsBattSoc: 42, bmsBattSoc: 0 }).soc).toBe(0.42)
+  })
+
   it('lets the charge/discharge state decide the direction', () => {
     expect(parseStreamQuota({ powGetBpCms: 500, cmsChgDsgState: 2 }).powerW).toBe(500)
     expect(parseStreamQuota({ powGetBpCms: -500, cmsChgDsgState: 1 }).powerW).toBe(-500)
@@ -100,5 +106,28 @@ describe('STREAM quota mapping', () => {
     ]
     expect(streamDevices(list).map((d) => d.sn)).toEqual(['S1'])
     expect(streamDevices([list[0]!]).map((d) => d.sn)).toEqual(['R1'])
+  })
+})
+
+describe('multi-unit STREAM systems', () => {
+  const unit = (id: number, soc: number | null, powerW = 0, pvW = 0, capacityWh = 1920) => ({ id, capacityWh, reading: { soc, powerW, pvW } })
+
+  it('shares the leader reading when the follower reports zeros (as seen on the real units)', () => {
+    const out = shareSystemReading([unit(1, 0), unit(2, 0.42, -600, 300)])
+    expect(out.map((u) => u.reading)).toEqual([
+      { soc: 0.42, powerW: -300, pvW: 150 },
+      { soc: 0.42, powerW: -300, pvW: 150 },
+    ])
+  })
+
+  it('splits by capacity', () => {
+    const out = shareSystemReading([unit(1, 0.5, 900, 0, 3840), unit(2, 0, 0, 0, 1920)])
+    expect(out.map((u) => u.reading.powerW)).toEqual([600, 300])
+  })
+
+  it('leaves units alone when each reports its own values, or when there is only one', () => {
+    const both = [unit(1, 0.3, 100), unit(2, 0.6, -200)]
+    expect(shareSystemReading(both)).toEqual(both)
+    expect(shareSystemReading([unit(1, 0)])).toEqual([unit(1, 0)])
   })
 })
