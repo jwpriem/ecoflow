@@ -1,31 +1,55 @@
 <template>
   <div>
-    <header class="page-head">
-      <h1>Plan</h1>
-      <span v-if="data?.slots[0]" class="sub">Tibber prices</span>
-    </header>
+    <header class="page-head"><h1>Plan</h1></header>
 
     <template v-if="data">
-      <section class="card rise">
-        <div class="card-head">
-          <span class="eyebrow">Price & plan</span>
-          <span v-if="cheapest && dearest" class="small muted">{{ eur(cheapest.total, 2) }} – {{ eur(dearest.total, 2) }}</span>
-        </div>
-        <div class="chart">
-          <BarChart
-            :labels="data.slots.map((s: any) => label(s.slotStart))"
-            :series="[{ label: 'Price', data: data.slots.map((s: any) => s.total), color: '--c-hold', colors: data.slots.map((s: any) => colorOf(s.action)) }]"
-            :legend="false"
-            :format="(v) => eur(v, 3)"
-          />
-        </div>
-        <div class="legend">
-          <span v-for="a in actions" :key="a.value"><i :style="{ background: `var(${a.color})` }" /> {{ a.label }}</span>
-        </div>
+      <p v-if="data.override" class="override">
+        <span><strong>Override:</strong> {{ MODE_LABEL[data.override.mode] }} until {{ time(data.override.until) }}</span>
+        <button class="plain" :disabled="busy" @click="endOverride">End override</button>
+      </p>
+      <p v-if="data.steering === 'ecoflow_ai'" class="note">EcoFlow AI steers the batteries. This plan is only shown.</p>
+      <p v-else-if="data.controlMode === 'manual'" class="note">Monitoring only: this plan isn't sent to the batteries.</p>
+
+      <!-- Readout for the selected quarter; it starts on now -->
+      <section class="readout" aria-live="polite">
+        <template v-if="picked">
+          <h2 class="r-act"><i class="sw" :style="{ background: colorOf(picked.action) }" />{{ picked.action ? MODE_LABEL[picked.action] : 'No plan' }}</h2>
+          <p class="r-line">
+            <span class="r-when">{{ isNow ? 'Now' : dayLabel(picked.slotStart) }}, {{ time(picked.slotStart) }}–{{ time(slotEnd(picked.slotStart)) }}</span>
+            <span class="r-price">{{ cents(picked.total) }} per kWh</span>
+          </p>
+          <p v-if="picked.reason" class="r-reason">{{ picked.reason }}</p>
+          <button v-if="!isNow && nowIndex >= 0" class="plain r-back" @click="selected = nowIndex">Back to now</button>
+        </template>
       </section>
 
-      <h3 class="section-title">Control</h3>
-      <section class="card rise">
+      <PriceChart v-model="selected" :slots="data.slots" :now="now" />
+      <ul class="legend">
+        <li v-for="a in actions" :key="a.value"><i class="sw" :style="{ background: a.color }" />{{ a.label }}</li>
+      </ul>
+      <p v-if="!hasTomorrow" class="hint">Tomorrow's prices come in around 13:00.</p>
+
+      <section class="block">
+        <div class="block-head"><h2>Coming up</h2></div>
+        <template v-for="g in shownGroups" :key="g.day">
+          <h3 class="block-sub">{{ g.day }}</h3>
+          <ol class="runs">
+            <li v-for="r in g.runs" :key="r.start" :class="{ current: r.current }">
+              <button type="button" class="run" @click="selected = r.index">
+                <i class="sw" :style="{ background: colorOf(r.action) }" />
+                <span class="run-time">{{ time(r.start) }}–{{ time(r.end) }}</span>
+                <span class="run-act">{{ MODE_LABEL[r.action] ?? '–' }}<em v-if="r.current">now</em></span>
+                <span class="run-price">{{ Math.round(r.min * 100) }}<template v-if="Math.round(r.max * 100) !== Math.round(r.min * 100)">–{{ Math.round(r.max * 100) }}</template> ct</span>
+                <span v-if="r.reason" class="run-reason">{{ r.reason }}</span>
+              </button>
+            </li>
+          </ol>
+        </template>
+        <button v-if="hiddenRuns > 0" class="plain more" @click="allRuns = true">Show {{ hiddenRuns }} more</button>
+      </section>
+
+      <section class="block">
+        <div class="block-head"><h2>Who steers the batteries</h2></div>
         <template v-if="data.steering">
           <Segmented
             :model-value="data.steering"
@@ -33,172 +57,284 @@
             full
             @update:model-value="(v) => setSteering(v)"
           />
-          <p class="small muted hint">
-            <template v-if="steeringError"><span class="error">{{ steeringError }}</span></template>
-            <template v-else-if="data.steering === 'ecoflow_ai'">EcoFlow's AI mode steers the batteries; the plan is only shown.</template>
-            <template v-else>WattWise steers the batteries through the backup reserve, in Self-Powered mode.</template>
+          <p class="hint">
+            <span v-if="steeringError" class="error">{{ steeringError }}</span>
+            <template v-else-if="data.steering === 'ecoflow_ai'">EcoFlow's AI mode decides when to charge. WattWise only plans.</template>
+            <template v-else>WattWise applies each plan step through the backup reserve, in Self-Powered mode.</template>
           </p>
         </template>
         <template v-if="data.steering !== 'ecoflow_ai'">
           <Segmented
+            class="mode"
             :model-value="data.controlMode"
-            :options="[{ value: 'auto', label: 'Automatic' }, { value: 'manual', label: 'Monitor only' }]"
+            :options="[{ value: 'auto', label: 'Follow the plan' }, { value: 'manual', label: 'Monitor only' }]"
             full
-            @update:model-value="(v) => send({ controlMode: v })"
+            @update:model-value="(v) => send({ controlMode: v }, v === 'auto' ? 'Following the plan again.' : 'Monitoring only. The plan is no longer sent.')"
           />
-          <p class="small muted hint">{{ data.controlMode === 'auto' ? 'The plan is sent to the batteries every 15 minutes.' : 'The batteries run on their own; the plan is only shown.' }}</p>
+          <p class="hint">{{ data.controlMode === 'auto' ? 'The batteries get the plan every 15 minutes.' : 'The batteries run on their own. The plan is only shown.' }}</p>
         </template>
-
-        <div v-if="data.override" class="override">
-          <span class="dot" :style="{ background: `var(${colorOf(data.override.mode)})` }" />
-          <div class="o-text"><strong>{{ MODE_LABEL[data.override.mode] }}</strong><span class="muted"> until {{ time(data.override.until) }}</span></div>
-          <button class="plain" @click="send({ clear: true })">Clear</button>
-        </div>
-
-        <div class="o-head">
-          <span class="label">Override for</span>
-          <Segmented v-model="minutes" :options="durations" />
-        </div>
-        <div class="actions">
-          <button v-for="a in actions" :key="a.value" class="action" :class="{ on: data.override?.mode === a.value }" @click="send({ mode: a.value, minutes })">
-            <span class="a-icon" :style="{ background: `var(${a.color})` }"><AppIcon :name="a.icon" /></span>
-            <span>{{ a.label }}</span>
-          </button>
-        </div>
-        <Transition name="toast"><p v-if="message" class="toast">{{ message }}</p></Transition>
       </section>
 
-      <h3 class="section-title">Upcoming</h3>
-      <div class="list rise">
-        <div v-for="r in runs" :key="String(r.start)" class="list-row">
-          <div class="lead">
-            <span class="bar-v" :style="{ background: `var(${colorOf(r.action)})` }" />
-            <div style="min-width: 0">
-              <div class="title">{{ MODE_LABEL[r.action] ?? '–' }}</div>
-              <div class="small muted reason">{{ r.reason || '—' }}</div>
-            </div>
-          </div>
-          <div class="detail">
-            <div>{{ label(r.start) }}–{{ time(r.end) }}</div>
-            <div class="small">{{ eur(r.min, 3) }}<template v-if="r.max !== r.min"> – {{ eur(r.max, 3) }}</template></div>
-          </div>
+      <section class="block">
+        <div class="block-head"><h2>Override the plan</h2></div>
+        <div class="choices" role="radiogroup" aria-label="Mode">
+          <label v-for="a in actions" :key="a.value" class="choice">
+            <input v-model="overrideMode" type="radio" name="override-mode" :value="a.value" />
+            <i class="sw" :style="{ background: a.color }" />
+            <span class="c-label">{{ a.label }}</span>
+            <span class="c-help">{{ a.help }}</span>
+          </label>
         </div>
-      </div>
-
-      <section class="card rise">
-        <details class="disclosure">
-          <summary>Commands sent <AppIcon name="chevron" class="chev" style="width: 18px; height: 18px" /></summary>
-          <div class="table-wrap">
-            <table>
-              <thead><tr><th>Time</th><th>Battery</th><th>Mode</th><th>Source</th><th>Result</th></tr></thead>
-              <tbody>
-                <tr v-for="c in data.commands" :key="c.id">
-                  <td>{{ label(c.ts) }}</td>
-                  <td>#{{ c.deviceId }}</td>
-                  <td>{{ MODE_LABEL[c.command] }}</td>
-                  <td>{{ c.payload.source }}</td>
-                  <td>{{ c.result }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </details>
+        <div class="o-foot">
+          <Segmented v-model="minutes" :options="durations" aria-label="Duration" />
+          <button class="primary" :disabled="busy || !overrideMode" @click="startOverride">{{ overrideMode ? `${actionLabel(overrideMode)} for ${durationLabel}` : 'Choose a mode' }}</button>
+        </div>
       </section>
+
+      <details class="block disclosure">
+        <summary>Commands sent <AppIcon name="chevron" class="chev" style="width: 18px; height: 18px" /></summary>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Time</th><th>Battery</th><th>Mode</th><th>Source</th><th>Result</th></tr></thead>
+            <tbody>
+              <tr v-for="c in data.commands" :key="c.id">
+                <td>{{ dayLabel(c.ts) === 'Today' ? '' : `${dayLabel(c.ts)} ` }}{{ time(c.ts) }}</td>
+                <td>#{{ c.deviceId }}</td>
+                <td>{{ MODE_LABEL[c.command] }}</td>
+                <td>{{ c.payload.source }}</td>
+                <td>{{ c.result }}</td>
+              </tr>
+            </tbody>
+          </table>
+          <p v-if="!data.commands?.length" class="hint">Nothing sent yet.</p>
+        </div>
+      </details>
+
+      <Transition name="toast"><p v-if="message" class="toast" role="status">{{ message }}</p></Transition>
     </template>
-    <div v-else class="skeleton" style="height: 300px" />
+    <p v-else-if="error" class="error">{{ error }}</p>
+    <div v-else class="skeleton" style="height: 320px" />
   </div>
 </template>
 
 <script setup lang="ts">
 const api = useApi()
 const data = ref<any>(null)
+const error = ref('')
 const minutes = ref(60)
+const overrideMode = ref<string | null>(null)
 const message = ref('')
+const busy = ref(false)
+const now = ref(Date.now())
+const selected = ref(-1)
 
+const SLOT = 15 * 60_000
 const durations = [
-  { value: 30, label: '30m' },
-  { value: 60, label: '1h' },
-  { value: 120, label: '2h' },
-  { value: 240, label: '4h' },
+  { value: 30, label: '30 min' },
+  { value: 60, label: '1 h' },
+  { value: 120, label: '2 h' },
+  { value: 240, label: '4 h' },
 ] as const
 const actions = [
-  { value: 'charge_grid', label: 'Charge from grid', color: '--c-grid-charge', icon: 'grid' },
-  { value: 'discharge', label: 'Discharge', color: '--c-discharge', icon: 'house' },
-  { value: 'self_use', label: 'Self-use', color: '--c-self-use', icon: 'bolt' },
-  { value: 'solar_only', label: 'Solar only', color: '--c-hold', icon: 'sun' },
+  { value: 'charge_grid', label: 'Charge from grid', help: 'Buy power now and store it', color: 'var(--cheap)' },
+  { value: 'discharge', label: 'Discharge', help: 'Run the house from the batteries', color: 'var(--dear)' },
+  { value: 'self_use', label: 'Self-use', help: 'Store solar, cover the house', color: 'var(--own)' },
+  { value: 'solar_only', label: 'Hold', help: 'Keep the charge, store only solar', color: 'var(--hold)' },
 ] as const
-const colorOf = (a: string | null) => actions.find((x) => x.value === a)?.color ?? '--c-hold'
+const colorOf = (a: string | null) => actions.find((x) => x.value === a)?.color ?? 'var(--fill)'
+const actionLabel = (a: string) => actions.find((x) => x.value === a)?.label ?? a
+const durationLabel = computed(() => durations.find((d) => d.value === minutes.value)?.label ?? `${minutes.value} min`)
+const cents = (p: number) => `${(p * 100).toFixed(1).replace('.', ',')} ct`
+const slotEnd = (s: string) => new Date(new Date(s).getTime() + SLOT)
 
-const upcoming = computed(() => {
-  const now = Date.now() - 15 * 60_000
-  return (data.value?.slots ?? []).filter((s: any) => new Date(s.slotStart).getTime() >= now)
-})
-// Consecutive slots with the same action and reason become one row
-const runs = computed(() => {
-  const out: { start: string; end: Date; action: string; reason: string; min: number; max: number }[] = []
-  for (const s of upcoming.value) {
-    const end = new Date(new Date(s.slotStart).getTime() + 15 * 60_000)
-    const last = out[out.length - 1]
-    if (last && last.action === s.action && last.reason === (s.reason ?? '')) {
-      last.end = end
+function dayLabel(d: string | Date) {
+  const day = new Date(d)
+  day.setHours(0, 0, 0, 0)
+  const today = new Date(now.value)
+  today.setHours(0, 0, 0, 0)
+  const diff = Math.round((day.getTime() - today.getTime()) / 86_400_000)
+  return diff === 0 ? 'Today' : diff === 1 ? 'Tomorrow' : diff === -1 ? 'Yesterday' : day.toLocaleDateString('en-GB', { weekday: 'long' })
+}
+
+const nowIndex = computed(() => (data.value?.slots ?? []).findIndex((s: any) => {
+  const t = new Date(s.slotStart).getTime()
+  return now.value >= t && now.value < t + SLOT
+}))
+const picked = computed(() => data.value?.slots[selected.value] ?? null)
+const isNow = computed(() => selected.value === nowIndex.value)
+const hasTomorrow = computed(() => (data.value?.slots ?? []).some((s: any) => dayLabel(s.slotStart) === 'Tomorrow'))
+
+// From the current quarter on, consecutive slots with the same action and reason become one run
+const runGroups = computed(() => {
+  const slots: any[] = data.value?.slots ?? []
+  const from = Math.max(0, nowIndex.value)
+  const runs: { start: string; end: Date; action: string; reason: string; min: number; max: number; index: number; current: boolean }[] = []
+  for (let i = from; i < slots.length; i++) {
+    const s = slots[i]
+    if (!s.action) continue
+    const last = runs[runs.length - 1]
+    const sameDay = last && dayLabel(last.start) === dayLabel(s.slotStart)
+    if (last && sameDay && last.action === s.action && last.reason === (s.reason ?? '') && last.end.getTime() === new Date(s.slotStart).getTime()) {
+      last.end = slotEnd(s.slotStart)
       last.min = Math.min(last.min, s.total)
       last.max = Math.max(last.max, s.total)
-    } else out.push({ start: s.slotStart, end, action: s.action, reason: s.reason ?? '', min: s.total, max: s.total })
+    } else runs.push({ start: s.slotStart, end: slotEnd(s.slotStart), action: s.action, reason: s.reason ?? '', min: s.total, max: s.total, index: i, current: i === nowIndex.value })
   }
-  return out.slice(0, 16)
+  const groups: { day: string; runs: typeof runs }[] = []
+  for (const r of runs) {
+    const day = dayLabel(r.start)
+    const g = groups.find((x) => x.day === day) ?? (groups.push({ day, runs: [] }), groups[groups.length - 1]!)
+    g.runs.push(r)
+  }
+  return groups
 })
-const cheapest = computed(() => upcoming.value.reduce((m: any, s: any) => (!m || s.total < m.total ? s : m), null))
-const dearest = computed(() => upcoming.value.reduce((m: any, s: any) => (!m || s.total > m.total ? s : m), null))
 
-function label(d: string) {
-  const dt = new Date(d)
-  const today = new Date().toDateString() === dt.toDateString()
-  return (today ? '' : dt.toLocaleDateString('nl-NL', { weekday: 'short' }) + ' ') + time(dt)
-}
+// The next few runs first; the rest on request
+const RUNS_SHOWN = 5
+const allRuns = ref(false)
+const shownGroups = computed(() => {
+  if (allRuns.value) return runGroups.value
+  let left = RUNS_SHOWN
+  return runGroups.value
+    .map((g) => {
+      const runs = g.runs.slice(0, Math.max(0, left))
+      left -= runs.length
+      return { ...g, runs }
+    })
+    .filter((g) => g.runs.length)
+})
+const hiddenRuns = computed(() => runGroups.value.reduce((n, g) => n + g.runs.length, 0) - shownGroups.value.reduce((n, g) => n + g.runs.length, 0))
 
 async function load() {
-  data.value = await api('/api/plan')
+  try {
+    data.value = await api('/api/plan')
+    now.value = Date.now()
+    if (selected.value < 0 || selected.value >= data.value.slots.length) selected.value = nowIndex.value
+    error.value = ''
+  } catch (e: any) {
+    error.value = e?.data?.statusMessage ?? 'Could not load the plan. Check your connection and reload.'
+  }
 }
+
 let toast: ReturnType<typeof setTimeout>
+function say(text: string) {
+  message.value = text
+  clearTimeout(toast)
+  toast = setTimeout(() => (message.value = ''), 4000)
+}
+
 const steeringError = ref('')
 async function setSteering(steering: string) {
   steeringError.value = ''
   try {
     await api('/api/ecoflow/steering', { method: 'PUT', body: { steering } })
     await load()
+    say(steering === 'wattwise' ? 'WattWise now steers the batteries.' : 'EcoFlow AI now steers the batteries.')
   } catch (e: any) {
-    steeringError.value = e?.data?.statusMessage ?? e?.message ?? 'Switching failed'
+    steeringError.value = e?.data?.statusMessage ?? e?.message ?? 'Switching failed. Try again in a minute.'
   }
 }
 
-async function send(body: Record<string, unknown>) {
-  const r: any = await api('/api/plan/override', { method: 'POST', body })
-  message.value = `Batteries now: ${MODE_LABEL[r.command.mode]} (${r.command.source})`
-  clearTimeout(toast)
-  toast = setTimeout(() => (message.value = ''), 3500)
-  await load()
+async function send(body: Record<string, unknown>, done: string) {
+  busy.value = true
+  try {
+    await api('/api/plan/override', { method: 'POST', body })
+    await load()
+    say(done)
+  } catch (e: any) {
+    say(e?.data?.statusMessage ?? 'The batteries didn\'t take the change. Try again.')
+  } finally {
+    busy.value = false
+  }
 }
-onMounted(load)
+function startOverride() {
+  if (!overrideMode.value) return
+  const until = new Date(Date.now() + minutes.value * 60_000)
+  send({ mode: overrideMode.value, minutes: minutes.value }, `Override started: ${actionLabel(overrideMode.value)} until ${time(until)}.`)
+  overrideMode.value = null
+}
+const endOverride = () => send({ clear: true }, 'Override ended. Back to the plan.')
+
+let tick: ReturnType<typeof setInterval>
+onMounted(() => {
+  load()
+  // The now marker moves every minute; the plan itself refreshes every 5
+  let n = 0
+  tick = setInterval(() => {
+    const wasNow = isNow.value
+    now.value = Date.now()
+    if (wasNow) selected.value = nowIndex.value
+    if (++n % 5 === 0) load()
+  }, 60_000)
+})
+onBeforeUnmount(() => clearInterval(tick))
 </script>
 
 <style scoped>
-.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 10px; font-size: 12px; color: var(--text-2); }
-.legend span { display: inline-flex; align-items: center; gap: 6px; }
-.legend i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
-.hint { margin: 10px 4px 0; }
-.override { display: flex; align-items: center; gap: 10px; margin-top: 14px; padding: 10px 12px; border-radius: 14px; background: var(--fill-2); }
-.o-text { flex: 1; font-size: 15px; }
-.o-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 18px 0 10px; }
-.actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.action { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; padding: 14px; border-radius: 16px; background: var(--surface-2); text-align: left; font-size: 15px; font-weight: 600; }
-.action.on { box-shadow: inset 0 0 0 2px var(--text-2); }
-.a-icon { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; color: #fff; }
-.a-icon svg { width: 18px; height: 18px; }
-.toast { margin: 12px 0 0; padding: 10px 12px; border-radius: 12px; background: var(--surface-3); font-size: 13px; }
-.toast-enter-active, .toast-leave-active { transition: opacity 0.25s, transform 0.35s var(--spring); }
-.toast-enter-from, .toast-leave-to { opacity: 0; transform: translateY(6px) scale(0.98); }
-.bar-v { width: 4px; align-self: stretch; border-radius: 2px; flex: none; }
-.list-row { align-items: stretch; }
-.reason { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 46vw; }
-.detail { display: flex; flex-direction: column; justify-content: center; }
+.override { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 0 0 20px; padding: 10px 0 10px 12px; border-left: 3px solid var(--text); font-size: 15px; }
+.override .plain { flex: none; }
+.note { margin: 0 0 20px; }
+
+.readout { min-height: 92px; margin-bottom: 14px; position: relative; }
+.r-act { display: flex; align-items: center; gap: 10px; font-size: 28px; line-height: 1.1; font-weight: 700; font-stretch: 112%; letter-spacing: -0.01em; margin: 0 0 6px; }
+.r-act .sw { width: 14px; height: 14px; border-radius: 3px; }
+.r-line { display: flex; flex-wrap: wrap; gap: 2px 14px; margin: 0; font-size: 16px; font-variant-numeric: tabular-nums; }
+.r-price { font-weight: 600; }
+.r-reason { margin: 4px 0 0; font-size: 14px; color: var(--text-2); max-width: 52ch; }
+.r-back { position: absolute; top: 2px; right: 0; font-size: 14px; }
+
+.legend { list-style: none; display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 10px 0 0; padding: 0; font-size: 13px; color: var(--text-2); }
+.legend li { display: inline-flex; align-items: center; gap: 6px; }
+.legend + .hint { margin-top: 6px; }
+.legend ~ .block { margin-top: 32px; }
+
+.runs { list-style: none; margin: 0; padding: 0; }
+.runs li + li { border-top: 1px solid var(--rule); }
+.run {
+  display: grid; grid-template-columns: 10px 96px 1fr auto; column-gap: 12px; align-items: baseline;
+  width: 100%; padding: 11px 0; border: 0; border-radius: 0; background: none; text-align: left; font-weight: 400; font-size: 16px;
+}
+.run:hover { background: none; }
+.run:hover .run-act { text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--muted); }
+.run .sw { align-self: center; }
+.run-time, .run-price { font-variant-numeric: tabular-nums; font-stretch: 85%; color: var(--text-2); }
+.run-price { font-size: 14px; }
+.run-act em { font-style: normal; font-size: 12px; font-weight: 600; margin-left: 8px; padding: 1px 6px; border-radius: 3px; background: var(--text); color: var(--bg); vertical-align: 2px; }
+.current .run-act { font-weight: 600; }
+.run-reason { grid-column: 3 / -1; font-size: 13px; color: var(--text-2); margin-top: 2px; }
+
+.mode { margin-top: 20px; }
+
+.choices { display: grid; border-top: 1px solid var(--rule); }
+.choice {
+  display: grid; grid-template-columns: 22px 10px 1fr; column-gap: 10px; align-items: center;
+  padding: 10px 0; border-bottom: 1px solid var(--rule); cursor: pointer;
+}
+.choice input {
+  -webkit-appearance: none; appearance: none; width: 18px; height: 18px; margin: 0; padding: 0;
+  border: 1.5px solid var(--text-2); border-radius: 50%; background: none; display: grid; place-content: center; cursor: pointer;
+}
+.choice input::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--text); transform: scale(0); transition: transform 0.15s var(--ease-out); }
+.choice input:checked { border-color: var(--text); }
+.choice input:checked::before { transform: scale(1); }
+.choice input:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+.choice:has(input:checked) { background: var(--fill-2); }
+.more { margin-top: 8px; font-size: 14px; }
+.c-label { font-weight: 600; }
+.c-help { grid-column: 3; font-size: 13px; color: var(--text-2); }
+.o-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-top: 16px; }
+
+.disclosure > summary { font-size: 16px; }
+
+.toast {
+  position: fixed; left: 50%; bottom: calc(76px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 30;
+  width: max-content; max-width: calc(100% - 32px); margin: 0; padding: 10px 14px; border-radius: 6px;
+  background: var(--text); color: var(--bg); font-size: 14px;
+}
+.toast-enter-active, .toast-leave-active { transition: opacity 0.2s, transform 0.25s var(--ease-out); }
+.toast-enter-from, .toast-leave-to { opacity: 0; transform: translate(-50%, 6px); }
+
+@media (max-width: 380px) {
+  .run { grid-template-columns: 10px 84px 1fr auto; }
+}
 </style>

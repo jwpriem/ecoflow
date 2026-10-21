@@ -2,47 +2,49 @@
   <div>
     <header class="page-head"><h1>Savings</h1></header>
 
-    <div class="controls">
-      <Segmented v-model="period" :options="periods" full />
-      <Segmented v-model="basis" :options="bases" full />
-    </div>
+    <Segmented v-model="period" :options="periods" full aria-label="Period" />
 
     <template v-if="data">
-      <section class="card hero rise">
-        <div class="label">Saved · {{ rangeLabel }}</div>
-        <div class="hero-num" :class="savingTotal >= 0 ? '' : 'neg'">{{ eur(savingT) }}</div>
-        <div class="small muted">{{ basis === 'naive' ? 'Solar stored at €0/kWh' : 'Solar stored at the feed-in price you gave up' }}</div>
-        <div class="chart" style="margin-top: 14px"><BarChart :key="`s-${period}-${basis}`" :labels="labels" :series="[{ label: 'Saved', data: savings, color: '--c-battery-1' }]" :format="(v) => eur(v)" /></div>
+      <section class="total">
+        <p class="t-value" :class="{ neg: savingTotal < 0 }">{{ eur(savingT) }}</p>
+        <p class="t-line">saved {{ rangeLabel }}</p>
       </section>
 
-      <div class="grid">
-        <section class="card rise">
-          <div class="label">Discharged</div>
-          <div class="big">{{ dischargedT.toFixed(1) }}<small class="unit">kWh</small></div>
-          <div class="small muted">worth {{ eur(data.totals.valueDischarged) }}</div>
-        </section>
-        <section class="card rise">
-          <div class="label">Charged</div>
-          <div class="big">{{ chargedT.toFixed(1) }}<small class="unit">kWh</small></div>
-          <div class="small muted">{{ kwh(data.totals.lossKwh, 1) }} lost</div>
-        </section>
+      <div class="basis">
+        <Segmented v-model="basis" :options="bases" aria-label="How solar is counted" />
+        <p class="hint">{{ basis === 'naive' ? 'Solar you store counts as free.' : 'Solar you store costs the feed-in price you would have got for it.' }}</p>
       </div>
 
+      <div class="chart saved"><BarChart :key="`s-${period}-${basis}`" :labels="labels" :series="[{ label: 'Saved', data: savings, color: '--c-battery-1', colors: savings.map((v: number) => (v < 0 ? '--alert' : '--text')) }]" :legend="false" :format="(v) => eur(v)" /></div>
+
+      <section class="figures">
+        <div>
+          <span class="f-label">Discharged</span>
+          <span class="f-value">{{ dischargedT.toFixed(1) }}<small> kWh</small></span>
+          <span class="f-note">Worth {{ eur(data.totals.valueDischarged) }} at the prices then</span>
+        </div>
+        <div>
+          <span class="f-label">Charged</span>
+          <span class="f-value">{{ chargedT.toFixed(1) }}<small> kWh</small></span>
+          <span class="f-note">{{ kwh(data.totals.lossKwh, 1) }} lost in conversion</span>
+        </div>
+      </section>
+
       <!-- Where the charge came from: one bar split solar / grid -->
-      <section class="card rise">
-        <div class="card-head"><span class="eyebrow">Charged from</span></div>
+      <section class="block">
+        <div class="block-head"><h2>Where the charge came from</h2></div>
         <div class="split" role="img" :aria-label="`Solar ${solarShare}%, grid ${100 - solarShare}%`">
           <div class="seg solar" :style="{ flexGrow: data.totals.chargedSolarKwh || 0.0001 }" />
           <div class="seg grid-c" :style="{ flexGrow: data.totals.chargedGridKwh || 0.0001 }" />
         </div>
         <div class="split-legend">
-          <span><i style="background: var(--c-solar)" /> Solar <b>{{ kwh(data.totals.chargedSolarKwh, 1) }}</b> · {{ solarShare }}%</span>
-          <span><i style="background: var(--c-grid-charge)" /> Grid <b>{{ kwh(data.totals.chargedGridKwh, 1) }}</b> · {{ 100 - solarShare }}%</span>
+          <span><i class="sw" style="background: var(--sun)" /> Solar <b>{{ solarShare }}%</b> {{ kwh(data.totals.chargedSolarKwh, 1) }}</span>
+          <span><i class="sw" style="background: var(--cheap)" /> Grid <b>{{ 100 - solarShare }}%</b> {{ kwh(data.totals.chargedGridKwh, 1) }}</span>
         </div>
       </section>
 
-      <section class="card rise">
-        <div class="card-head"><span class="eyebrow">Energy per {{ period }}</span></div>
+      <section class="block">
+        <div class="block-head"><h2>In and out per {{ period }}</h2></div>
         <div class="chart">
           <BarChart
             :key="`e-${period}`"
@@ -59,45 +61,43 @@
         </div>
       </section>
 
-      <section class="card rise">
-        <details class="disclosure">
-          <summary>All {{ period }}s <AppIcon name="chevron" class="chev" style="width: 18px; height: 18px" /></summary>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr><th>{{ period }}</th><th>Solar in</th><th>Grid in</th><th>Out</th><th>Cost in</th><th>Value out</th><th>Saved</th></tr>
-              </thead>
-              <tbody>
-                <tr v-for="r in [...data.rows].reverse()" :key="r.bucket">
-                  <td>{{ fmtBucket(r.bucket) }}</td>
-                  <td>{{ r.chargedSolarKwh.toFixed(2) }}</td>
-                  <td>{{ r.chargedGridKwh.toFixed(2) }}</td>
-                  <td>{{ r.dischargedKwh.toFixed(2) }}</td>
-                  <td>{{ eur(basis === 'naive' ? r.costNaive : r.costOpportunity) }}</td>
-                  <td>{{ eur(r.valueDischarged) }}</td>
-                  <td>{{ eur(basis === 'naive' ? r.savingNaive : r.savingOpportunity) }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </details>
-      </section>
+      <details class="block disclosure">
+        <summary>Every {{ period }} <AppIcon name="chevron" class="chev" style="width: 18px; height: 18px" /></summary>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>{{ period[0]!.toUpperCase() + period.slice(1) }}</th><th>Solar in</th><th>Grid in</th><th>Out</th><th>Cost in</th><th>Value out</th><th>Saved</th></tr>
+            </thead>
+            <tbody>
+              <tr v-for="r in [...data.rows].reverse()" :key="r.bucket">
+                <td>{{ fmtBucket(r.bucket) }}</td>
+                <td>{{ r.chargedSolarKwh.toFixed(2) }}</td>
+                <td>{{ r.chargedGridKwh.toFixed(2) }}</td>
+                <td>{{ r.dischargedKwh.toFixed(2) }}</td>
+                <td>{{ eur(basis === 'naive' ? r.costNaive : r.costOpportunity) }}</td>
+                <td>{{ eur(r.valueDischarged) }}</td>
+                <td>{{ eur(basis === 'naive' ? r.savingNaive : r.savingOpportunity) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
     </template>
-    <div v-else class="skeleton" style="height: 340px" />
+    <div v-else class="skeleton" style="height: 340px; margin-top: 24px" />
   </div>
 </template>
 
 <script setup lang="ts">
 const api = useApi()
 const periods = [
-  { value: 'hour', label: 'H' },
-  { value: 'day', label: 'D' },
-  { value: 'week', label: 'W' },
-  { value: 'month', label: 'M' },
-  { value: 'year', label: 'Y' },
+  { value: 'hour', label: 'Hours' },
+  { value: 'day', label: 'Days' },
+  { value: 'week', label: 'Weeks' },
+  { value: 'month', label: 'Months' },
+  { value: 'year', label: 'Years' },
 ] as const
 const bases = [
-  { value: 'naive', label: 'Solar at €0' },
+  { value: 'naive', label: 'Solar free' },
   { value: 'opportunity', label: 'Solar at feed-in' },
 ] as const
 const period = ref<(typeof periods)[number]['value']>('day')
@@ -109,7 +109,7 @@ async function load() {
   data.value = await api('/api/savings', { query: { period: period.value } })
 }
 
-const rangeLabel = computed(() => ({ hour: 'last 48 hours', day: 'last 31 days', week: 'last 120 days', month: 'last 13 months', year: 'all years' })[period.value])
+const rangeLabel = computed(() => ({ hour: 'in the last 48 hours', day: 'in the last 31 days', week: 'in the last 17 weeks', month: 'in the last 13 months', year: 'since the start' })[period.value])
 const savings = computed(() => (data.value?.rows ?? []).map((r: any) => (basis.value === 'naive' ? r.savingNaive : r.savingOpportunity)))
 const savingTotal = computed(() => (basis.value === 'naive' ? data.value?.totals.savingNaive : data.value?.totals.savingOpportunity) ?? 0)
 const savingT = useTweened(() => savingTotal.value, { stiffness: 60 })
@@ -133,17 +133,18 @@ function fmtBucket(b: string) {
 </script>
 
 <style scoped>
-.controls { display: grid; gap: 8px; margin-bottom: 14px; }
-.hero-num { font: 600 44px/1.05 var(--font-rounded); letter-spacing: -0.03em; font-variant-numeric: tabular-nums; margin: 4px 0 2px; color: var(--sys-green); }
-.hero-num.neg { color: var(--sys-red); }
-.unit { font: 500 13px var(--font); color: var(--text-2); margin-left: 4px; letter-spacing: 0; }
-.big { font-size: 28px; margin-top: 4px; }
-.split { display: flex; gap: 2px; height: 14px; border-radius: 7px; overflow: hidden; }
-.seg { flex-basis: 0; transition: flex-grow 0.9s var(--ease-out); }
-.seg.solar { background: var(--c-solar); }
-.seg.grid-c { background: var(--c-grid-charge); }
-.split-legend { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 12px; margin-top: 12px; font-size: 13px; color: var(--text-2); }
+.total { margin: 28px 0 14px; }
+.t-value { margin: 0; font-size: clamp(56px, 17vw, 80px); line-height: 0.95; font-weight: 650; font-stretch: 75%; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.t-value.neg { color: var(--alert); }
+.t-line { margin: 6px 0 0; font-size: 18px; color: var(--text-2); }
+.basis { margin-bottom: 20px; }
+.basis .hint { margin-top: 6px; }
+.chart.saved { margin-bottom: 36px; }
+.split { display: flex; gap: 3px; height: 16px; }
+.seg { flex-basis: 0; border-radius: 2px; transition: flex-grow 0.9s var(--ease-out); }
+.seg.solar { background: var(--sun); }
+.seg.grid-c { background: var(--cheap); }
+.split-legend { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 12px; margin-top: 10px; font-size: 14px; color: var(--text-2); font-variant-numeric: tabular-nums; }
 .split-legend span { display: inline-flex; align-items: center; gap: 6px; }
-.split-legend b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
-.split-legend i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+.split-legend b { color: var(--text); font-weight: 600; }
 </style>

@@ -9,27 +9,27 @@
         :aria-checked="flow.defaultView.value === o.value" @click="flow.setDefault(o.value)"
       >
         <span class="lead">
-          <span class="icon-tile" :style="{ background: o.tile }"><AppIcon :name="o.icon" /></span>
+          <span class="icon-tile"><AppIcon :name="o.icon" /></span>
           <span class="stack-text"><span class="title">{{ o.label }}</span><span class="small muted">{{ o.help }}</span></span>
         </span>
         <AppIcon v-if="flow.defaultView.value === o.value" name="check" class="check" />
       </button>
       <label class="list-row indent">
         <span class="lead">
-          <span class="icon-tile" style="background: var(--sys-green)"><AppIcon name="wave" /></span>
+          <span class="icon-tile"><AppIcon name="wave" /></span>
           <span class="title">Animate flow</span>
         </span>
         <span class="switch"><input type="checkbox" :checked="flow.animate.value" @change="flow.setAnimate(($event.target as HTMLInputElement).checked)" /><span /></span>
       </label>
     </div>
-    <p class="foot">The view the Energy flow card opens with on this device. You can still switch on the card. Flow lines stay still when Reduce Motion is on.</p>
+    <p class="foot">How Energy flow opens on this device. You can still switch on the Home page. Flow lines stay still when Reduce Motion is on.</p>
 
     <h3 class="section-title">Connections</h3>
     <div class="list">
       <details v-for="i in integrations" :key="i.provider" class="conn" :open="i.provider === 'solaredge' && !!results.solaredge">
         <summary class="list-row indent">
           <div class="lead">
-            <span class="icon-tile" :style="{ background: INFO[i.provider]!.tile }"><AppIcon :name="INFO[i.provider]!.icon" /></span>
+            <span class="icon-tile"><AppIcon :name="INFO[i.provider]!.icon" /></span>
             <span class="title">{{ INFO[i.provider]!.title }}</span>
           </div>
           <span class="detail row" style="gap: 6px">
@@ -121,7 +121,7 @@
     <div class="list">
       <div v-if="push.state.value === 'loading'" class="list-row"><span class="muted">Checking…</span></div>
       <div v-else-if="push.state.value === 'install'" class="list-row stack">
-        <span class="title">Add Battery to your Home Screen</span>
+        <span class="title">Add WattWise to your Home Screen</span>
         <span class="small muted">On iPhone, notifications only work from the Home Screen app (iOS 16.4 or later). In Safari tap Share, then <b>Add to Home Screen</b>, open WattWise from there and come back to this page.</span>
       </div>
       <div v-else-if="push.state.value === 'unsupported'" class="list-row"><span class="small muted">This browser can't receive notifications.</span></div>
@@ -144,7 +144,7 @@
     <h3 class="section-title">Account</h3>
     <div class="list">
       <div class="list-row indent">
-        <div class="lead"><span class="icon-tile" style="background: var(--surface-3)"><AppIcon name="person" /></span><span class="title">{{ me?.email }}</span></div>
+        <div class="lead"><span class="icon-tile"><AppIcon name="person" /></span><span class="title">{{ me?.email }}</span></div>
       </div>
       <div class="list-row"><button class="plain danger" @click="logout">Log out</button></div>
     </div>
@@ -155,7 +155,7 @@
 const flow = useFlowView()
 const FLOW_VIEWS = [
   { value: 'clean', label: 'Clean', help: 'Sources and live values', icon: 'nodes', tile: 'var(--surface-3)' },
-  { value: 'detailed', label: 'Detailed', help: 'Your house, the sky and where power comes from', icon: 'house', tile: 'var(--sys-blue)' },
+  { value: 'detailed', label: 'House', help: 'Your house, the sky over it and where power comes from', icon: 'house', tile: 'var(--sys-blue)' },
 ] as const
 const api = useApi()
 const { setToken } = useAuth()
@@ -303,25 +303,26 @@ function onVisible() {
 <style scoped>
 .row-btn { width: 100%; background: none; border-radius: 0; text-align: left; font: inherit; color: var(--text); }
 .row-btn:active { transform: none; background: var(--fill-2); }
-.check { width: 20px; height: 20px; color: var(--accent); stroke-width: 2.6; flex: none; }
+.check { width: 20px; height: 20px; color: var(--text); stroke-width: 2.4; flex: none; }
 .conn > summary { list-style: none; cursor: pointer; }
 .conn > summary::-webkit-details-marker { display: none; }
-.conn + .conn > summary::before { content: ''; position: absolute; top: 0; left: 58px; right: 0; height: 0.5px; background: var(--separator); }
+.conn + .conn > summary::before { content: ''; position: absolute; top: 0; left: 56px; right: 0; height: 1px; background: var(--rule); }
 .chev { width: 16px; height: 16px; color: var(--muted); transition: transform 0.3s var(--spring); }
 .conn[open] .chev { transform: rotate(90deg); }
 .conn .lead { flex: 1; }
 .conn .title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .conn .detail { white-space: nowrap; flex: none; }
-.conn-body { padding: 4px 16px 16px; animation: rise 0.35s var(--ease-out); }
+.conn-body { padding: 4px 16px 16px; }
 .conn-body p { margin: 0 0 12px; }
 .unit-in { display: inline-flex; align-items: center; justify-content: flex-end; gap: 4px; color: var(--text-2); width: 55%; }
 .unit-in input { width: 100%; }
 .copy { user-select: all; word-break: break-all; }
-.foot { font-size: 13px; color: var(--text-2); margin: -6px 20px 0; }
-.wide { width: 100%; margin-top: 4px; }
+.foot { font-size: 13px; color: var(--text-2); margin: -4px 2px 0; max-width: 60ch; }
+.wide { width: 100%; margin-top: 4px; padding: 13px; }
 .stack-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding-right: 12px; }
-.list-row input.range { -webkit-appearance: none; appearance: none; height: 4px; padding: 0; border-radius: 2px; margin: 10px 0 6px; background: linear-gradient(90deg, var(--sys-green) calc(var(--p) * 100%), var(--fill) 0); }
-.range::-webkit-slider-thumb { -webkit-appearance: none; width: 28px; height: 28px; border-radius: 50%; background: #fff; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3); }
-.range::-moz-range-thumb { width: 28px; height: 28px; border: 0; border-radius: 50%; background: #fff; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3); }
+.list-row input.range { -webkit-appearance: none; appearance: none; height: 4px; padding: 0; border-radius: 2px; margin: 10px 0 6px; background: linear-gradient(90deg, var(--text) calc(var(--p) * 100%), var(--fill) 0); }
+.range::-webkit-slider-thumb { -webkit-appearance: none; width: 22px; height: 22px; border-radius: 50%; background: var(--surface); border: 2px solid var(--text); }
+.range::-moz-range-thumb { width: 18px; height: 18px; border: 2px solid var(--text); border-radius: 50%; background: var(--surface); }
+.range:focus-visible::-webkit-slider-thumb { outline: 2px solid var(--text); outline-offset: 2px; }
 .list-row input.range:focus { box-shadow: none; }
 </style>

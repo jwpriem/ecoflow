@@ -10,7 +10,7 @@
         <label v-if="needsSetup" class="list-row stack"><input v-model="setupCode" placeholder="Setup code" autocomplete="off" /></label>
       </div>
       <p v-if="error" class="error">{{ error }}</p>
-      <button class="primary" type="submit" :disabled="busy">{{ busy ? '…' : needsSetup ? 'Create account' : 'Log in' }}</button>
+      <button class="primary" type="submit" :disabled="busy">{{ busy ? (needsSetup ? 'Creating account…' : 'Logging in…') : needsSetup ? 'Create account' : 'Log in' }}</button>
     </form>
   </div>
 </template>
@@ -49,12 +49,12 @@ async function submit() {
 
 <style scoped>
 .login { max-width: 380px; margin: 12vh auto 0; text-align: center; }
-.mark { display: block; width: 84px; height: 84px; margin: 0 auto 18px; border-radius: 22px; box-shadow: 0 12px 40px rgba(48, 209, 88, 0.22); }
-h1 { margin: 0 0 6px; font-size: 28px; }
+.mark { display: block; width: 64px; height: 64px; margin: 0 auto 24px; border-radius: 14px; }
+h1 { margin: 0 0 8px; font-size: 28px; font-stretch: 125%; letter-spacing: -0.02em; }
 .lede { font-size: 15px; margin: 0 0 24px; }
 .list { text-align: left; }
 .list-row.stack { padding: 4px 16px; }
-.list-row.stack input { background: none; padding: 10px 0; border-radius: 0; box-shadow: none; }
-button { width: 100%; padding: 14px; font-size: 17px; border-radius: 14px; }
+.list-row.stack input { border: 0; padding: 10px 0; border-radius: 0; }
+button { width: 100%; padding: 13px; font-size: 16px; }
 .error { margin: 0 0 12px; }
 </style>
