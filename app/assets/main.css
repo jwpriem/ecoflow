@@ -302,8 +302,7 @@ nav.tabs a svg { width: 22px; height: 22px; }
 nav.tabs a.router-link-exact-active { color: var(--text); font-weight: 600; }
 nav.tabs a.router-link-exact-active::before { transform: scaleX(1); }
 
-/* Entrances: none. The page arrives; the day strip is the one thing that draws itself in */
-.rise { }
+/* No entrances: the page arrives; the day strip is the one thing that draws itself in */
 .page-enter-active, .page-leave-active { transition: opacity 0.18s; }
 .page-enter-from, .page-leave-to { opacity: 0; }
 

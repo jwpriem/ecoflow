@@ -48,7 +48,7 @@
         <polygon points="236,120 286,170 286,229 236,229" fill="#cfc7bb" />
         <polygon points="236,120 286,170 236,170" fill="#ada395" />
         <polygon points="240,134 262,156 240,156" :fill="sky.horizon" />
-        <circle cx="266" cy="190" r="22" fill="#ffd60a" :opacity="0.12 + sky.darkness * 0.4" />
+        <circle cx="266" cy="190" r="22" fill="#f2ba30" :opacity="0.12 + sky.darkness * 0.4" />
         <path d="M266 186V228" stroke="#fff" stroke-width="1.5" />
         <polygon points="260,178 272,178 274,188 258,188" fill="#fff6d6" />
         <rect x="238" y="212" width="22" height="16" rx="2" fill="#9d958c" />
@@ -69,13 +69,13 @@
         <rect x="129" y="193" width="7" height="3" rx="1" fill="#e9edf2" />
         <rect x="127" :y="222 - socH" width="11" :height="socH" rx="1.5" :fill="batteryColor" />
         <circle cx="200" cy="198" r="15" fill="#0b0d10" />
-        <path d="M203 189 195 200H200.5L197 208 205.5 196H200Z" fill="none" stroke="var(--sys-green)" stroke-width="1.8" stroke-linejoin="round" />
+        <path d="M203 189 195 200H200.5L197 208 205.5 196H200Z" fill="none" stroke="var(--cheap)" stroke-width="1.8" stroke-linejoin="round" />
       </svg>
 
-      <span class="where">{{ HOME_LOCATION.name }} · {{ sunLabel }}</span>
+      <span class="where">{{ HOME_LOCATION.name }}, {{ sunLabel }}</span>
 
       <div v-for="c in chips" :key="c.key" class="chip" :style="c.pos">
-        <span class="chip-icon" :style="{ background: c.active ? c.color : 'var(--surface-3)', color: c.active ? '#000' : 'var(--text-2)' }"><AppIcon :name="c.icon" /></span>
+        <span class="chip-icon" :style="{ background: c.active ? c.color : 'var(--surface-3)', color: c.active ? 'var(--bg)' : 'var(--text-2)' }"><AppIcon :name="c.icon" /></span>
         <span class="chip-text">
           <span class="chip-label">{{ c.label }}</span>
           <span class="chip-value">{{ c.value }}</span>
@@ -114,7 +114,8 @@ const sky = computed(() => skyFor(sun.value.altitude))
 // East is left, west is right; the sun disappears behind the hills when it sets
 const sunX = computed(() => Math.round(195 + Math.max(-1.2, Math.min(1.2, sun.value.hourAngle / 100)) * 160))
 const sunY = computed(() => Math.round(196 - sun.value.altitude * 4.2))
-const sunColor = computed(() => (sun.value.altitude < 6 ? 'var(--sys-orange)' : 'var(--sys-yellow)'))
+// A low sun is warmer; fixed colors, so it never borrows a meaning from the price palette
+const sunColor = computed(() => (sun.value.altitude < 6 ? '#f2913a' : '#f2ba30'))
 const sunLabel = computed(() => {
   const { sunrise, sunset } = nextSunEvents(now.value)
   const hhmm = (d: Date) => d.toLocaleTimeString('nl-NL', { timeZone: 'Europe/Amsterdam', hour: '2-digit', minute: '2-digit' })
@@ -126,8 +127,8 @@ const fmt = (w: number | null) => (w == null ? '–' : Math.abs(w) >= 1000 ? `${
 // Same pace as the clean view: faster dots for more power
 const dur = (w: number) => Math.max(0.5, 2.6 - (Math.min(3000, Math.abs(w)) / 3000) * 2.1)
 
-const gridColor = computed(() => ((props.gridW ?? 0) > 0 ? 'var(--sys-blue)' : 'var(--sys-teal)'))
-const batteryColor = computed(() => (props.batteryW < 0 ? 'var(--sys-orange)' : 'var(--sys-green)'))
+const gridColor = 'var(--import)'
+const batteryColor = computed(() => (props.batteryW < 0 ? 'var(--dear)' : 'var(--cheap)'))
 const socH = computed(() => Math.max(2, Math.round(Math.max(0, Math.min(1, props.soc)) * 22)))
 
 const links = computed(() => {
@@ -137,9 +138,9 @@ const links = computed(() => {
   const house = props.houseW ?? 0
   return [
     // Every path runs towards the meter; `forward` says whether energy flows that way
-    { key: 'solar', d: 'M168 142C186 158 200 166 200 183', w: solar, forward: true, color: 'var(--sys-yellow)' },
+    { key: 'solar', d: 'M168 142C186 158 200 166 200 183', w: solar, forward: true, color: 'var(--sun)' },
     { key: 'battery', d: 'M143 210 185 201', w: bat, forward: bat < 0, color: batteryColor.value },
-    { key: 'grid', d: 'M34 240H188Q200 240 200 228V214', w: grid, forward: grid > 0, color: gridColor.value },
+    { key: 'grid', d: 'M34 240H188Q200 240 200 228V214', w: grid, forward: grid > 0, color: gridColor },
     { key: 'house', d: 'M216 198H254', w: house, forward: true, color: 'var(--text)' },
   ].map((l) => ({ ...l, active: Math.abs(l.w) > 5, dur: dur(l.w) }))
 })
@@ -148,9 +149,9 @@ const chips = computed(() => {
   const g = props.gridW ?? 0
   const b = props.batteryW
   return [
-    { key: 'solar', icon: 'sun', label: 'Solar', value: fmt(props.solarW), color: 'var(--sys-yellow)', active: (props.solarW ?? 0) > 5, pos: { left: '36%', top: '14%' } },
+    { key: 'solar', icon: 'sun', label: 'Solar', value: fmt(props.solarW), color: 'var(--sun)', active: (props.solarW ?? 0) > 5, pos: { left: '36%', top: '14%' } },
     { key: 'battery', icon: 'battery', label: b > 5 ? 'Charging' : b < -5 ? 'Discharging' : 'Batteries', value: fmt(b), color: batteryColor.value, active: Math.abs(b) > 5, pos: { left: '2%', top: '30%' } },
-    { key: 'grid', icon: 'grid', label: g > 5 ? 'Importing' : g < -5 ? 'Exporting' : 'Grid', value: fmt(props.gridW), color: gridColor.value, active: Math.abs(g) > 5, pos: { left: '2%', bottom: '3%' } },
+    { key: 'grid', icon: 'grid', label: g > 5 ? 'Importing' : g < -5 ? 'Exporting' : 'Grid', value: fmt(props.gridW), color: gridColor, active: Math.abs(g) > 5, pos: { left: '2%', bottom: '3%' } },
     { key: 'house', icon: 'house', label: 'House', value: fmt(props.houseW), color: 'var(--text)', active: (props.houseW ?? 0) > 5, pos: { right: '2%', bottom: '3%' } },
   ]
 })
@@ -166,9 +167,9 @@ const supply = computed(() => {
   const pB = Math.round((fromBattery / house) * 100)
   const pG = fromGrid > 0 ? 100 - pS - pB : 0
   return [
-    { key: 'solar', label: 'Solar', icon: 'sun', pct: pS, color: 'var(--sys-yellow)' },
-    { key: 'battery', label: 'Batteries', icon: 'battery', pct: pB, color: 'var(--sys-orange)' },
-    { key: 'grid', label: 'Grid', icon: 'grid', pct: pG, color: 'var(--sys-blue)' },
+    { key: 'solar', label: 'Solar', icon: 'sun', pct: pS, color: 'var(--sun)' },
+    { key: 'battery', label: 'Batteries', icon: 'battery', pct: pB, color: 'var(--dear)' },
+    { key: 'grid', label: 'Grid', icon: 'grid', pct: pG, color: 'var(--import)' },
   ].filter((s) => s.pct > 0)
 })
 
@@ -176,7 +177,14 @@ const aria = computed(() => chips.value.map((c) => `${c.label} ${c.value}`).join
 </script>
 
 <style scoped>
-.scene { position: relative; border-radius: 16px; overflow: hidden; aspect-ratio: 390 / 290; transition: background 2s; }
+/* The scene is an illustration with its own sky, so it keeps the night palette whatever the page
+   does: chips, wires and their colors read the same over a blue noon sky and a starry one. */
+.scene {
+  position: relative; border-radius: var(--radius); overflow: hidden; aspect-ratio: 390 / 290; transition: background 2s;
+  --bg: #16262e; --text: #e9f0f1; --text-2: #a2b4ba; --surface-3: #2f4753;
+  --cheap: #4dbfa9; --dear: #ec6e9f; --sun: #f2ba30; --import: #79aedd;
+  color: var(--text);
+}
 /* Only the illustration fills the scene; icons inside chips and the legend flow normally */
 .scene-art { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .wire { fill: none; stroke: rgba(255, 255, 255, 0.12); stroke-width: 2.5; stroke-linecap: round; }
@@ -186,23 +194,23 @@ const aria = computed(() => chips.value.map((c) => `${c.label} ${c.value}`).join
 
 .where, .chip {
   position: absolute;
-  background: rgba(28, 28, 30, 0.62);
-  -webkit-backdrop-filter: saturate(180%) blur(18px); backdrop-filter: saturate(180%) blur(18px);
-  box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.16);
+  background: rgba(22, 38, 46, 0.74);
+  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+  box-shadow: inset 0 0 0 1px rgba(233, 240, 241, 0.12);
 }
-.where { top: 8px; right: 8px; padding: 3px 9px; border-radius: 999px; font-size: 11px; color: rgba(235, 235, 245, 0.85); font-variant-numeric: tabular-nums; }
-.chip { display: flex; align-items: center; gap: 7px; padding: 4px 10px 4px 5px; border-radius: 14px; }
+.where { top: 8px; right: 8px; padding: 3px 9px; border-radius: 4px; font-size: 12px; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.chip { display: flex; align-items: center; gap: 7px; padding: 4px 10px 4px 5px; border-radius: 6px; }
 .chip-icon { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; flex: none; transition: background 0.4s, color 0.4s; }
 .chip-icon svg { width: 14px; height: 14px; display: block; stroke-width: 2.4; }
 .chip-text { display: flex; flex-direction: column; line-height: 1.15; }
-.chip-label { font-size: 10px; color: var(--text-2); }
-.chip-value { font: 600 13px var(--font-rounded); font-variant-numeric: tabular-nums; }
+.chip-label { font-size: 11px; color: var(--text-2); }
+.chip-value { font-size: 14px; font-weight: 600; font-stretch: 88%; font-variant-numeric: tabular-nums; }
 
 .supply { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
-.s-title { font-size: 15px; font-weight: 600; }
-.s-bar { display: flex; gap: 2px; height: 8px; border-radius: 4px; overflow: hidden; background: var(--fill); }
+.s-title { font-size: 16px; font-weight: 600; }
+.s-bar { display: flex; gap: 2px; height: 10px; border-radius: 2px; overflow: hidden; background: var(--fill); }
 .s-bar > div { transition: width 0.8s var(--ease-out); }
-.s-legend { display: flex; flex-wrap: wrap; gap: 16px; font-size: 13px; color: var(--text-2); }
+.s-legend { display: flex; flex-wrap: wrap; gap: 16px; font-size: 14px; color: var(--text-2); }
 .s-legend span { display: inline-flex; align-items: center; gap: 6px; }
 .s-legend svg { width: 15px; height: 15px; display: block; flex: none; }
 .s-legend b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
