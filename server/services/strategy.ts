@@ -1,10 +1,10 @@
-import { and, desc, eq, gte, inArray } from 'drizzle-orm'
+import { and, desc, eq, gte, inArray, lt, sum } from 'drizzle-orm'
 import type { Db } from '../db/client'
-import { batteryPool, commandsLog, devices, plans, type sites } from '../db/schema'
+import { batteryPool, commandsLog, devices, ledger, plans, type sites } from '../db/schema'
 import { planChangeMessage } from '../lib/notifications'
 import { buildPlan, type PlanSlot } from '../lib/strategy'
-import { addMs, SLOT_MS, slotStartOf } from '../lib/time'
-import type { BatteryMode } from '../lib/types'
+import { addMs, SLOT_MS, slotStartOf, startOfLocalDay } from '../lib/time'
+import { defaultStrategy, type BatteryMode } from '../lib/types'
 import type { DeviceState } from '../providers/ecoflow'
 import { controlEcoFlow } from './ecoflow'
 import { getPrices } from './prices'
@@ -22,6 +22,11 @@ export async function computePlan(db: Db, site: Site, now = new Date()): Promise
   const poolKwh = pools.reduce((s, p) => s + p.kwh, 0)
   const poolCost = pools.reduce((s, p) => s + p.costOpportunity, 0)
   const storedKwh = devs.reduce((s, d) => s + (((d.state as DeviceState).soc ?? 0) * d.capacityWh) / 1000, 0)
+  // Already discharged earlier today, so today's daily cycle only plans the rest
+  const [today] = await db
+    .select({ kwh: sum(ledger.dischargedKwh) })
+    .from(ledger)
+    .where(and(eq(ledger.siteId, site.id), gte(ledger.slotStart, startOfLocalDay(now, site.timezone)), lt(ledger.slotStart, from)))
 
   return buildPlan({
     prices: priceList,
@@ -30,7 +35,9 @@ export async function computePlan(db: Db, site: Site, now = new Date()): Promise
     maxChargeW: devs.reduce((s, d) => s + d.maxChargeW, 0),
     maxDischargeW: devs.reduce((s, d) => s + d.maxDischargeW, 0),
     poolAvgCost: poolKwh > 0 ? poolCost / poolKwh : 0,
-    cfg: site.strategy,
+    cfg: { ...defaultStrategy, ...site.strategy },
+    timeZone: site.timezone,
+    dischargedTodayKwh: Number(today?.kwh ?? 0),
   })
 }
 

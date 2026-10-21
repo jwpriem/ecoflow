@@ -19,6 +19,8 @@ export default defineEventHandler(async (event) => {
     minSpread: num(b.minSpread, 0, 1, cur.minSpread),
     gridCharge: typeof b.gridCharge === 'boolean' ? b.gridCharge : cur.gridCharge,
     avgLoadW: num(b.avgLoadW, 50, 5000, cur.avgLoadW),
+    maxOutputW: num(b.maxOutputW, 50, 10000, cur.maxOutputW),
+    dailyCycleKwh: num(b.dailyCycleKwh, 0, 100, cur.dailyCycleKwh),
     fallbackPrice: num(b.fallbackPrice, 0, 2, cur.fallbackPrice),
     feedIn: {
       nettingUntil: typeof b.feedIn?.nettingUntil === 'string' && !Number.isNaN(Date.parse(b.feedIn.nettingUntil)) ? b.feedIn.nettingUntil : cur.feedIn.nettingUntil,

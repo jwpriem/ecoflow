@@ -107,6 +107,8 @@
         <label class="list-row"><span class="title">Charge from grid when cheap</span><span class="switch"><input v-model="strategy.gridCharge" type="checkbox" /><span /></span></label>
         <label class="list-row"><span class="title">Min. profit</span><span class="unit-in">€ <input v-model.number="strategy.minSpread" type="number" step="0.01" inputmode="decimal" /> /kWh</span></label>
         <label class="list-row"><span class="title">Typical load</span><span class="unit-in"><input v-model.number="strategy.avgLoadW" type="number" inputmode="numeric" /> W</span></label>
+        <label class="list-row"><span class="title">Max output to house</span><span class="unit-in"><input v-model.number="strategy.maxOutputW" type="number" inputmode="numeric" /> W</span></label>
+        <label class="list-row"><span class="title">Min. daily cycle</span><span class="unit-in"><input v-model.number="strategy.dailyCycleKwh" type="number" step="0.1" inputmode="decimal" /> kWh</span></label>
       </div>
 
       <h3 class="section-title">Feed-in</h3>

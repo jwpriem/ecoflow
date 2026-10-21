@@ -3,6 +3,7 @@ import { devices, plans, samples } from '../db/schema'
 import type { DeviceState } from '../providers/ecoflow'
 import { projectSoc } from '../lib/socForecast'
 import { SLOT_MS, slotStartOf } from '../lib/time'
+import { defaultStrategy } from '../lib/types'
 
 const PAST_H = 12
 const FUTURE_H = 12
@@ -46,7 +47,7 @@ export default defineEventHandler(async (event) => {
 
   const states = devs.map((d) => d.state as DeviceState)
   const socNow = capacityWh ? devs.reduce((s, d, i) => s + (states[i]!.soc ?? 0) * d.capacityWh, 0) / capacityWh : 0
-  const cfg = site.strategy
+  const cfg = { ...defaultStrategy, ...site.strategy }
   const planRows = await db
     .select()
     .from(plans)
@@ -56,7 +57,7 @@ export default defineEventHandler(async (event) => {
   const forecast = projectSoc(socNow, planRows, {
     capacityWh,
     maxChargeW: devs.reduce((s, d) => s + d.maxChargeW, 0),
-    maxDischargeW: devs.reduce((s, d) => s + d.maxDischargeW, 0),
+    maxDischargeW: Math.min(cfg.maxOutputW, devs.reduce((s, d) => s + d.maxDischargeW, 0)),
     avgLoadW: cfg.avgLoadW,
     reserveSoc: cfg.reserveSoc,
     maxSoc: cfg.maxSoc,
