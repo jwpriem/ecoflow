@@ -10,6 +10,7 @@ import {
   signString,
   streamDevices,
 } from '../server/providers/ecoflow'
+import { quotaFromMessage, quotaTopic } from '../server/providers/ecoflow/mqtt'
 
 const creds = { accessKey: 'Fp4SvIprYSDPXtYJidEtUAd1o', secretKey: 'WIbFEKre0s6sLnh4ei7SPUeYnptHG6V' }
 const fixed = { now: () => 1671171709428, nonce: () => '345164' }
@@ -81,8 +82,8 @@ describe('EcoFlow requests', () => {
 
 describe('STREAM quota mapping', () => {
   it('reads SoC, PV and battery power (+ = charging)', () => {
-    expect(parseStreamQuota({ cmsBattSoc: 64.0, powGetBpCms: 350.4, powGetPvSum: 120 })).toEqual({ soc: 0.64, powerW: -350, pvW: 120 })
-    expect(parseStreamQuota({ cmsBattSoc: 64, powGetBpCms: -800 })).toEqual({ soc: 0.64, powerW: 800, pvW: 0 })
+    expect(parseStreamQuota({ cmsBattSoc: 64.0, powGetBpCms: 350.4, powGetPvSum: 120 })).toMatchObject({ soc: 0.64, powerW: -350, pvW: 120 })
+    expect(parseStreamQuota({ cmsBattSoc: 64, powGetBpCms: -800 })).toMatchObject({ soc: 0.64, powerW: 800, pvW: 0 })
   })
 
   it("prefers the unit's own pack level over the system level", () => {
@@ -96,7 +97,7 @@ describe('STREAM quota mapping', () => {
   })
 
   it('sums the PV inputs without a total, accepts numeric strings and leaves a missing SoC empty', () => {
-    expect(parseStreamQuota({ powGetPv: '259.8', powGetPv2: 258.7 })).toEqual({ soc: null, powerW: 0, pvW: 519 })
+    expect(parseStreamQuota({ powGetPv: '259.8', powGetPv2: 258.7 })).toMatchObject({ soc: null, powerW: 0, pvW: 519 })
   })
 
   it('keeps only STREAM units when the account has other devices too', () => {
@@ -125,9 +126,35 @@ describe('multi-unit STREAM systems', () => {
     expect(out.map((u) => u.reading.powerW)).toEqual([600, 300])
   })
 
+  it('keeps each unit its own pack level from MQTT and still shares the power', () => {
+    const lead = parseStreamQuota({ cmsBattSoc: 42, bmsBattSoc: 44, powGetBpCms: 400 })
+    const follower = parseStreamQuota({ cmsBattSoc: 0, bmsBattSoc: 40, powGetBpCms: 0 })
+    const out = shareSystemReading([
+      { id: 1, capacityWh: 1920, reading: follower },
+      { id: 2, capacityWh: 1920, reading: lead },
+    ])
+    expect(out.map((u) => [u.reading.soc, u.reading.powerW])).toEqual([
+      [0.4, -200],
+      [0.44, -200],
+    ])
+  })
+
   it('leaves units alone when each reports its own values, or when there is only one', () => {
     const both = [unit(1, 0.3, 100), unit(2, 0.6, -200)]
     expect(shareSystemReading(both)).toEqual(both)
     expect(shareSystemReading([unit(1, 0)])).toEqual([unit(1, 0)])
+  })
+})
+
+describe('EcoFlow MQTT messages', () => {
+  it('takes the values from params, param or a bare object', () => {
+    expect(quotaFromMessage(JSON.stringify({ typeCode: 'x', params: { bmsBattSoc: 40 } }))).toEqual({ bmsBattSoc: 40 })
+    expect(quotaFromMessage(JSON.stringify({ param: { vol: 51.2 } }))).toEqual({ vol: 51.2 })
+    expect(quotaFromMessage(JSON.stringify({ data: { quotaMap: { amp: -3 } } }))).toEqual({ amp: -3 })
+    expect(quotaFromMessage('not json')).toBeNull()
+  })
+
+  it('builds the per-unit topic', () => {
+    expect(quotaTopic('open-abc', 'BK12')).toBe('/open/open-abc/BK12/quota')
   })
 })

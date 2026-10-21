@@ -3,17 +3,16 @@ import type { Db } from '../db/client'
 import { devices, type sites } from '../db/schema'
 import {
   deviceQuota,
-  deviceQuotaKeys,
   type DeviceState,
   type EcoFlowCredentials,
   listDevices,
-  PACK_KEYS,
   parseStreamQuota,
   type RequestOptions,
   shareSystemReading,
   type StreamReading,
   streamDevices,
 } from '../providers/ecoflow'
+import { ecoflowMqttStatus, mqttQuota, startEcoFlowMqtt, stopEcoFlowMqtt } from '../providers/ecoflow/mqtt'
 import { getIntegration, markIntegration, updateIntegration } from './integrations'
 
 type Site = typeof sites.$inferSelect
@@ -53,11 +52,22 @@ export async function syncEcoFlowDevices(db: Db, site: Site, key: string): Promi
     }
     await updateIntegration(db, integ.row.id, { meta }, key)
     await markIntegration(db, integ.row.id)
+    await syncEcoFlowMqtt(site.id, integ.creds, list.map((d) => d.sn), integ.opts)
     return { count: list.length }
   } catch (err) {
     const error = (err as Error).message
     await markIntegration(db, integ.row.id, error)
     return { error, count: 0 }
+  }
+}
+
+/** (Re)start the MQTT stream; a failure only costs the per-unit pack values, so it is logged, not raised */
+async function syncEcoFlowMqtt(siteId: number, creds: EcoFlowCredentials, serials: string[], opts: RequestOptions) {
+  try {
+    await startEcoFlowMqtt(siteId, creds, serials, opts)
+  } catch (err) {
+    stopEcoFlowMqtt(siteId)
+    console.warn(`[ecoflow-mqtt] site ${siteId}: ${(err as Error).message}`)
   }
 }
 
@@ -80,10 +90,8 @@ export async function readEcoFlow(db: Db, site: Site, key: string, now = new Dat
   const errors: string[] = []
   for (const d of rows) {
     try {
-      const quota = await deviceQuota(integ.creds, d.serial, integ.opts)
-      // Ask for the pack keys too: they hold each unit's own level where quota/all only has the system's
-      const pack = await deviceQuotaKeys(integ.creds, d.serial, PACK_KEYS, integ.opts).catch((err: Error) => ({ packError: err.message }))
-      Object.assign(quota, pack)
+      // REST has the system values; MQTT adds the per-pack keys REST leaves out (REST wins where both have a key)
+      const quota = { ...mqttQuota(site.id, d.serial), ...(await deviceQuota(integ.creds, d.serial, integ.opts)) }
       read.push({ device: d, capacityWh: d.capacityWh, reading: parseStreamQuota(quota), quota })
     } catch (err) {
       errors.push(`${d.name}: ${(err as Error).message}`)
@@ -91,6 +99,7 @@ export async function readEcoFlow(db: Db, site: Site, key: string, now = new Dat
   }
 
   const out: BatteryReading[] = []
+  const mqtt = ecoflowMqttStatus(site.id)
   for (const { device: d, reading: r, quota } of shareSystemReading(read)) {
     const prev = d.state as DeviceState
     const state: DeviceState = {
@@ -101,6 +110,7 @@ export async function readEcoFlow(db: Db, site: Site, key: string, now = new Dat
       online: true,
       ts: now.toISOString(),
       quota,
+      mqtt: { connected: mqtt.connected, error: mqtt.error ?? null, ...(mqtt.units?.[d.serial] ?? {}), lastGetReply: mqtt.lastGetReply ?? null },
     }
     await db.update(devices).set({ state: state as Record<string, unknown> }).where(eq(devices.id, d.id))
     out.push({ deviceId: d.id, state })
