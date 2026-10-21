@@ -147,7 +147,7 @@ const num = (v: unknown): number | undefined => {
  * Map a STREAM quota to what the app stores. Keys as reported for the STREAM series:
  * - bmsBattSoc: this unit's own pack level in %, when the API returns it
  * - cmsBattSoc: charge level in % (a follower unit in a multi-unit system reports 0)
- * - powGetBpCms: battery pack power in W, positive when the battery delivers power
+ * - powGetBpCms: battery power in W, + = charging, - = discharging (confirmed live: -800 while the SoC fell and powGetSysLoad was 800)
  * - cmsChgDsgState / bmsChgDsgState: 0 idle, 1 discharging, 2 charging; wins over the sign when present
  * - powGetPvSum (or powGetPv + powGetPv2...): direct PV input in W
  */
@@ -158,7 +158,7 @@ export function parseStreamQuota(q: Record<string, unknown>): StreamReading {
   const pct = (v: number | undefined) => (v === undefined ? null : Math.min(1, Math.max(0, v / 100)))
   const bp = num(q.powGetBpCms) ?? 0
   const state = num(q.cmsChgDsgState) ?? num(q.bmsChgDsgState)
-  let powerW = -bp // app convention: + = charging
+  let powerW = bp // same convention as the app: + = charging
   if (state === 2) powerW = Math.abs(bp)
   else if (state === 1) powerW = -Math.abs(bp)
   const pvW =
