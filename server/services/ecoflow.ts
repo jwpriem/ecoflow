@@ -8,6 +8,8 @@ import {
   listDevices,
   parseStreamQuota,
   type RequestOptions,
+  shareSystemReading,
+  type StreamReading,
   streamDevices,
 } from '../providers/ecoflow'
 import { getIntegration, markIntegration, updateIntegration } from './integrations'
@@ -72,27 +74,31 @@ export async function readEcoFlow(db: Db, site: Site, key: string, now = new Dat
   const integ = await credentials(db, site, key)
   if (!integ) return []
 
-  const out: BatteryReading[] = []
+  const read: { device: (typeof rows)[number]; capacityWh: number; reading: StreamReading; quota: Record<string, unknown> }[] = []
   const errors: string[] = []
   for (const d of rows) {
     try {
       const quota = await deviceQuota(integ.creds, d.serial, integ.opts)
-      const r = parseStreamQuota(quota)
-      const prev = d.state as DeviceState
-      const state: DeviceState = {
-        ...prev,
-        soc: r.soc ?? prev.soc,
-        powerW: r.powerW,
-        pvW: r.pvW,
-        online: true,
-        ts: now.toISOString(),
-        quota,
-      }
-      await db.update(devices).set({ state: state as Record<string, unknown> }).where(eq(devices.id, d.id))
-      out.push({ deviceId: d.id, state })
+      read.push({ device: d, capacityWh: d.capacityWh, reading: parseStreamQuota(quota), quota })
     } catch (err) {
       errors.push(`${d.name}: ${(err as Error).message}`)
     }
+  }
+
+  const out: BatteryReading[] = []
+  for (const { device: d, reading: r, quota } of shareSystemReading(read)) {
+    const prev = d.state as DeviceState
+    const state: DeviceState = {
+      ...prev,
+      soc: r.soc ?? prev.soc,
+      powerW: r.powerW,
+      pvW: r.pvW,
+      online: true,
+      ts: now.toISOString(),
+      quota,
+    }
+    await db.update(devices).set({ state: state as Record<string, unknown> }).where(eq(devices.id, d.id))
+    out.push({ deviceId: d.id, state })
   }
   await markIntegration(db, integ.row.id, errors.length ? errors.join('; ') : undefined)
   return out

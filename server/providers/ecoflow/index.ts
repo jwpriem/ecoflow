@@ -160,3 +160,21 @@ export function streamDevices(list: EcoFlowDevice[]): EcoFlowDevice[] {
   const streams = list.filter((d) => /stream/i.test(d.productName ?? '') || /stream/i.test(d.deviceName ?? ''))
   return streams.length ? streams : list
 }
+
+/**
+ * Several STREAM units on one account work as one system: the leader reports the system values
+ * (charge level, battery power, PV) and the followers report 0 for all of them. Share the leader's
+ * reading over all units by capacity, so the combined level and power come out right.
+ * Units that all report something are left as they are.
+ */
+export function shareSystemReading<T extends { capacityWh: number; reading: StreamReading }>(units: T[]): T[] {
+  const silent = (r: StreamReading) => !r.soc && !r.powerW && !r.pvW
+  const leaders = units.filter((u) => !silent(u.reading))
+  if (units.length < 2 || leaders.length !== 1) return units
+  const lead = leaders[0]!.reading
+  const totalCap = units.reduce((s, u) => s + u.capacityWh, 0) || 1
+  return units.map((u) => {
+    const share = u.capacityWh / totalCap
+    return { ...u, reading: { soc: lead.soc, powerW: Math.round(lead.powerW * share), pvW: Math.round(lead.pvW * share) } }
+  })
+}
