@@ -10,7 +10,6 @@ import { runStrategy } from '../../services/strategy'
 const FIELDS: Record<Provider, string[]> = {
   tibber: ['token'],
   solaredge: ['clientId', 'clientSecret'],
-  ecoflow_app: ['email', 'password'],
   ecoflow_official: ['accessKey', 'secretKey'],
 }
 
