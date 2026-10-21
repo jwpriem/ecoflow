@@ -82,8 +82,8 @@ describe('EcoFlow requests', () => {
 
 describe('STREAM quota mapping', () => {
   it('reads SoC, PV and battery power (+ = charging)', () => {
-    expect(parseStreamQuota({ cmsBattSoc: 64.0, powGetBpCms: 350.4, powGetPvSum: 120 })).toMatchObject({ soc: 0.64, powerW: -350, pvW: 120 })
-    expect(parseStreamQuota({ cmsBattSoc: 64, powGetBpCms: -800 })).toMatchObject({ soc: 0.64, powerW: 800, pvW: 0 })
+    expect(parseStreamQuota({ cmsBattSoc: 64.0, powGetBpCms: 350.4, powGetPvSum: 120 })).toMatchObject({ soc: 0.64, powerW: 350, pvW: 120 })
+    expect(parseStreamQuota({ cmsBattSoc: 64, powGetBpCms: -800 })).toMatchObject({ soc: 0.64, powerW: -800, pvW: 0 })
   })
 
   it("prefers the unit's own pack level over the system level", () => {
@@ -127,7 +127,7 @@ describe('multi-unit STREAM systems', () => {
   })
 
   it('keeps each unit its own pack level from MQTT and still shares the power', () => {
-    const lead = parseStreamQuota({ cmsBattSoc: 42, bmsBattSoc: 44, powGetBpCms: 400 })
+    const lead = parseStreamQuota({ cmsBattSoc: 42, bmsBattSoc: 44, powGetBpCms: -400 })
     const follower = parseStreamQuota({ cmsBattSoc: 0, bmsBattSoc: 40, powGetBpCms: 0 })
     const out = shareSystemReading([
       { id: 1, capacityWh: 1920, reading: follower },
