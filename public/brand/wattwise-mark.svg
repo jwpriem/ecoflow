@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="89 121 334 270">
   <title>WattWise</title>
-  <defs><linearGradient id="ww" x1="89" y1="0" x2="423" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#FFD60A"/><stop offset=".2" stop-color="#30D158"/><stop offset=".8" stop-color="#30D158"/><stop offset="1" stop-color="#0A84FF"/></linearGradient></defs>
+  <defs><linearGradient id="ww" x1="0" y1="152" x2="0" y2="360" gradientUnits="userSpaceOnUse"><stop offset=".5" stop-color="#EC6E9F"/><stop offset=".5" stop-color="#4DBFA9"/></linearGradient></defs>
   <path d="M120 152 L188 360 L256 210 L324 360 L392 152" fill="none" stroke="url(#ww)" stroke-width="62" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

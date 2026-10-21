@@ -12,7 +12,7 @@ export const time = (d: string | Date) => new Date(d).toLocaleTimeString('nl-NL'
 
 export const MODE_LABEL: Record<string, string> = {
   self_use: 'Self-use',
-  solar_only: 'Solar only (hold)',
+  solar_only: 'Hold',
   charge_grid: 'Charge from grid',
   discharge: 'Discharge',
 }

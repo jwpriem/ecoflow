@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs'
+import { SKY_BOOT } from './app/utils/skyBoot'
 
 // iOS's Add to Home Screen sheet loads the icon with its own loader, which can fail on a network URL
 // and then shows a letter tile. Inlining the 180x180 PNG as a data: URI sidesteps that; the files in
@@ -21,9 +22,15 @@ export default defineNuxtConfig({
         { name: 'mobile-web-app-capable', content: 'yes' },
         { name: 'apple-mobile-web-app-capable', content: 'yes' },
         { name: 'apple-mobile-web-app-title', content: 'WattWise' },
+        // apple-mobile-web-app-status-bar-style and theme-color are written by SKY_BOOT, from the sun
       ],
+      script: [{ innerHTML: SKY_BOOT, tagPosition: 'head' }],
       link: [
         { rel: 'manifest', href: '/manifest.webmanifest' },
+        // Archivo with its width axis: wide for the status line, condensed for numbers
+        { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
+        { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
+        { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&display=swap' },
         { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
         { rel: 'icon', type: 'image/png', sizes: '32x32', href: '/favicon-32.png' },
         // PNG only: iOS can't use SVG for the Home Screen icon

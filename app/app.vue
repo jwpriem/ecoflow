@@ -18,5 +18,4 @@ const tabs = [
   { to: '/plan', label: 'Plan', icon: 'calendar' },
   { to: '/settings', label: 'Settings', icon: 'gear' },
 ]
-useHead({ meta: [{ name: 'theme-color', content: '#000000' }, { name: 'apple-mobile-web-app-status-bar-style', content: 'black-translucent' }] })
 </script>
