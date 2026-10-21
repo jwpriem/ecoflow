@@ -54,6 +54,8 @@ export interface StreamReading {
   packSoc?: number | null
   /** The system level (cmsBattSoc); only the leader of a multi-unit system reports it */
   systemSoc?: number | null
+  /** The unit's own battery power from vol x amp (MQTT), + = charging */
+  packPowerW?: number | null
 }
 
 /**
@@ -149,6 +151,7 @@ const num = (v: unknown): number | undefined => {
  * - cmsBattSoc: charge level in % (a follower unit in a multi-unit system reports 0)
  * - powGetBpCms: battery power in W, + = charging, - = discharging (confirmed live: -800 while the SoC fell and powGetSysLoad was 800)
  * - cmsChgDsgState / bmsChgDsgState: 0 idle, 1 discharging, 2 charging; wins over the sign when present
+ * - vol (mV) x amp (mA), from MQTT: this unit's own battery power, - while discharging; wins over the above
  * - powGetPvSum (or powGetPv + powGetPv2...): direct PV input in W
  */
 export function parseStreamQuota(q: Record<string, unknown>): StreamReading {
@@ -161,6 +164,10 @@ export function parseStreamQuota(q: Record<string, unknown>): StreamReading {
   let powerW = bp // same convention as the app: + = charging
   if (state === 2) powerW = Math.abs(bp)
   else if (state === 1) powerW = -Math.abs(bp)
+  const vol = num(q.vol)
+  const amp = num(q.amp)
+  const packPowerW = vol !== undefined && amp !== undefined ? Math.round((vol * amp) / 1e6) || 0 : null
+  if (packPowerW !== null) powerW = packPowerW
   const pvW =
     num(q.powGetPvSum) ??
     ['powGetPv', 'powGetPv2', 'powGetPv3', 'powGetPv4'].reduce((s, k) => s + (num(q[k]) ?? 0), 0)
@@ -170,6 +177,7 @@ export function parseStreamQuota(q: Record<string, unknown>): StreamReading {
     pvW: Math.max(0, Math.round(pvW)),
     packSoc: pack ? pct(pack) : null,
     systemSoc: pct(system),
+    packPowerW,
   }
 }
 
@@ -183,11 +191,11 @@ export function streamDevices(list: EcoFlowDevice[]): EcoFlowDevice[] {
  * Several STREAM units on one account work as one system: the leader reports the system values
  * (charge level, battery power, PV) and the followers report 0 for all of them. Share the leader's
  * power and PV over all units by capacity, so the totals come out right. Each unit keeps its own
- * pack level when MQTT delivered it, otherwise it gets the system level.
+ * pack level and power when MQTT delivered them, otherwise it gets the system level and a share of the power.
  * Units that all report something are left as they are.
  */
 export function shareSystemReading<T extends { capacityWh: number; reading: StreamReading }>(units: T[]): T[] {
-  const isLeader = (r: StreamReading) => !!(r.systemSoc || r.powerW || r.pvW)
+  const isLeader = (r: StreamReading) => !!(r.systemSoc || r.pvW || (r.packPowerW == null && r.powerW))
   const leaders = units.filter((u) => isLeader(u.reading))
   if (units.length < 2 || leaders.length !== 1) return units
   const lead = leaders[0]!.reading
@@ -195,6 +203,7 @@ export function shareSystemReading<T extends { capacityWh: number; reading: Stre
   return units.map((u) => {
     const share = u.capacityWh / totalCap
     const soc = u.reading.packSoc || (lead.systemSoc ?? lead.soc)
-    return { ...u, reading: { ...u.reading, soc, powerW: Math.round(lead.powerW * share), pvW: Math.round(lead.pvW * share) } }
+    const powerW = u.reading.packPowerW ?? Math.round(lead.powerW * share)
+    return { ...u, reading: { ...u.reading, soc, powerW, pvW: Math.round(lead.pvW * share) } }
   })
 }
