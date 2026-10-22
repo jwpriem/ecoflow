@@ -44,6 +44,8 @@ function icon(rx, scale) {
 
 writeFileSync('scripts/icon.svg', icon(0, 1))
 writeFileSync('scripts/icon-maskable.svg', icon(0, 0.8))
+// iOS rounds the Home Screen icon's corners hard, so the apple-touch-icon gets extra room around the mark
+writeFileSync('scripts/icon-apple.svg', icon(0, 0.78))
 writeFileSync('public/favicon.svg', icon(112, 1))
 writeFileSync('public/brand/wattwise-mark.svg', `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${BOX.x} ${BOX.y} ${BOX.w} ${BOX.h}">
   <title>WattWise</title>
