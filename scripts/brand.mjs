@@ -9,11 +9,11 @@ const BG = '#16262E'
 
 const HOUSE = 'M70 294L226 158L382 294 M122 258V426H330V258'
 // Bounding box of the mark, strokes included
-const BOX = { x: 52, y: 61, w: 415, h: 383 }
+const BOX = { x: 57, y: 61, w: 410, h: 378 }
 
 function mark(c, id) {
   return `<defs>
-    <mask id="${id}-sun" maskUnits="userSpaceOnUse" x="0" y="0" width="512" height="512"><rect width="512" height="512" fill="#fff"/><path d="${HOUSE}" fill="none" stroke="#000" stroke-width="76" stroke-linecap="round" stroke-linejoin="round"/></mask>
+    <mask id="${id}-sun" maskUnits="userSpaceOnUse" x="0" y="0" width="512" height="512"><rect width="512" height="512" fill="#fff"/><path d="${HOUSE}" fill="none" stroke="#000" stroke-width="66" stroke-linecap="round" stroke-linejoin="round"/></mask>
     <mask id="${id}-bolt" maskUnits="userSpaceOnUse" x="0" y="0" width="512" height="512"><rect width="512" height="512" fill="#fff"/><path d="M236 284L198 340H226L216 382L254 326H226Z" fill="#000" stroke="#000" stroke-width="6" stroke-linejoin="round"/></mask>
   </defs>
   <g stroke-linecap="round" stroke-linejoin="round">
@@ -21,7 +21,7 @@ function mark(c, id) {
       <path d="M358 72V92 M427 101L413 115 M456 170H436 M289 101L303 115 M427 239L413 225" stroke="${c.sun}" stroke-width="22"/>
       <circle cx="358" cy="170" r="50" fill="${c.sun}"/>
     </g>
-    <path d="${HOUSE}" fill="none" stroke="${c.house}" stroke-width="36"/>
+    <path d="${HOUSE}" fill="none" stroke="${c.house}" stroke-width="26"/>
     <g fill="${c.battery}" mask="url(#${id}-bolt)">
       <rect x="208" y="254" width="36" height="24" rx="7"/>
       <rect x="176" y="268" width="100" height="130" rx="18"/>
@@ -44,6 +44,8 @@ function icon(rx, scale) {
 
 writeFileSync('scripts/icon.svg', icon(0, 1))
 writeFileSync('scripts/icon-maskable.svg', icon(0, 0.8))
+// iOS rounds the Home Screen icon's corners hard, so the apple-touch-icon gets extra room around the mark
+writeFileSync('scripts/icon-apple.svg', icon(0, 0.78))
 writeFileSync('public/favicon.svg', icon(112, 1))
 writeFileSync('public/brand/wattwise-mark.svg', `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${BOX.x} ${BOX.y} ${BOX.w} ${BOX.h}">
   <title>WattWise</title>
