@@ -99,20 +99,24 @@ export function buildPlan(input: PlanInput): PlanSlot[] {
   if (cycleKwh > 0) {
     const lo = cfg.reserveSoc * input.capacityKwh
     const hi = cfg.maxSoc * input.capacityKwh
-    // Worst shortfall below reserve after a discharge slot, and overshoot above max, along the planned charge level
+    // Worst shortfall below reserve after a discharge slot (and where), and overshoot above max, along the planned charge level
     const limits = () => {
       let soc = input.storedKwh
       let under = 0
+      let at = -1
       let over = 0
       for (let i = 0; i < slots.length; i++) {
         soc += chargeUsed.get(i) ?? 0
         if (discharge.has(i)) {
           soc -= dischargeKwhPerSlot
-          under = Math.max(under, lo - soc)
+          if (lo - soc > under + 1e-12) {
+            under = lo - soc
+            at = i
+          }
         }
         over = Math.max(over, soc - hi)
       }
-      return { under, over }
+      return { under, at, over }
     }
     const dayOf = (d: Date) => new Intl.DateTimeFormat('en-CA', { timeZone: input.timeZone ?? 'Europe/Amsterdam' }).format(d)
     const days = new Map<string, number[]>()
@@ -134,15 +138,20 @@ export function buildPlan(input: PlanInput): PlanSlot[] {
         const short = () => under - base.under - slack
         discharge.add(d)
         const added = new Map<number, number>()
-        let { under, over } = limits()
-        // Buy the shortfall in the cheapest earlier slots that still fit under max (never dearer than the slot it serves)
-        const cheapest = cfg.gridCharge
-          ? slots.map((_, c) => c).filter((c) => c < d && !discharge.has(c) && slots[c]!.price < slots[d]!.price).sort((a, b) => slots[a]!.price - slots[b]!.price)
-          : []
-        for (const c of cheapest) {
-          if (short() <= 1e-9) break
+        let { under, at, over } = limits()
+        // Buy the shortfall in the cheapest slot before the point where the level runs short, which can be after
+        // this slot when it takes energy that a later discharge counted on (never dearer than that discharge)
+        const tried = new Set<number>()
+        while (cfg.gridCharge && short() > 1e-9 && at >= 0) {
+          let c = -1
+          for (let i = 0; i < at; i++) {
+            if (discharge.has(i) || tried.has(i) || (chargeLeft.get(i) ?? chargeKwhPerSlot) <= 1e-9) continue
+            if (slots[i]!.price >= slots[at]!.price) continue
+            if (c === -1 || slots[i]!.price < slots[c]!.price) c = i
+          }
+          if (c === -1) break
+          tried.add(c)
           const left = chargeLeft.get(c) ?? chargeKwhPerSlot
-          if (left <= 1e-9) continue
           const take = Math.min(left, short())
           chargeUsed.set(c, (chargeUsed.get(c) ?? 0) + take)
           const next = limits()
@@ -152,8 +161,9 @@ export function buildPlan(input: PlanInput): PlanSlot[] {
             continue
           }
           chargeLeft.set(c, left - take)
-          added.set(c, take)
-          ;({ under, over } = next)
+          added.set(c, (added.get(c) ?? 0) + take)
+          ;({ under, at, over } = next)
+          if (take < left - 1e-9) tried.delete(c) // room left there for a later shortfall
         }
         if (short() > 1e-9 || over > base.over + 1e-9) {
           // Not enough cheap room before this slot: undo and try the next most expensive one

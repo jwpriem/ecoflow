@@ -108,6 +108,23 @@ describe('buildPlan', () => {
       expect(plan.some((p) => p.action !== 'solar_only')).toBe(false)
     })
 
+    it('uses stored energy today and refills it overnight for tomorrow', () => {
+      // late evening today, cheap night, dear morning tomorrow (as on 21-22 Oct): today's slots are dearer than the
+      // night, so stored energy goes out tonight and the night charge grows to cover tomorrow's peak too
+      const t0 = Date.parse('2027-02-01T20:00:00Z')
+      const totals = [0.3, 0.29, 0.28, 0.27, ...Array(16).fill(0.2), ...Array(8).fill(0.5)]
+      const plan = buildPlan({
+        ...input(totals, 1.0, { avgLoadW: 450, dailyCycleKwh: 3.84 }),
+        prices: totals.map((total, i) => ({ slotStart: new Date(t0 + i * 900_000), total, energy: 0, feedIn: 0 })),
+        poolAvgCost: 0.35,
+        timeZone: 'UTC',
+        dischargedTodayKwh: 1,
+      })
+      expect(plan.slice(0, 4).every((p) => p.action === 'discharge')).toBe(true)
+      expect(plan.slice(20).every((p) => p.action === 'discharge')).toBe(true)
+      expect(plan.slice(4, 20).some((p) => p.action === 'charge_grid')).toBe(true)
+    })
+
     it('is off by default', () => {
       expect(buildPlan(input(flat, 0.384, { avgLoadW: 450 })).some((p) => p.action === 'discharge')).toBe(false)
     })
