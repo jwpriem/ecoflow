@@ -13,6 +13,8 @@ export interface PlanInput {
   timeZone?: string
   /** kWh already discharged today before the first slot, counts toward today's cycle */
   dischargedTodayKwh?: number
+  /** Expected solar production per slot in W, same order as prices; missing = no sun expected */
+  solarW?: number[]
 }
 
 export interface PlanSlot {
@@ -29,11 +31,12 @@ const SLOT_H = 0.25
  * Rule-based plan over the known price horizon (today + tomorrow once published).
  *
  * 1. Energy already stored goes to the most expensive slots that beat its cost + minSpread.
- * 2. If grid charging is on, more expensive slots are paired with the cheapest earlier slot where
- *    buying, losing (1 - efficiency) and selling later still earns at least minSpread.
+ * 2. More expensive slots are paired with the cheapest earlier source where buying, losing
+ *    (1 - efficiency) and selling later still earns at least minSpread: the grid (if grid charging is on)
+ *    or the solar surplus the forecast expects, valued at the feed-in price it would otherwise earn.
  * 3. With a daily cycle set, each day that still discharges less than that gets its most expensive
- *    free slots added, covered by stored energy or by the cheapest earlier slots, without the spread
- *    check. A simulated charge level keeps it between reserve and max.
+ *    free slots added, covered by stored energy, expected solar or the cheapest earlier slots, without
+ *    the spread check. A simulated charge level keeps it between reserve and max.
  * 4. Other slots charge from solar only (keep the energy for later), or run self-use when there is
  *    more energy than profitable slots to use it in.
  */
@@ -43,6 +46,8 @@ export function buildPlan(input: PlanInput): PlanSlot[] {
   const etaIn = Math.sqrt(eta)
   const dischargeKwhPerSlot = (Math.min(input.maxDischargeW, cfg.maxOutputW ?? Infinity, cfg.avgLoadW) * SLOT_H) / 1000
   const chargeKwhPerSlot = (input.maxChargeW * SLOT_H * etaIn) / 1000
+  // Solar beyond the house load goes into the batteries by itself in a hold or self-use slot (services/strategy runSurplus)
+  const solarIn = prices.map((_, i) => (Math.min(input.maxChargeW, Math.max(0, (input.solarW?.[i] ?? 0) - cfg.avgLoadW)) * SLOT_H * etaIn) / 1000)
 
   const slots: PlanSlot[] = prices.map((p) => ({ slotStart: p.slotStart, price: p.total, action: 'solar_only', reason: '' }))
   if (!slots.length || dischargeKwhPerSlot <= 0) return slots
@@ -64,34 +69,52 @@ export function buildPlan(input: PlanInput): PlanSlot[] {
   // Only worth self-use when at least one slot's worth is left; a few Wh above the reserve is just rounding
   const surplusStored = usable >= dischargeKwhPerSlot / 2
 
-  // 2. Grid arbitrage
+  // 2. Arbitrage: fill each expensive slot from the cheapest earlier source, the grid at its price or
+  // expected solar at the feed-in price it would otherwise earn
   const chargeLeft = new Map<number, number>() // slot index -> kWh still available to buy there
   const chargeUsed = new Map<number, number>() // slot index -> kWh into the batteries there
-  if (cfg.gridCharge) {
-    let room = Math.max(0, cfg.maxSoc * input.capacityKwh - input.storedKwh)
-    for (const d of byPriceDesc) {
-      if (room <= 1e-9) break
-      if (discharge.has(d) || chargeUsed.has(d)) continue
-      const pD = slots[d]!.price
-      let best = -1
-      for (let c = 0; c < d; c++) {
-        if (discharge.has(c)) continue
-        const left = chargeLeft.get(c) ?? chargeKwhPerSlot
-        if (left <= 1e-9) continue
-        if (slots[c]!.price / eta + cfg.minSpread > pD) continue
-        if (best === -1 || slots[c]!.price < slots[best]!.price) best = c
+  const solarLeft = new Map<number, number>() // slot index -> expected solar kWh not yet assigned to a peak
+  const solarCost = (i: number) => Math.max(0, prices[i]!.feedIn)
+  let room = Math.max(0, cfg.maxSoc * input.capacityKwh - input.storedKwh)
+  for (const d of byPriceDesc) {
+    if (room <= 1e-9) break
+    if (discharge.has(d) || chargeUsed.has(d)) continue
+    const pD = slots[d]!.price
+    let best = -1
+    let bestSolar = false
+    let bestCost = Infinity
+    for (let c = 0; c < d; c++) {
+      if (discharge.has(c)) continue
+      if ((solarLeft.get(c) ?? solarIn[c]!) > 1e-9 && solarCost(c) < bestCost && solarCost(c) / eta + cfg.minSpread <= pD) {
+        best = c
+        bestSolar = true
+        bestCost = solarCost(c)
       }
-      if (best === -1) continue
-      const need = Math.min(dischargeKwhPerSlot, room)
-      const left = chargeLeft.get(best) ?? chargeKwhPerSlot
-      const take = Math.min(need, left)
-      chargeLeft.set(best, left - take)
-      chargeUsed.set(best, (chargeUsed.get(best) ?? 0) + take)
-      room -= take
-      discharge.add(d)
-      slots[d]!.action = 'discharge'
-      slots[d]!.reason = `peak €${pD.toFixed(3)}, recharged earlier at €${slots[best]!.price.toFixed(3)}`
+      if (!cfg.gridCharge || (chargeLeft.get(c) ?? chargeKwhPerSlot) <= 1e-9) continue
+      if (slots[c]!.price / eta + cfg.minSpread > pD) continue
+      if (slots[c]!.price < bestCost) {
+        best = c
+        bestSolar = false
+        bestCost = slots[c]!.price
+      }
     }
+    if (best === -1) continue
+    const need = Math.min(dischargeKwhPerSlot, room)
+    const pool = bestSolar ? solarLeft : chargeLeft
+    const left = pool.get(best) ?? (bestSolar ? solarIn[best]! : chargeKwhPerSlot)
+    const take = Math.min(need, left)
+    pool.set(best, left - take)
+    if (bestSolar) {
+      slots[best]!.reason ||= `store solar (worth €${solarCost(best).toFixed(3)} fed in) for a later peak`
+    } else {
+      chargeUsed.set(best, (chargeUsed.get(best) ?? 0) + take)
+    }
+    room -= take
+    discharge.add(d)
+    slots[d]!.action = 'discharge'
+    slots[d]!.reason = bestSolar
+      ? `peak €${pD.toFixed(3)}, filled with solar earlier`
+      : `peak €${pD.toFixed(3)}, recharged earlier at €${slots[best]!.price.toFixed(3)}`
   }
 
   // 3. Daily cycle
@@ -108,6 +131,8 @@ export function buildPlan(input: PlanInput): PlanSlot[] {
       let over = 0
       for (let i = 0; i < slots.length; i++) {
         soc += chargeUsed.get(i) ?? 0
+        // Solar only fills what room is left; the rest goes to the grid, so it never overshoots
+        if (!discharge.has(i)) soc = Math.max(soc, Math.min(hi, soc + solarIn[i]!))
         if (discharge.has(i)) {
           soc -= dischargeKwhPerSlot
           if (lo - soc > under + 1e-12) {

@@ -10,6 +10,7 @@ import type { DeviceState } from '../providers/ecoflow'
 import { controlEcoFlow, steeringOf } from './ecoflow'
 import { getIntegration } from './integrations'
 import { getPrices } from './prices'
+import { solarForecastW } from './solarForecast'
 import { notify } from './push'
 
 type Site = typeof sites.$inferSelect
@@ -30,8 +31,11 @@ export async function computePlan(db: Db, site: Site, now = new Date()): Promise
     .from(ledger)
     .where(and(eq(ledger.siteId, site.id), gte(ledger.slotStart, startOfLocalDay(now, site.timezone)), lt(ledger.slotStart, from)))
 
+  const solar = await solarForecastW(db, site, from, addMs(from, 48 * 3600_000))
+
   return buildPlan({
     prices: priceList,
+    solarW: priceList.map((p) => solar.get(p.slotStart.getTime()) ?? 0),
     storedKwh,
     capacityKwh: devs.reduce((s, d) => s + d.capacityWh, 0) / 1000,
     maxChargeW: devs.reduce((s, d) => s + d.maxChargeW, 0),

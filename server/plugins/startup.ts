@@ -3,10 +3,11 @@ import { migrate } from 'drizzle-orm/postgres-js/migrator'
 import { sites } from '../db/schema'
 import { syncEcoFlowDevices } from '../services/ecoflow'
 import { refreshPrices } from '../services/prices'
+import { refreshIrradiance } from '../services/solarForecast'
 import { syncPulse } from '../services/pulse'
 import { runStrategy } from '../services/strategy'
 
-/** On boot: apply migrations, check the EcoFlow units, start the Tibber Pulse streams and make sure there are prices and a plan. */
+/** On boot: apply migrations, check the EcoFlow units, start the Tibber Pulse streams and make sure there are prices, a solar forecast and a plan. */
 export default defineNitroPlugin(() => {
   const cfg = useRuntimeConfig()
   if (!cfg.databaseUrl && !process.env.NUXT_DATABASE_URL) {
@@ -30,6 +31,7 @@ export default defineNitroPlugin(() => {
         if (ef.error) console.error(`[startup] site ${site.id}: EcoFlow: ${ef.error}`)
         await syncPulse(db, site, key)
         await refreshPrices(db, site, key)
+        await refreshIrradiance(db, site).catch((err: Error) => console.warn(`[startup] site ${site.id}: solar forecast: ${err.message}`))
         await runStrategy(db, site)
       } catch (err) {
         console.error(`[startup] site ${site.id}:`, (err as Error).message)

@@ -143,3 +143,34 @@ describe('leftover above the reserve', () => {
     expect(plan.every((p) => p.action === 'self_use')).toBe(true)
   })
 })
+
+describe('solar forecast', () => {
+  const sunny = (n: number, at: number[], w: number) => Array.from({ length: n }, (_, i) => (at.includes(i) ? w : 0))
+
+  it('fills a peak with cheap solar instead of the grid', () => {
+    // after netting: solar is worth only the low feed-in price, the grid costs 0.2
+    const prices = slots([0.2, 0.2, 0.2, 0.4]).map((p) => ({ ...p, feedIn: 0.05 }))
+    const plan = buildPlan({ ...input([], 0.384), prices, solarW: sunny(4, [1], 2000) })
+    expect(plan[3]!.action).toBe('discharge')
+    expect(plan.some((p) => p.action === 'charge_grid')).toBe(false)
+    expect(plan[1]!.reason).toMatch(/store solar/)
+  })
+
+  it('still buys from the grid when that is cheaper than the solar is worth', () => {
+    // netting: solar at midday is worth the full 0.3, the night costs 0.1
+    const prices = slots([0.1, 0.3, 0.3, 0.45]).map((p) => ({ ...p, feedIn: p.total }))
+    const plan = buildPlan({ ...input([], 0.384), prices, solarW: sunny(4, [1, 2], 2000) })
+    expect(plan[0]!.action).toBe('charge_grid')
+    expect(plan[3]!.action).toBe('discharge')
+  })
+
+  it('buys less for the daily cycle when the sun fills the batteries first', () => {
+    const totals = [0.2, 0.21, 0.22, 0.23, 0.24, 0.25, 0.26, 0.27]
+    const cfg = { dailyCycleKwh: 0.4, minSpread: 1 }
+    const without = buildPlan(input(totals, 0.384, cfg))
+    const withSun = buildPlan({ ...input(totals, 0.384, cfg), solarW: sunny(8, [1, 2, 3], 2400) })
+    const bought = (p: typeof without) => p.filter((s) => s.action === 'charge_grid').length
+    expect(bought(without)).toBeGreaterThan(0)
+    expect(bought(withSun)).toBeLessThan(bought(without))
+  })
+})
