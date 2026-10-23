@@ -124,7 +124,9 @@ a:hover { text-decoration-color: currentColor; }
 main {
   max-width: 640px;
   margin: 0 auto;
-  padding: calc(16px + env(safe-area-inset-top)) 16px calc(96px + env(safe-area-inset-bottom));
+  /* iOS draws a blurred edge below the status bar that reaches past safe-area-inset-top,
+     so leave a clear gap under it before the first line of content */
+  padding: calc(32px + env(safe-area-inset-top)) 16px calc(96px + env(safe-area-inset-bottom));
 }
 
 /* Type scale (Bringhurst): 12 · 14 · 16 · 21 · 28 · 36 · 48 */
