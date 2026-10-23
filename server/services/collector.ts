@@ -3,6 +3,7 @@ import { samples, type sites } from '../db/schema'
 import { pulseGridW } from '../providers/tibberPulse'
 import { readEcoFlow } from './ecoflow'
 import { solarEdgeSolarW } from './solaredge'
+import { runSurplus } from './strategy'
 
 type Site = typeof sites.$inferSelect
 export type HouseSource = 'pulse'
@@ -50,5 +51,20 @@ export async function collect(db: Db, site: Site, key: string, now = new Date())
     solarSource: solarW === null ? null : 'solaredge',
   }
   live.set(site.id, state)
+
+  if (batteries.length) {
+    const socs = batteries.map((b) => b.state.soc).filter((v): v is number => typeof v === 'number')
+    const maxChg = batteries.map((b) => Number(b.state.quota?.cmsMaxChgSoc)).filter((v) => Number.isFinite(v) && v > 0)
+    try {
+      await runSurplus(db, site, key, {
+        gridW: gridW ?? undefined,
+        batteryW,
+        socPct: socs.length ? (socs.reduce((a, b) => a + b, 0) / socs.length) * 100 : 100,
+        maxChgPct: maxChg.length ? Math.max(...maxChg) : 100,
+      }, now)
+    } catch (err) {
+      console.error(`[surplus] site ${site.id}:`, (err as Error).message)
+    }
+  }
   return state
 }
