@@ -25,6 +25,7 @@
           <p class="r-line">
             <span class="r-when">{{ isNow ? 'Now' : dayLabel(picked.slotStart) }}, {{ time(picked.slotStart) }}–{{ time(slotEnd(picked.slotStart)) }}</span>
             <span class="r-price">{{ cents(picked.total) }} per kWh</span>
+            <span v-if="picked.solarW >= 10" class="r-sun">{{ Math.round(picked.solarW) }} W solar expected</span>
           </p>
           <p v-if="picked.reason" class="r-reason">{{ picked.reason }}</p>
           <button v-if="!isNow && nowIndex >= 0" class="plain r-back" @click="selected = nowIndex">Back to now</button>
@@ -36,6 +37,7 @@
         <li v-for="a in actions" :key="a.value"><i class="sw" :style="{ background: a.color }" />{{ a.label }}</li>
       </ul>
       <p v-if="!hasTomorrow" class="hint">Tomorrow's prices come in around 13:00.</p>
+      <p v-if="solarDays.length" class="hint">Expected solar (Open-Meteo): {{ solarDays.map((d) => `${d.label.toLowerCase()} ${d.kwh.toFixed(1)} kWh`).join(', ') }}.</p>
 
       <section class="block">
         <div class="block-head"><h2>Coming up</h2></div>
@@ -171,6 +173,12 @@ const nowIndex = computed(() => (data.value?.slots ?? []).findIndex((s: any) => 
 }))
 const picked = computed(() => data.value?.slots[selected.value] ?? null)
 const isNow = computed(() => selected.value === nowIndex.value)
+// Expected production per day over the slots shown (15-min W values -> kWh)
+const solarDays = computed(() => {
+  const days = new Map<string, number>()
+  for (const s of data.value?.slots ?? []) if (s.solarW) days.set(dayLabel(s.slotStart), (days.get(dayLabel(s.slotStart)) ?? 0) + s.solarW / 4000)
+  return [...days].map(([label, kwh]) => ({ label, kwh }))
+})
 const hasTomorrow = computed(() => (data.value?.slots ?? []).some((s: any) => dayLabel(s.slotStart) === 'Tomorrow'))
 
 // From the current quarter on, consecutive slots with the same action and reason become one run
@@ -301,6 +309,7 @@ onBeforeUnmount(() => clearInterval(tick))
 .r-act .sw { width: 14px; height: 14px; border-radius: 3px; }
 .r-line { display: flex; flex-wrap: wrap; gap: 2px 14px; margin: 0; font-size: 16px; font-variant-numeric: tabular-nums; }
 .r-price { font-weight: 600; }
+.r-sun { color: var(--sun); }
 .r-reason { margin: 4px 0 0; font-size: 14px; color: var(--text-2); max-width: 52ch; }
 .r-back { position: absolute; top: 2px; right: 0; font-size: 14px; }
 

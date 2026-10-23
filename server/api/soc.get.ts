@@ -4,6 +4,7 @@ import type { DeviceState } from '../providers/ecoflow'
 import { projectSoc } from '../lib/socForecast'
 import { SLOT_MS, slotStartOf } from '../lib/time'
 import { defaultStrategy } from '../lib/types'
+import { solarForecastW } from '../services/solarForecast'
 
 const PAST_H = 12
 const FUTURE_H = 12
@@ -54,7 +55,8 @@ export default defineEventHandler(async (event) => {
     .where(and(eq(plans.siteId, site.id), gte(plans.slotStart, slotStartOf(now))))
     .orderBy(asc(plans.slotStart))
     .limit((FUTURE_H * 3600_000) / SLOT_MS)
-  const forecast = projectSoc(socNow, planRows, {
+  const solar = await solarForecastW(db, site, slotStartOf(now), new Date(slotStartOf(now).getTime() + FUTURE_H * 3600_000))
+  const forecast = projectSoc(socNow, planRows.map((p) => ({ ...p, solarW: solar.get(p.slotStart.getTime()) })), {
     capacityWh,
     maxChargeW: devs.reduce((s, d) => s + d.maxChargeW, 0),
     maxDischargeW: Math.min(cfg.maxOutputW, devs.reduce((s, d) => s + d.maxDischargeW, 0)),

@@ -5,6 +5,7 @@ import { defaultStrategy } from '../../lib/types'
 import { getPrices } from '../../services/prices'
 import { steeringOf } from '../../services/ecoflow'
 import { getIntegration } from '../../services/integrations'
+import { solarForecastW } from '../../services/solarForecast'
 import { recentCommands } from '../../services/strategy'
 
 /** Prices for today + tomorrow with the planned action per slot */
@@ -18,6 +19,7 @@ export default defineEventHandler(async (event) => {
     db.select().from(plans).where(and(eq(plans.siteId, site.id), gte(plans.slotStart, from), lt(plans.slotStart, to))).orderBy(asc(plans.slotStart)),
     db.select({ id: devices.id }).from(devices).where(eq(devices.siteId, site.id)),
   ])
+  const solar = await solarForecastW(db, site, from, to)
   const ecoflow = await getIntegration(db, site.id, 'ecoflow_official', encryptionKey()).catch(() => null)
   const planBySlot = new Map(planRows.map((p) => [p.slotStart.getTime(), p]))
   return {
@@ -27,7 +29,7 @@ export default defineEventHandler(async (event) => {
     strategy: { ...defaultStrategy, ...site.strategy },
     slots: priceList.map((p) => {
       const plan = planBySlot.get(p.slotStart.getTime())
-      return { slotStart: p.slotStart, total: p.total, feedIn: p.feedIn, source: p.source, action: plan?.action ?? null, targetW: plan?.targetW ?? null, reason: plan?.reason ?? null }
+      return { slotStart: p.slotStart, total: p.total, feedIn: p.feedIn, source: p.source, action: plan?.action ?? null, targetW: plan?.targetW ?? null, reason: plan?.reason ?? null, solarW: solar.get(p.slotStart.getTime()) ?? null }
     }),
     commands: await recentCommands(db, devs.map((d) => d.id)),
   }

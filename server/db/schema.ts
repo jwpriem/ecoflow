@@ -152,6 +152,18 @@ export const solarProduction = pgTable(
   (t) => [primaryKey({ columns: [t.siteId, t.slotStart] })],
 )
 
+/** Open-Meteo global horizontal irradiance per 15-min slot, past (to fit) and forecast (to plan). W/m². */
+export const irradiance = pgTable(
+  'irradiance',
+  {
+    siteId: integer('site_id').notNull().references(() => sites.id, { onDelete: 'cascade' }),
+    slotStart: ts('slot_start').notNull(),
+    ghi: doublePrecision('ghi').notNull(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.siteId, t.slotStart] })],
+)
+
 /** Where the solar of one 15-min slot went and what it was worth. Money in EUR. */
 export const solarLedger = pgTable(
   'solar_ledger',
