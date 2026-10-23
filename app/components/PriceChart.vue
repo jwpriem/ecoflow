@@ -17,11 +17,11 @@
         />
 
         <!-- day boundaries -->
-        <g v-for="m in midnights" :key="m.x" class="day">
-          <line :x1="m.x" :x2="m.x" :y1="4" :y2="PB + 6" />
-          <text :x="m.x + 6" :y="15">{{ m.label }}</text>
+        <g v-for="md in midnights" :key="md.x" class="day">
+          <line :x1="md.x" :x2="md.x" :y1="4" :y2="PB + 6" />
+          <text :x="md.x + 6" :y="15">{{ md.label }}</text>
         </g>
-        <text v-if="showTodayLabel" x="2" y="15" class="day-t">Today</text>
+        <text v-if="showTodayLabel" x="2" y="15" class="day-t">{{ m.day.today }}</text>
 
         <!-- hour ticks along the bottom; labels every 3 hours -->
         <g class="axis">
@@ -107,12 +107,8 @@ const bars = computed(() =>
 )
 const sel = computed(() => (props.modelValue >= 0 && props.modelValue < props.slots.length ? { x: props.modelValue * slotW.value } : null))
 
-const dayName = (d: Date) => {
-  const today = new Date(props.now)
-  today.setHours(0, 0, 0, 0)
-  const diff = Math.round((new Date(d).setHours(0, 0, 0, 0) - today.getTime()) / 86_400_000)
-  return diff === 0 ? 'Today' : diff === 1 ? 'Tomorrow' : d.toLocaleDateString('en-GB', { weekday: 'long' })
-}
+const { m, dayLabel } = useLocale()
+const dayName = (d: Date) => dayLabel(d, props.now)
 const midnights = computed(() =>
   props.slots
     .map((s, i) => ({ d: new Date(s.slotStart), i }))
@@ -156,11 +152,11 @@ watch(() => props.modelValue, (i) => reveal(i))
 
 const aria = computed(() => {
   const up = props.slots.slice(Math.max(0, nowIndex.value))
-  if (!up.length) return 'Prices per 15 minutes'
+  if (!up.length) return m.value.chart.prices
   const lo = up.reduce((a, b) => (b.total < a.total ? b : a))
   const hi = up.reduce((a, b) => (b.total > a.total ? b : a))
   const t = (s: Slot) => new Date(s.slotStart).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })
-  return `Prices per 15 minutes. Cheapest ahead ${Math.round(lo.total * 100)} ct at ${t(lo)}, dearest ${Math.round(hi.total * 100)} ct at ${t(hi)}. Use the arrow keys to step through the quarters.`
+  return m.value.chart.aria(Math.round(lo.total * 100), t(lo), Math.round(hi.total * 100), t(hi))
 })
 </script>
 

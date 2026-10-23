@@ -30,7 +30,7 @@
 
       <g class="axis">
         <text v-for="t in ticks" :key="t.x" :x="t.x" :y="H - 2" text-anchor="middle">{{ t.label }}</text>
-        <text :x="xNow" :y="H - 2" text-anchor="middle" class="axis-now">Now</text>
+        <text :x="xNow" :y="H - 2" text-anchor="middle" class="axis-now">{{ m.common.now }}</text>
       </g>
 
       <g v-if="tip">
@@ -40,14 +40,14 @@
 
     <div v-if="tip" class="tooltip" :style="{ left: `${Math.min(Math.max(tip.x, 74), w - 74)}px` }">
       <div class="t-time">{{ tip.time }}</div>
-      <div v-if="tip.price != null" class="t-price">{{ cents(tip.price) }} per kWh</div>
-      <div v-if="tip.action" class="t-act"><i :style="{ background: ACTION[tip.action]?.color }" />{{ ACTION[tip.action]?.label }}</div>
-      <div v-if="tip.soc != null" class="t-soc">Batteries {{ Math.round(tip.soc * 100) }}%</div>
+      <div v-if="tip.price != null" class="t-price">{{ cents(tip.price) }} {{ m.common.perKwh }}</div>
+      <div v-if="tip.action" class="t-act"><i :style="{ background: ACTION[tip.action]?.color }" />{{ m.mode[tip.action] }}</div>
+      <div v-if="tip.soc != null" class="t-soc">{{ m.strip.batteries(Math.round(tip.soc * 100)) }}</div>
     </div>
 
     <ul class="legend">
-      <li v-for="a in presentActions" :key="a"><i :style="{ background: ACTION[a]!.color }" />{{ ACTION[a]!.label }}</li>
-      <li><i class="ln" />Charge level</li>
+      <li v-for="a in presentActions" :key="a"><i :style="{ background: ACTION[a]!.color }" />{{ m.mode[a] }}</li>
+      <li><i class="ln" />{{ m.strip.chargeLevel }}</li>
     </ul>
   </div>
 </template>
@@ -57,11 +57,12 @@ interface Pt { ts: string | Date; soc: number }
 interface Slot { slotStart: string; total: number; action: string | null }
 const props = defineProps<{ slots: Slot[]; history: Pt[]; forecast: Pt[]; now: string; socNow: number; reserve: number }>()
 
-const ACTION: Record<string, { label: string; color: string }> = {
-  charge_grid: { label: 'Charge from grid', color: 'var(--cheap)' },
-  discharge: { label: 'Discharge', color: 'var(--dear)' },
-  self_use: { label: 'Self-use', color: 'var(--own)' },
-  solar_only: { label: 'Hold', color: 'var(--hold)' },
+const { m } = useLocale()
+const ACTION: Record<string, { color: string }> = {
+  charge_grid: { color: 'var(--cheap)' },
+  discharge: { color: 'var(--dear)' },
+  self_use: { color: 'var(--own)' },
+  solar_only: { color: 'var(--hold)' },
 }
 
 // Charge level panel on top, price panel below, shared time axis
@@ -175,7 +176,8 @@ function hover(e: PointerEvent) {
 const aria = computed(() => {
   const cheapest = [...inWindow.value].filter((s) => ms(s.slotStart) >= tNow.value - SLOT).sort((a, b) => a.total - b.total)[0]
   const end = forecast.value.at(-1)
-  return `Batteries at ${Math.round(props.socNow * 100)}%` + (end ? `, planned ${Math.round(end.soc * 100)}% in 12 hours` : '') + (cheapest ? `. Cheapest power ahead at ${new Date(cheapest.slotStart).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })}, ${cents(cheapest.total)} per kWh` : '')
+  const cheapT = cheapest ? new Date(cheapest.slotStart).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' }) : null
+  return m.value.strip.aria(Math.round(props.socNow * 100), end ? Math.round(end.soc * 100) : null, cheapT, cheapest ? cents(cheapest.total) : null)
 })
 </script>
 

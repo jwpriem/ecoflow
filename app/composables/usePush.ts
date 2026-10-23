@@ -1,12 +1,8 @@
 export type PushTopic = 'plan' | 'prices' | 'errors' | 'daily'
 export type PushState = 'loading' | 'unsupported' | 'install' | 'denied' | 'off' | 'on'
 
-export const PUSH_TOPICS: { key: PushTopic; label: string; help: string }[] = [
-  { key: 'plan', label: 'Charging & discharging', help: 'When the plan starts charging from the grid or discharging' },
-  { key: 'prices', label: "Tomorrow's prices", help: 'Cheapest and most expensive hour, once Tibber publishes them' },
-  { key: 'errors', label: 'Connection problems', help: 'When Tibber or SolarEdge stops working' },
-  { key: 'daily', label: 'Daily savings', help: 'Summary at 21:00' },
-]
+/** The topics; their texts are in m.push.topics */
+export const PUSH_TOPICS: readonly PushTopic[] = ['plan', 'prices', 'errors', 'daily']
 
 function isIos() {
   return /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
@@ -31,8 +27,9 @@ function sameKey(sub: PushSubscription, key: Uint8Array) {
 /** Web Push for this device. On iPhone it only works from the Home Screen app (iOS 16.4+). */
 export function usePush() {
   const api = useApi()
+  const { locale, m, serverText } = useLocale()
   const state = ref<PushState>('loading')
-  const topics = ref<PushTopic[]>(PUSH_TOPICS.map((t) => t.key))
+  const topics = ref<PushTopic[]>([...PUSH_TOPICS])
   const error = ref('')
   const busy = ref(false)
   let sub: PushSubscription | null = null
@@ -40,7 +37,7 @@ export function usePush() {
   const supported = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window
 
   async function save() {
-    await api('/api/push', { method: 'PUT', body: { subscription: sub!.toJSON(), topics: topics.value } })
+    await api('/api/push', { method: 'PUT', body: { subscription: sub!.toJSON(), topics: topics.value, locale: locale.value } })
   }
 
   async function init() {
@@ -76,7 +73,7 @@ export function usePush() {
       await save()
       state.value = 'on'
     } catch (e: any) {
-      error.value = e?.data?.statusMessage ?? e?.message ?? 'Could not turn on notifications'
+      error.value = serverText(e?.data?.statusMessage) || e?.message || m.value.push.enableFailed
     } finally {
       busy.value = false
     }
@@ -102,11 +99,16 @@ export function usePush() {
     try {
       await api('/api/push/test', { method: 'POST', body: { endpoint: sub?.endpoint } })
     } catch (e: any) {
-      error.value = e?.data?.statusMessage ?? e?.message ?? 'Test failed'
+      error.value = serverText(e?.data?.statusMessage) || e?.message || m.value.push.testFailed
     } finally {
       busy.value = false
     }
   }
 
-  return { state, topics, error, busy, init, enable, disable, toggleTopic, test, isIos }
+  /** Notifications follow the app's language: tell the server when it changes */
+  async function syncLocale() {
+    if (state.value === 'on' && sub) await save().catch(() => undefined)
+  }
+
+  return { state, topics, error, busy, init, enable, disable, toggleTopic, test, syncLocale, isIos }
 }

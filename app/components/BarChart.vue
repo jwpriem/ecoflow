@@ -28,7 +28,7 @@ const props = defineProps<{
   legend?: boolean
 }>()
 
-const fmt = (v: number) => (props.format ? props.format(v) : `${v.toFixed(2)}${props.unit ? ' ' + props.unit : ''}`)
+const fmt = (v: number) => (props.format ? props.format(v) : `${num(v)}${props.unit ? ' ' + props.unit : ''}`)
 
 // Re-read the palette when the sky turns
 const sky = useState('sky')

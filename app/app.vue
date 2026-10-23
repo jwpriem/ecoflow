@@ -1,10 +1,10 @@
 <template>
   <div>
     <main><NuxtPage :transition="{ name: 'page', mode: 'out-in' }" /></main>
-    <nav v-if="loggedIn" class="tabs" aria-label="Main">
+    <nav v-if="loggedIn" class="tabs" :aria-label="m.tabs.main">
       <NuxtLink v-for="t in tabs" :key="t.to" :to="t.to">
         <AppIcon :name="t.icon" />
-        <span>{{ t.label }}</span>
+        <span>{{ m.tabs[t.key] }}</span>
       </NuxtLink>
     </nav>
   </div>
@@ -12,10 +12,12 @@
 
 <script setup lang="ts">
 const { loggedIn } = useAuth()
+const { locale, m } = useLocale()
+useHead({ htmlAttrs: { lang: locale } })
 const tabs = [
-  { to: '/', label: 'Home', icon: 'house' },
-  { to: '/savings', label: 'Savings', icon: 'chart' },
-  { to: '/plan', label: 'Plan', icon: 'calendar' },
-  { to: '/settings', label: 'Settings', icon: 'gear' },
-]
+  { to: '/', key: 'home', icon: 'house' },
+  { to: '/savings', key: 'savings', icon: 'chart' },
+  { to: '/plan', key: 'plan', icon: 'calendar' },
+  { to: '/settings', key: 'settings', icon: 'gear' },
+] as const
 </script>

@@ -5,30 +5,30 @@
       <span v-if="d" class="clock"><span class="dot live" /> {{ time(d.now) }}</span>
     </header>
     <!-- A failed refresh keeps the last data on screen and says how old it is -->
-    <p v-if="error && d" class="note stale">Not updated since {{ time(d.now) }}: the server isn't answering. WattWise tries again every 30 seconds.</p>
-    <LoadError v-else-if="error" :error="error" what="your batteries" :busy="loading" auto @retry="load" />
+    <p v-if="error && d" class="note stale">{{ m.home.stale(time(d.now)) }}</p>
+    <LoadError v-else-if="error" :error="error" :what="m.load.what.batteries" :busy="loading" auto @retry="load" />
 
     <template v-if="d">
       <!-- No batteries yet: say what to do instead of showing a 0% pack -->
       <section v-if="!d.devices.length" class="status">
-        <h1 class="headline">Connect your batteries</h1>
-        <p class="detail">Save your EcoFlow developer keys in Settings. Every STREAM unit on the account then shows up here, with its charge level and what the plan does next.</p>
-        <NuxtLink to="/settings" class="go">Open Settings</NuxtLink>
+        <h1 class="headline">{{ m.home.connectTitle }}</h1>
+        <p class="detail">{{ m.home.connectText }}</p>
+        <NuxtLink to="/settings" class="go">{{ m.common.openSettings }}</NuxtLink>
       </section>
 
       <!-- What the batteries are doing, in words -->
       <section v-else class="status" aria-live="polite">
         <h1 class="headline" :class="state">{{ headline }}</h1>
         <p class="detail">{{ detail }}</p>
-        <p v-if="d.site.override" class="note">Your override holds {{ MODE_LABEL[d.site.override.mode]?.toLowerCase() }} until {{ time(d.site.override.until) }}.</p>
-        <p v-if="d.site.controlMode === 'manual'" class="note">Monitoring only: the plan isn't sent to the batteries.</p>
+        <p v-if="d.site.override" class="note">{{ m.home.override(m.mode[d.site.override.mode]?.toLowerCase() ?? d.site.override.mode, time(d.site.override.until)) }}</p>
+        <p v-if="d.site.controlMode === 'manual'" class="note">{{ m.home.monitorOnly }}</p>
       </section>
 
       <!-- The battery as one bar, split into the real units -->
-      <section v-if="d.devices.length" class="pack" :aria-label="`Batteries ${Math.round(combinedSoc * 100)}%`">
+      <section v-if="d.devices.length" class="pack" :aria-label="m.home.batteriesPct(Math.round(combinedSoc * 100))">
         <div class="pack-figure">
           <span class="pct">{{ Math.round(socT * 100) }}<small>%</small></span>
-          <span class="kwh">{{ storedKwhT.toFixed(2) }} of {{ capacityKwh.toFixed(2) }} kWh</span>
+          <span class="kwh">{{ m.home.kwhOf(num(storedKwhT), num(capacityKwh)) }}</span>
         </div>
         <div class="cells">
           <div v-for="b in d.devices" :key="b.id" class="cell" :style="{ flexGrow: b.capacityWh }">
@@ -42,7 +42,7 @@
               <span class="cell-power" :class="unitState(b)">
                 <template v-if="unitState(b) === 'charging'">+{{ watt(b.powerW) }}</template>
                 <template v-else-if="unitState(b) === 'discharging'">−{{ watt(-b.powerW) }}</template>
-                <template v-else>idle</template>
+                <template v-else>{{ m.home.idle }}</template>
               </span>
             </div>
           </div>
@@ -52,37 +52,37 @@
       <!-- The day: prices, the plan and the charge level on one time axis -->
       <section class="block">
         <div class="block-head">
-          <h2>Today’s prices and plan</h2>
-          <NuxtLink to="/plan">Open plan</NuxtLink>
+          <h2>{{ m.home.pricesAndPlan }}</h2>
+          <NuxtLink to="/plan">{{ m.home.openPlan }}</NuxtLink>
         </div>
         <DayStrip
           v-if="soc && plan?.slots.length"
           :slots="plan.slots" :history="soc.history" :forecast="soc.forecast" :now="soc.now" :soc-now="soc.socNow" :reserve="soc.reserveSoc"
         />
-        <p v-else-if="plan" class="empty-text">No prices yet. Add your Tibber token in Settings: today's 15-minute prices and the plan appear within a minute.</p>
+        <p v-else-if="plan" class="empty-text">{{ m.home.noPrices }}</p>
         <div v-else class="skeleton" style="height: 230px" />
       </section>
 
       <section v-if="d.devices.length" class="figures">
         <div>
-          <span class="f-label">Saved today</span>
+          <span class="f-label">{{ m.home.savedToday }}</span>
           <span class="f-value" :class="{ neg: savedToday < 0 }">{{ eur(savedTodayT) }}</span>
-          <span class="f-note">{{ eur(batteryToday) }} batteries · {{ eur(solarToday) }} solar</span>
+          <span class="f-note">{{ m.home.split(eur(batteryToday), eur(solarToday)) }}</span>
         </div>
         <div>
-          <span class="f-label">Price now</span>
+          <span class="f-label">{{ m.home.priceNow }}</span>
           <template v-if="d.price">
-            <span class="f-value">{{ cents(priceT) }}<small> per kWh</small></span>
-            <span class="f-note">You get {{ cents(d.price.feedIn) }} for feeding in</span>
+            <span class="f-value">{{ cents(priceT) }}<small> {{ m.common.perKwh }}</small></span>
+            <span class="f-note">{{ m.home.feedInNow(cents(d.price.feedIn)) }}</span>
           </template>
-          <span v-else class="f-note">No price for this quarter yet</span>
+          <span v-else class="f-note">{{ m.home.noPriceNow }}</span>
         </div>
       </section>
 
       <section v-if="d.devices.length || d.live" class="block">
         <div class="block-head">
-          <h2>Energy flow</h2>
-          <Segmented v-model="view" :options="VIEW_OPTIONS" />
+          <h2>{{ m.home.energyFlow }}</h2>
+          <Segmented v-model="view" :options="viewOptions" />
         </div>
         <Transition name="swap" mode="out-in">
           <EnergyFlow v-if="view === 'clean'" key="clean" :solar-w="d.live?.solarW ?? null" :grid-w="d.live?.gridW ?? null" :battery-w="totalPower" :house-w="houseW" :animate="animate" />
@@ -91,12 +91,12 @@
       </section>
 
       <section v-if="nextRuns.length" class="block">
-        <div class="block-head"><h2>Up next</h2></div>
+        <div class="block-head"><h2>{{ m.home.upNext }}</h2></div>
         <ol class="next">
           <li v-for="p in nextRuns" :key="String(p.slotStart)">
             <i :style="{ background: ACTION_COLOR[p.action] }" />
             <span class="n-time">{{ time(p.slotStart) }}–{{ time(p.end) }}</span>
-            <span class="n-act">{{ MODE_LABEL[p.action] }}</span>
+            <span class="n-act">{{ m.mode[p.action] }}</span>
             <span class="n-price">{{ cents(p.price) }}</span>
           </li>
         </ol>
@@ -125,10 +125,11 @@ const error = ref<any>(null)
 const loading = ref(false)
 const sky = useState<'day' | 'night'>('sky', () => 'day')
 const { view, animate } = useFlowView()
-const VIEW_OPTIONS = [
-  { value: 'clean', label: 'Clean' },
-  { value: 'detailed', label: 'House' },
-] as const
+const { m } = useLocale()
+const viewOptions = computed(() => [
+  { value: 'clean' as const, label: m.value.home.viewClean },
+  { value: 'detailed' as const, label: m.value.home.viewHouse },
+])
 const PROVIDER: Record<string, string> = { tibber: 'Tibber', solaredge: 'SolarEdge', ecoflow_official: 'EcoFlow' }
 const ACTION_COLOR: Record<string, string> = {
   charge_grid: 'var(--cheap)',
@@ -136,7 +137,7 @@ const ACTION_COLOR: Record<string, string> = {
   self_use: 'var(--own)',
   solar_only: 'var(--hold)',
 }
-const cents = (p: number) => `${(p * 100).toFixed(1).replace('.', ',')} ct`
+const cents = (p: number) => `${num(p * 100, 1)} ct`
 
 async function load() {
   loading.value = true
@@ -187,22 +188,24 @@ const headline = computed(() => {
   const solar = d.value?.live?.solarW ?? 0
   const grid = d.value?.live?.gridW ?? 0
   const action = currentRun.value?.action
+  const t = m.value.home
   if (state.value === 'charging') {
-    if (action === 'charge_grid' || (grid > 50 && solar < totalPower.value)) return 'Charging from the grid'
-    return solar > 5 ? 'Charging from the sun' : 'Charging'
+    if (action === 'charge_grid' || (grid > 50 && solar < totalPower.value)) return t.chargingGrid
+    return solar > 5 ? t.chargingSun : t.charging
   }
-  if (state.value === 'discharging') return grid < -50 ? 'Feeding the grid from the batteries' : 'Running the house from the batteries'
-  if (combinedSoc.value >= (soc.value?.maxSoc ?? 1) - 0.01) return 'Batteries are full'
-  if (soc.value?.reserveSoc && combinedSoc.value <= soc.value.reserveSoc + 0.01) return 'Batteries are at the reserve'
-  if (action === 'solar_only') return 'Holding the charge for later'
-  return 'Batteries are idle'
+  if (state.value === 'discharging') return grid < -50 ? t.feedingGrid : t.runningHouse
+  if (combinedSoc.value >= (soc.value?.maxSoc ?? 1) - 0.01) return t.full
+  if (soc.value?.reserveSoc && combinedSoc.value <= soc.value.reserveSoc + 0.01) return t.atReserve
+  if (action === 'solar_only') return t.holding
+  return t.idleHeadline
 })
 const detail = computed(() => {
   const parts: string[] = []
   const run = currentRun.value
-  if (state.value !== 'idle') parts.push(`${watt(Math.abs(totalPower.value))}${run ? ` until ${time(run.end)}` : ''}.`)
-  else if (run) parts.push(`Next change at ${time(run.end)}.`)
-  if (d.value?.price) parts.push(`Power costs ${cents(d.value.price.total)} per kWh right now.`)
+  const t = m.value.home
+  if (state.value !== 'idle') parts.push(t.powerUntil(watt(Math.abs(totalPower.value)), run ? time(run.end) : null))
+  else if (run) parts.push(t.nextChange(time(run.end)))
+  if (d.value?.price) parts.push(t.costsNow(cents(d.value.price.total)))
   return parts.join(' ')
 })
 

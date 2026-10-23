@@ -1,7 +1,8 @@
 {
   "name": "WattWise",
   "short_name": "WattWise",
-  "description": "Know your energy. Batteries, dynamic prices and solar in one place.",
+  "description": "Ken je energie. Batterijen, dynamische prijzen en zon op één plek.",
+  "lang": "nl",
   "id": "/",
   "start_url": "/",
   "scope": "/",

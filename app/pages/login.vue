@@ -1,16 +1,16 @@
 <template>
   <div class="login">
     <img class="mark" src="/favicon.svg" alt="WattWise" width="64" height="64" />
-    <h1>{{ needsSetup ? 'Welcome to WattWise' : 'Welcome back' }}</h1>
-    <p class="muted lede">{{ needsSetup ? 'First run: this creates the only account. Add your EcoFlow developer keys in Settings to bring in the batteries.' : 'Log in to see your batteries.' }}</p>
+    <h1>{{ needsSetup ? m.login.welcome : m.login.welcomeBack }}</h1>
+    <p class="muted lede">{{ needsSetup ? m.login.firstRun : m.login.logInToSee }}</p>
     <form @submit.prevent="submit">
       <div class="list">
-        <label class="list-row stack"><input v-model="email" type="email" placeholder="Email" aria-label="Email" autocomplete="username" required /></label>
-        <label class="list-row stack"><input v-model="password" type="password" placeholder="Password" aria-label="Password" :autocomplete="needsSetup ? 'new-password' : 'current-password'" required minlength="8" /></label>
-        <label v-if="needsSetup" class="list-row stack"><input v-model="setupCode" placeholder="Setup code" aria-label="Setup code" autocomplete="off" /></label>
+        <label class="list-row stack"><input v-model="email" type="email" :placeholder="m.login.email" :aria-label="m.login.email" autocomplete="username" required /></label>
+        <label class="list-row stack"><input v-model="password" type="password" :placeholder="m.login.password" :aria-label="m.login.password" :autocomplete="needsSetup ? 'new-password' : 'current-password'" required minlength="8" /></label>
+        <label v-if="needsSetup" class="list-row stack"><input v-model="setupCode" :placeholder="m.login.setupCode" :aria-label="m.login.setupCode" autocomplete="off" /></label>
       </div>
       <p v-if="error" class="error">{{ error }}</p>
-      <button class="primary" type="submit" :disabled="busy">{{ busy ? (needsSetup ? 'Creating account…' : 'Logging in…') : needsSetup ? 'Create account' : 'Log in' }}</button>
+      <button class="primary" type="submit" :disabled="busy">{{ busy ? (needsSetup ? m.login.creating : m.login.loggingIn) : needsSetup ? m.login.create : m.login.logIn }}</button>
     </form>
   </div>
 </template>
@@ -18,6 +18,7 @@
 <script setup lang="ts">
 const api = useApi()
 const { setToken } = useAuth()
+const { m, serverText } = useLocale()
 const email = ref('')
 const password = ref('')
 const error = ref('')
@@ -40,7 +41,7 @@ async function submit() {
     setToken(res.token)
     await navigateTo('/')
   } catch (e: any) {
-    error.value = e?.data?.statusMessage || e?.statusMessage || 'Logging in failed. Check your email and password, then try again.'
+    error.value = serverText(e?.data?.statusMessage || e?.statusMessage) || m.value.login.failed
   } finally {
     busy.value = false
   }

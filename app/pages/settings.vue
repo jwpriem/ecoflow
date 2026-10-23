@@ -1,90 +1,105 @@
 <template>
   <div>
-    <header class="page-head"><h1>Settings</h1></header>
-    <LoadError v-if="loadError" :error="loadError" what="your settings" :busy="busy === 'load'" @retry="retryLoad" />
+    <header class="page-head"><h1>{{ m.settings.title }}</h1></header>
+    <LoadError v-if="loadError" :error="loadError" :what="m.load.what.settings" :busy="busy === 'load'" @retry="retryLoad" />
 
-    <h3 class="section-title">Energy flow</h3>
-    <div class="list" role="radiogroup" aria-label="Default energy flow view">
+    <h3 class="section-title">{{ m.settings.language }}</h3>
+    <div class="list" role="radiogroup" :aria-label="m.settings.language">
+      <button
+        v-for="o in LANGUAGES" :key="o.value" type="button" role="radio" class="list-row indent row-btn" :lang="o.value"
+        :aria-checked="locale === o.value" @click="pickLocale(o.value)"
+      >
+        <span class="lead">
+          <span class="icon-tile lang-tile">{{ o.value.toUpperCase() }}</span>
+          <span class="title">{{ o.label }}</span>
+        </span>
+        <AppIcon v-if="locale === o.value" name="check" class="check" />
+      </button>
+    </div>
+    <p class="foot">{{ m.settings.languageFoot }}</p>
+
+    <h3 class="section-title">{{ m.settings.energyFlow }}</h3>
+    <div class="list" role="radiogroup" :aria-label="m.settings.flowAria">
       <button
         v-for="o in FLOW_VIEWS" :key="o.value" type="button" role="radio" class="list-row indent row-btn"
         :aria-checked="flow.defaultView.value === o.value" @click="flow.setDefault(o.value)"
       >
         <span class="lead">
           <span class="icon-tile"><AppIcon :name="o.icon" /></span>
-          <span class="stack-text"><span class="title">{{ o.label }}</span><span class="small muted">{{ o.help }}</span></span>
+          <span class="stack-text"><span class="title">{{ m.settings[o.text].label }}</span><span class="small muted">{{ m.settings[o.text].help }}</span></span>
         </span>
         <AppIcon v-if="flow.defaultView.value === o.value" name="check" class="check" />
       </button>
       <label class="list-row indent">
         <span class="lead">
           <span class="icon-tile"><AppIcon name="wave" /></span>
-          <span class="title">Animate flow</span>
+          <span class="title">{{ m.settings.animate }}</span>
         </span>
         <span class="switch"><input type="checkbox" :checked="flow.animate.value" @change="flow.setAnimate(($event.target as HTMLInputElement).checked)" /><span /></span>
       </label>
     </div>
-    <p class="foot">How Energy flow opens on this device. You can still switch on the Home page. Flow lines stay still when Reduce Motion is on.</p>
+    <p class="foot">{{ m.settings.flowFoot }}</p>
 
-    <h3 class="section-title">Solar savings</h3>
-    <div class="list" role="radiogroup" aria-label="What solar savings count">
+    <h3 class="section-title">{{ m.settings.solarSavings }}</h3>
+    <div class="list" role="radiogroup" :aria-label="m.settings.solarAria">
       <button
-        v-for="o in solarCounts" :key="o.value" type="button" role="radio" class="list-row indent row-btn"
-        :aria-checked="solar.count.value === o.value" @click="solar.setCount(o.value)"
+        v-for="o in SOLAR_COUNTS" :key="o" type="button" role="radio" class="list-row indent row-btn"
+        :aria-checked="solar.count.value === o" @click="solar.setCount(o)"
       >
         <span class="lead">
-          <span class="icon-tile"><AppIcon :name="o.value === 'house' ? 'house' : o.value === 'fed_in' ? 'grid' : 'sun'" /></span>
-          <span class="stack-text"><span class="title">{{ o.label }}</span><span class="small muted">{{ o.help }}</span></span>
+          <span class="icon-tile"><AppIcon :name="o === 'house' ? 'house' : o === 'fed_in' ? 'grid' : 'sun'" /></span>
+          <span class="stack-text"><span class="title">{{ m.solarCount[o].label }}</span><span class="small muted">{{ m.solarCount[o].help }}</span></span>
         </span>
-        <AppIcon v-if="solar.count.value === o.value" name="check" class="check" />
+        <AppIcon v-if="solar.count.value === o" name="check" class="check" />
       </button>
     </div>
-    <p class="foot">What Savings and Home count as earned by solar, on this device. You can also switch on the Savings page.</p>
+    <p class="foot">{{ m.settings.solarFoot }}</p>
 
-    <h3 class="section-title">Connections</h3>
+    <h3 class="section-title">{{ m.settings.connections }}</h3>
     <div class="list">
       <details v-for="i in integrations" :key="i.provider" class="conn" :open="i.provider === 'solaredge' && !!results.solaredge">
         <summary class="list-row indent">
           <div class="lead">
             <span class="icon-tile"><AppIcon :name="INFO[i.provider]!.icon" /></span>
-            <span class="title">{{ INFO[i.provider]!.title }}</span>
+            <span class="title">{{ m.settings.info[i.provider]!.title }}</span>
           </div>
           <span class="detail row" style="gap: 6px">
             <span class="dot" :class="i.status === 'ok' ? 'ok' : i.status === 'error' ? 'err' : ''" />
-            {{ i.configured ? i.status : 'Off' }}
+            {{ i.configured ? (m.settings.status[i.status] ?? i.status) : m.settings.status.off }}
             <AppIcon name="chevron" class="chev" />
           </span>
         </summary>
         <form class="conn-body" @submit.prevent="save(i.provider)">
-          <p class="small muted">{{ INFO[i.provider]!.help }}</p>
+          <p class="small muted">{{ m.settings.info[i.provider]!.help }}</p>
           <p v-if="i.lastError" class="error">{{ i.lastError }}</p>
           <p v-if="i.provider === 'tibber' && i.configured" class="small muted">
-            Pulse realtime: {{ i.meta.realtime ? (i.pulse?.connected ? 'connected' : 'connecting…') : 'not available for this home' }}
+            {{ m.settings.pulse(i.meta.realtime ? (i.pulse?.connected ? m.settings.pulseConnected : m.settings.pulseConnecting) : m.settings.pulseNone) }}
           </p>
           <template v-if="i.provider === 'solaredge'">
-            <p class="small muted">Redirect URI to register in the developer console: <code class="copy">{{ i.redirectUri }}</code></p>
+            <p class="small muted">{{ m.settings.redirectUri }} <code class="copy">{{ i.redirectUri }}</code></p>
             <p v-if="i.configured" class="small muted">
-              {{ i.meta.authorized ? `Site ${i.meta.siteId}${(i.meta.lastTest as any)?.name ? ` · ${(i.meta.lastTest as any).name}` : ''}` : 'Not signed in with SolarEdge yet.' }}
+              {{ i.meta.authorized ? `${m.settings.site(String(i.meta.siteId))}${(i.meta.lastTest as any)?.name ? ` · ${(i.meta.lastTest as any).name}` : ''}` : m.settings.notSignedIn }}
               <template v-if="i.meta.credits">
-                · Credits today {{ i.credits.today }}/{{ i.credits.dailyCap }}, {{ (i.meta.credits as any).month }}: {{ (i.meta.credits as any).monthUsed }}/{{ i.credits.monthly }}
+                {{ m.settings.credits(i.credits.today, i.credits.dailyCap, (i.meta.credits as any).month, (i.meta.credits as any).monthUsed, i.credits.monthly) }}
               </template>
             </p>
           </template>
           <label v-for="f in INFO[i.provider]!.fields" :key="f.key" class="field">
-            <span>{{ f.label }}</span>
-            <input v-model="forms[i.provider]![f.key]" :type="f.secret ? 'password' : 'text'" :placeholder="i.configured ? 'Saved · leave empty to keep' : ''" autocomplete="off" />
+            <span>{{ m.settings.fields[f.key] ?? f.key }}</span>
+            <input v-model="forms[i.provider]![f.key]" :type="f.secret ? 'password' : 'text'" :placeholder="i.configured ? m.settings.keepSaved : ''" autocomplete="off" />
           </label>
           <label v-if="i.provider === 'tibber' && (i.meta.homes as any[])?.length > 1" class="field">
-            <span>Home</span>
+            <span>{{ m.settings.home }}</span>
             <select v-model="homeId">
               <option v-for="h in i.meta.homes as any[]" :key="h.id" :value="h.id">{{ h.name }}</option>
             </select>
           </label>
           <div class="row">
-            <button class="primary" type="submit" :disabled="busy === i.provider">{{ busy === i.provider ? 'Testing…' : 'Save & test' }}</button>
+            <button class="primary" type="submit" :disabled="busy === i.provider">{{ busy === i.provider ? m.settings.testing : m.settings.saveTest }}</button>
             <button v-if="i.provider === 'solaredge' && i.configured" type="button" :disabled="busy === 'se-auth'" @click="signInSolarEdge">
-              {{ i.meta.authorized ? 'Sign in again' : 'Sign in with SolarEdge' }}
+              {{ i.meta.authorized ? m.settings.signInAgain : m.settings.signIn }}
             </button>
-            <button v-if="i.configured" type="button" class="danger" @click="remove(i.provider)">Disconnect</button>
+            <button v-if="i.configured" type="button" class="danger" @click="remove(i.provider)">{{ m.settings.disconnect }}</button>
             <span v-if="results[i.provider]" class="small" :class="results[i.provider]!.ok ? 'pos' : 'error'">{{ results[i.provider]!.text }}</span>
           </div>
         </form>
@@ -92,118 +107,108 @@
     </div>
 
     <template v-for="d in devs" :key="d.id">
-      <h3 class="section-title">{{ d.name || 'Battery' }}</h3>
+      <h3 class="section-title">{{ d.name || m.settings.battery }}</h3>
       <div class="list">
-        <label class="list-row"><span class="title">Name</span><input v-model="d.name" /></label>
-        <label class="list-row"><span class="title">Capacity</span><span class="unit-in"><input v-model.number="d.capacityWh" type="number" inputmode="numeric" /> Wh</span></label>
-        <label class="list-row"><span class="title">Max charge</span><span class="unit-in"><input v-model.number="d.maxChargeW" type="number" inputmode="numeric" /> W</span></label>
-        <label class="list-row"><span class="title">Max discharge</span><span class="unit-in"><input v-model.number="d.maxDischargeW" type="number" inputmode="numeric" /> W</span></label>
-        <div class="list-row"><button class="plain" @click="saveDevice(d)">Save {{ d.name }}</button><span v-if="deviceMsg === d.id" class="small pos">Saved</span></div>
+        <label class="list-row"><span class="title">{{ m.settings.name }}</span><input v-model="d.name" /></label>
+        <label class="list-row"><span class="title">{{ m.settings.capacity }}</span><span class="unit-in"><input v-model.number="d.capacityWh" type="number" inputmode="numeric" /> Wh</span></label>
+        <label class="list-row"><span class="title">{{ m.settings.maxCharge }}</span><span class="unit-in"><input v-model.number="d.maxChargeW" type="number" inputmode="numeric" /> W</span></label>
+        <label class="list-row"><span class="title">{{ m.settings.maxDischarge }}</span><span class="unit-in"><input v-model.number="d.maxDischargeW" type="number" inputmode="numeric" /> W</span></label>
+        <div class="list-row"><button class="plain" @click="saveDevice(d)">{{ m.settings.saveDevice(d.name) }}</button><span v-if="deviceMsg === d.id" class="small pos">{{ m.settings.saved }}</span></div>
       </div>
     </template>
-    <p v-if="!devs.length && !loadError" class="foot">No batteries yet: save the EcoFlow developer API keys above to add the STREAM units on your account.</p>
-    <p v-else class="foot">Read live through the EcoFlow developer API. Choose who steers them (EcoFlow AI or WattWise) on the Plan page.</p>
+    <p v-if="!devs.length && !loadError" class="foot">{{ m.settings.noBatteries }}</p>
+    <p v-else class="foot">{{ m.settings.batteriesFoot }}</p>
 
     <template v-if="strategy">
-      <h3 class="section-title">Strategy</h3>
+      <h3 class="section-title">{{ m.settings.strategy }}</h3>
       <div class="list">
         <div class="list-row stack">
-          <div class="spread"><span class="title">Backup reserve</span><span class="detail">{{ pct.reserveSoc }}%</span></div>
+          <div class="spread"><span class="title">{{ m.settings.reserve }}</span><span class="detail">{{ pct.reserveSoc }}%</span></div>
           <input v-model.number="pct.reserveSoc" type="range" min="0" max="90" step="5" class="range" :style="{ '--p': pct.reserveSoc / 90 }" />
         </div>
         <div class="list-row stack">
-          <div class="spread"><span class="title">Max charge level</span><span class="detail">{{ pct.maxSoc }}%</span></div>
+          <div class="spread"><span class="title">{{ m.settings.maxSoc }}</span><span class="detail">{{ pct.maxSoc }}%</span></div>
           <input v-model.number="pct.maxSoc" type="range" min="50" max="100" step="5" class="range" :style="{ '--p': (pct.maxSoc - 50) / 50 }" />
         </div>
         <div class="list-row stack">
-          <div class="spread"><span class="title">Round-trip efficiency</span><span class="detail">{{ pct.roundTripEfficiency }}%</span></div>
+          <div class="spread"><span class="title">{{ m.settings.efficiency }}</span><span class="detail">{{ pct.roundTripEfficiency }}%</span></div>
           <input v-model.number="pct.roundTripEfficiency" type="range" min="50" max="100" class="range" :style="{ '--p': (pct.roundTripEfficiency - 50) / 50 }" />
         </div>
-        <label class="list-row"><span class="title">Charge from grid when cheap</span><span class="switch"><input v-model="strategy.gridCharge" type="checkbox" /><span /></span></label>
-        <label class="list-row"><span class="title">Min. profit</span><span class="unit-in">€ <input v-model.number="strategy.minSpread" type="number" step="0.01" inputmode="decimal" /> /kWh</span></label>
-        <label class="list-row"><span class="title">Typical load</span><span class="unit-in"><input v-model.number="strategy.avgLoadW" type="number" inputmode="numeric" /> W</span></label>
-        <label class="list-row"><span class="title">Max output to house</span><span class="unit-in"><input v-model.number="strategy.maxOutputW" type="number" inputmode="numeric" /> W</span></label>
-        <label class="list-row"><span class="title">Min. daily cycle</span><span class="unit-in"><input v-model.number="strategy.dailyCycleKwh" type="number" step="0.1" inputmode="decimal" /> kWh</span></label>
+        <label class="list-row"><span class="title">{{ m.settings.gridCharge }}</span><span class="switch"><input v-model="strategy.gridCharge" type="checkbox" /><span /></span></label>
+        <label class="list-row"><span class="title">{{ m.settings.minProfit }}</span><span class="unit-in">€ <input v-model.number="strategy.minSpread" type="number" step="0.01" inputmode="decimal" /> /kWh</span></label>
+        <label class="list-row"><span class="title">{{ m.settings.typicalLoad }}</span><span class="unit-in"><input v-model.number="strategy.avgLoadW" type="number" inputmode="numeric" /> W</span></label>
+        <label class="list-row"><span class="title">{{ m.settings.maxOutput }}</span><span class="unit-in"><input v-model.number="strategy.maxOutputW" type="number" inputmode="numeric" /> W</span></label>
+        <label class="list-row"><span class="title">{{ m.settings.dailyCycle }}</span><span class="unit-in"><input v-model.number="strategy.dailyCycleKwh" type="number" step="0.1" inputmode="decimal" /> kWh</span></label>
       </div>
 
-      <h3 class="section-title">Feed-in</h3>
+      <h3 class="section-title">{{ m.settings.feedIn }}</h3>
       <div class="list">
-        <label class="list-row"><span class="title">Net metering until</span><input v-model="strategy.feedIn.nettingUntil" type="date" /></label>
-        <label class="list-row"><span class="title">After: spot ×</span><input v-model.number="strategy.feedIn.factor" type="number" step="0.05" inputmode="decimal" /></label>
-        <label class="list-row"><span class="title">Fee</span><span class="unit-in">€ <input v-model.number="strategy.feedIn.feeEur" type="number" step="0.005" inputmode="decimal" /> /kWh</span></label>
+        <label class="list-row"><span class="title">{{ m.settings.nettingUntil }}</span><input v-model="strategy.feedIn.nettingUntil" type="date" /></label>
+        <label class="list-row"><span class="title">{{ m.settings.afterFactor }}</span><input v-model.number="strategy.feedIn.factor" type="number" step="0.05" inputmode="decimal" /></label>
+        <label class="list-row"><span class="title">{{ m.settings.fee }}</span><span class="unit-in">€ <input v-model.number="strategy.feedIn.feeEur" type="number" step="0.005" inputmode="decimal" /> /kWh</span></label>
       </div>
-      <button class="primary wide" @click="saveStrategy">{{ strategyMsg || 'Save strategy' }}</button>
+      <button class="primary wide" @click="saveStrategy">{{ strategyMsg || m.settings.saveStrategy }}</button>
     </template>
 
-    <h3 class="section-title">Notifications</h3>
+    <h3 class="section-title">{{ m.settings.notifications }}</h3>
     <div class="list">
-      <div v-if="push.state.value === 'loading'" class="list-row"><span class="muted">Checking…</span></div>
+      <div v-if="push.state.value === 'loading'" class="list-row"><span class="muted">{{ m.settings.checking }}</span></div>
       <div v-else-if="push.state.value === 'install'" class="list-row stack">
-        <span class="title">Add WattWise to your Home Screen</span>
-        <span class="small muted">On iPhone, notifications only work from the Home Screen app (iOS 16.4 or later). In Safari tap Share, then <b>Add to Home Screen</b>, open WattWise from there and come back to this page.</span>
+        <span class="title">{{ m.settings.installTitle }}</span>
+        <span class="small muted">{{ m.settings.installText }}</span>
       </div>
-      <div v-else-if="push.state.value === 'unsupported'" class="list-row"><span class="small muted">This browser can't receive notifications.</span></div>
+      <div v-else-if="push.state.value === 'unsupported'" class="list-row"><span class="small muted">{{ m.settings.unsupported }}</span></div>
       <div v-else-if="push.state.value === 'denied'" class="list-row stack">
-        <span class="title">Notifications are blocked</span>
-        <span class="small muted">{{ push.isIos() ? 'Allow them in the iPhone Settings app → Notifications → WattWise, then reopen the app.' : 'Allow notifications for this site in your browser settings, then reload.' }}</span>
+        <span class="title">{{ m.settings.blocked }}</span>
+        <span class="small muted">{{ push.isIos() ? m.settings.blockedIos : m.settings.blockedWeb }}</span>
       </div>
-      <div v-else-if="push.state.value === 'off'" class="list-row"><button class="plain" :disabled="push.busy.value" @click="push.enable()">{{ push.busy.value ? 'Turning on…' : 'Turn on notifications' }}</button></div>
+      <div v-else-if="push.state.value === 'off'" class="list-row"><button class="plain" :disabled="push.busy.value" @click="push.enable()">{{ push.busy.value ? m.settings.turningOn : m.settings.turnOn }}</button></div>
       <template v-else>
-        <label v-for="t in PUSH_TOPICS" :key="t.key" class="list-row">
-          <span class="stack-text"><span class="title">{{ t.label }}</span><span class="small muted">{{ t.help }}</span></span>
-          <span class="switch"><input type="checkbox" :checked="push.topics.value.includes(t.key)" @change="push.toggleTopic(t.key, ($event.target as HTMLInputElement).checked)" /><span /></span>
+        <label v-for="t in PUSH_TOPICS" :key="t" class="list-row">
+          <span class="stack-text"><span class="title">{{ m.push.topics[t].label }}</span><span class="small muted">{{ m.push.topics[t].help }}</span></span>
+          <span class="switch"><input type="checkbox" :checked="push.topics.value.includes(t)" @change="push.toggleTopic(t, ($event.target as HTMLInputElement).checked)" /><span /></span>
         </label>
-        <div class="list-row"><button class="plain" :disabled="push.busy.value" @click="push.test()">{{ push.busy.value ? 'Sending…' : 'Send a test notification' }}</button></div>
-        <div class="list-row"><button class="plain danger" @click="push.disable()">Turn off on this device</button></div>
+        <div class="list-row"><button class="plain" :disabled="push.busy.value" @click="push.test()">{{ push.busy.value ? m.settings.sending : m.settings.sendTest }}</button></div>
+        <div class="list-row"><button class="plain danger" @click="push.disable()">{{ m.settings.turnOff }}</button></div>
       </template>
     </div>
     <p v-if="push.error.value" class="foot error">{{ push.error.value }}</p>
 
-    <h3 class="section-title">Account</h3>
+    <h3 class="section-title">{{ m.settings.account }}</h3>
     <div class="list">
       <div class="list-row indent">
         <div class="lead"><span class="icon-tile"><AppIcon name="person" /></span><span class="title">{{ me?.email }}</span></div>
       </div>
-      <div class="list-row"><button class="plain danger" @click="logout">Log out</button></div>
+      <div class="list-row"><button class="plain danger" @click="logout">{{ m.settings.logOut }}</button></div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import type { Locale } from '~/composables/useLocale'
 const flow = useFlowView()
 const solar = useSolarCount()
-const solarCounts = SOLAR_COUNTS
+const { m, locale, setLocale, serverText } = useLocale()
 const FLOW_VIEWS = [
-  { value: 'clean', label: 'Clean', help: 'Sources and live values', icon: 'nodes', tile: 'var(--surface-3)' },
-  { value: 'detailed', label: 'House', help: 'Your house, the sky over it and where power comes from', icon: 'house', tile: 'var(--sys-blue)' },
+  { value: 'clean', text: 'flowClean', icon: 'nodes', tile: 'var(--surface-3)' },
+  { value: 'detailed', text: 'flowHouse', icon: 'house', tile: 'var(--sys-blue)' },
 ] as const
 const api = useApi()
 const { setToken } = useAuth()
 const push = usePush()
 
-type Field = { key: string; label: string; secret?: boolean }
-const INFO: Record<string, { title: string; help: string; icon: string; tile: string; fields: Field[] }> = {
-  tibber: {
-    title: 'Tibber',
-    icon: 'bolt',
-    tile: 'var(--sys-blue)',
-    help: 'Personal access token from developer.tibber.com. Used for 15-minute prices and the Pulse live meter.',
-    fields: [{ key: 'token', label: 'Access token', secret: true }],
-  },
-  solaredge: {
-    title: 'SolarEdge',
-    icon: 'sun',
-    tile: 'var(--c-discharge)',
-    help: 'Monitoring API v2. Create a Site Access application at developer.solaredge.com with the redirect URI below, save its client ID and secret here, then sign in with SolarEdge to grant access. Read every 20 minutes from 05:00 to 22:00: at most 64 credits a day, so the Free tier (2,000 a month) is never exceeded.',
-    fields: [{ key: 'clientId', label: 'Client ID' }, { key: 'clientSecret', label: 'Client secret', secret: true }],
-  },
-  ecoflow_official: {
-    title: 'EcoFlow developer API',
-    icon: 'key',
-    tile: 'var(--surface-3)',
-    help: 'Access key and secret key from developer-eu.ecoflow.com. Reads charge level, battery power and PV of every STREAM unit on the account, once a minute.',
-    fields: [{ key: 'accessKey', label: 'Access key', secret: true }, { key: 'secretKey', label: 'Secret key', secret: true }],
-  },
+function pickLocale(l: Locale) {
+  setLocale(l)
+  // Notifications on this device follow the new language
+  push.syncLocale()
+}
+
+// Titles, help texts and field labels are in m.settings
+type Field = { key: string; secret?: boolean }
+const INFO: Record<string, { icon: string; tile: string; fields: Field[] }> = {
+  tibber: { icon: 'bolt', tile: 'var(--sys-blue)', fields: [{ key: 'token', secret: true }] },
+  solaredge: { icon: 'sun', tile: 'var(--c-discharge)', fields: [{ key: 'clientId' }, { key: 'clientSecret', secret: true }] },
+  ecoflow_official: { icon: 'key', tile: 'var(--surface-3)', fields: [{ key: 'accessKey', secret: true }, { key: 'secretKey', secret: true }] },
 }
 
 const integrations = ref<any[]>([])
@@ -242,14 +247,14 @@ async function save(provider: string) {
       method: 'PUT',
       body: { ...(filled ? { credentials: f } : {}), meta: provider === 'tibber' && homeId.value ? { homeId: homeId.value } : {} },
     })
-    if (typeof r !== 'object' || r === null) throw new Error('Unexpected response from the server')
+    if (typeof r !== 'object' || r === null) throw new Error(m.value.settings.unexpected)
     results[provider] = !r.ok
-      ? { ok: false, text: r.error ?? 'Saved, but the test failed' }
-      : { ok: true, text: provider === 'solaredge' && !r.meta.authorized ? 'Saved · now sign in with SolarEdge' : 'Connected' }
+      ? { ok: false, text: r.error ?? m.value.settings.testFailed }
+      : { ok: true, text: provider === 'solaredge' && !r.meta.authorized ? m.value.settings.nowSignIn : m.value.settings.connected }
     forms[provider] = {}
     await load()
   } catch (e: any) {
-    results[provider] = { ok: false, text: e?.data?.statusMessage ?? e?.message ?? 'Failed' }
+    results[provider] = { ok: false, text: serverText(e?.data?.statusMessage) || e?.message || m.value.common.failed }
   } finally {
     busy.value = ''
   }
@@ -261,7 +266,7 @@ async function signInSolarEdge() {
     const r: any = await api('/api/integrations/solaredge/authorize')
     window.location.href = r.url
   } catch (e: any) {
-    results.solaredge = { ok: false, text: e?.data?.statusMessage ?? 'Failed' }
+    results.solaredge = { ok: false, text: serverText(e?.data?.statusMessage) || m.value.common.failed }
     busy.value = ''
   }
 }
@@ -282,7 +287,7 @@ async function saveStrategy() {
     method: 'PUT',
     body: { ...strategy.value, reserveSoc: pct.reserveSoc / 100, maxSoc: pct.maxSoc / 100, roundTripEfficiency: pct.roundTripEfficiency / 100 },
   })
-  strategyMsg.value = 'Saved · plan rebuilt'
+  strategyMsg.value = m.value.settings.strategySaved
   setTimeout(() => (strategyMsg.value = ''), 3000)
 }
 
@@ -313,7 +318,7 @@ onMounted(async () => {
   const route = useRoute()
   const se = route.query.solaredge
   if (typeof se === 'string') {
-    results.solaredge = se === 'ok' ? { ok: true, text: 'Connected' } : { ok: false, text: se }
+    results.solaredge = se === 'ok' ? { ok: true, text: m.value.settings.connected } : { ok: false, text: se }
     navigateTo({ query: {} }, { replace: true })
   }
   push.init().catch(() => (push.state.value = 'unsupported'))
@@ -331,6 +336,7 @@ function onVisible() {
 <style scoped>
 .row-btn { width: 100%; background: none; border-radius: 0; text-align: left; font: inherit; color: var(--text); }
 .row-btn:active { transform: none; background: var(--fill-2); }
+.lang-tile { font-size: 12px; font-weight: 700; letter-spacing: 0.02em; color: var(--text); }
 .check { width: 20px; height: 20px; color: var(--text); stroke-width: 2.4; flex: none; }
 .conn > summary { list-style: none; cursor: pointer; }
 .conn > summary::-webkit-details-marker { display: none; }

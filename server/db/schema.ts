@@ -11,7 +11,7 @@ import {
   timestamp,
   uniqueIndex,
 } from 'drizzle-orm/pg-core'
-import type { StrategyConfig, Override } from '../lib/types'
+import type { Locale, Override, StrategyConfig } from '../lib/types'
 
 const ts = (name: string) => timestamp(name, { withTimezone: true, mode: 'date' })
 
@@ -234,6 +234,8 @@ export const pushSubscriptions = pgTable(
     auth: text('auth').notNull(),
     topics: jsonb('topics').$type<PushTopic[]>().notNull().default(['plan', 'prices', 'errors', 'daily']),
     userAgent: text('user_agent'),
+    /** Language this device shows notifications in */
+    locale: text('locale').$type<Locale>().notNull().default('nl'),
     createdAt: ts('created_at').notNull().defaultNow(),
     lastOkAt: ts('last_ok_at'),
   },
