@@ -5,6 +5,7 @@ import { slotStartOf, startOfLocalDay } from '../lib/time'
 import { liveState } from '../services/collector'
 import { getPrices } from '../services/prices'
 import { savingsByPeriod } from '../services/ledger'
+import { solarByPeriod } from '../services/solar'
 import { pulseStatus } from '../providers/tibberPulse'
 
 export default defineEventHandler(async (event) => {
@@ -27,6 +28,7 @@ export default defineEventHandler(async (event) => {
 
   const dayStart = startOfLocalDay(now, site.timezone)
   const [today] = await savingsByPeriod(db, site, 'day', dayStart, now)
+  const [solarToday] = await solarByPeriod(db, site, 'day', dayStart, now)
 
   const ints = await db.select({ provider: integrations.provider, status: integrations.status }).from(integrations).where(eq(integrations.siteId, site.id))
 
@@ -55,6 +57,7 @@ export default defineEventHandler(async (event) => {
     price: price ?? null,
     next: next.map((p) => ({ slotStart: p.slotStart, action: p.action, price: p.price, reason: p.reason, targetW: p.targetW })),
     today: today ?? null,
+    solarToday: solarToday ?? null,
     sources: {
       pulse: pulseStatus(site.id),
       integrations: ints,

@@ -116,17 +116,18 @@ export async function solarEdgeSite(accessToken: string, siteId: string) {
 const POWER_UNITS: Record<string, number> = { W: 1, KW: 1000, MW: 1_000_000 }
 
 /**
- * Latest 15-minute average PV production in W. from/to are UTC instants (2026-05-01T10:15:00Z);
- * local times without an offset are rejected ("Failed to convert … to required type [Instant]").
- * Returns undefined when SolarEdge has no value yet for the window.
+ * 15-minute average PV production in W, oldest first, as SolarEdge labels the buckets. from/to are UTC
+ * instants (2026-05-01T10:15:00Z); local times without an offset are rejected ("Failed to convert …
+ * to required type [Instant]"). Buckets without a value yet are left out.
  */
-export async function solarEdgePowerW(accessToken: string, siteId: string, from: string, to: string): Promise<number | undefined> {
+export async function solarEdgePower(accessToken: string, siteId: string, from: string, to: string): Promise<{ timestamp: string; w: number }[]> {
   const data = await get<{ unit?: string; values?: { timestamp: string; value: number | null }[] }>(
     accessToken,
     `/sites/${encodeURIComponent(siteId)}/power`,
     { resolution: 'QUARTER_HOUR', unit: 'W', from, to },
   )
   const mult = POWER_UNITS[(data.unit ?? 'W').toUpperCase()] ?? 1
-  const last = [...(data.values ?? [])].reverse().find((v) => typeof v.value === 'number')
-  return last ? Math.max(0, last.value! * mult) : undefined
+  return (data.values ?? [])
+    .filter((v) => typeof v.value === 'number' && Number.isFinite(v.value))
+    .map((v) => ({ timestamp: v.timestamp, w: Math.max(0, v.value! * mult) }))
 }

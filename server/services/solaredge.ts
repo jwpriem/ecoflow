@@ -16,11 +16,13 @@ import {
   type SolarEdgeCredentials,
   SolarEdgeError,
   solarEdgeExchangeCode,
-  solarEdgePowerW,
+  solarEdgePower,
   solarEdgeRefresh,
   solarEdgeSite,
 } from '../providers/solaredge'
+import { seReadFrom } from '../lib/solar'
 import { getIntegration, markIntegration, updateIntegration } from './integrations'
+import { latestSolarSlot, storeSolarProduction } from './solar'
 
 type Site = typeof sites.$inferSelect
 type Integration = NonNullable<Awaited<ReturnType<typeof getIntegration<SolarEdgeCredentials>>>>
@@ -187,6 +189,7 @@ export function forgetSolarEdge(siteId: number) {
  * Solar production in W for the collector, which calls this every minute. SolarEdge is read at most
  * once per 20-minute slot between 05:00 and 22:00 site time (51 reads + ~9 token refreshes a day,
  * about 1,860 credits in 31 days). Outside that window it is dark, so we return 0 without a call.
+ * Each read also stores every quarter-hour bucket since the last one we have, for the solar ledger.
  */
 export async function solarEdgeSolarW(db: Db, site: Site, key: string, now = new Date()): Promise<number | undefined> {
   let st = polls.get(site.id)
@@ -227,11 +230,11 @@ async function poll(db: Db, site: Site, key: string, st: PollState, now: Date): 
   try {
     const token = await accessToken(db, se, site, key, now)
     await spend(db, se, site, key, now)
-    const to = seInstant(now)
-    const from = seInstant(new Date(now.getTime() - 60 * 60_000))
-    const w = await solarEdgePowerW(token, seSiteId, from, to)
+    const from = seReadFrom(now, await latestSolarSlot(db, site.id))
+    const buckets = await solarEdgePower(token, seSiteId, seInstant(from), seInstant(now))
+    await storeSolarProduction(db, site, buckets)
     await markIntegration(db, se.row.id)
-    return w
+    return buckets.at(-1)?.w
   } catch (err) {
     if (err instanceof SolarEdgeError) {
       // Token rejected before its expiry: refresh on the next slot
