@@ -130,3 +130,16 @@ describe('buildPlan', () => {
     })
   })
 })
+
+describe('leftover above the reserve', () => {
+  it('holds instead of self-use when only a few Wh are above the reserve', () => {
+    // reserve 10% of 3.84 = 0.384 kWh; 0.01 kWh above it, no peak worth it
+    const plan = buildPlan({ ...input([0.2, 0.21, 0.2], 0.394, { gridCharge: false }), poolAvgCost: 0.3 })
+    expect(plan.every((p) => p.action === 'solar_only')).toBe(true)
+  })
+
+  it('self-uses a real leftover that no peak pays for', () => {
+    const plan = buildPlan({ ...input([0.2, 0.21, 0.2], 1.5, { gridCharge: false }), poolAvgCost: 0.3 })
+    expect(plan.every((p) => p.action === 'self_use')).toBe(true)
+  })
+})

@@ -61,7 +61,8 @@ export function buildPlan(input: PlanInput): PlanSlot[] {
     slots[i]!.reason = `stored energy (cost €${input.poolAvgCost.toFixed(3)}) sold at peak`
     usable -= dischargeKwhPerSlot
   }
-  const surplusStored = usable > 1e-9
+  // Only worth self-use when at least one slot's worth is left; a few Wh above the reserve is just rounding
+  const surplusStored = usable >= dischargeKwhPerSlot / 2
 
   // 2. Grid arbitrage
   const chargeLeft = new Map<number, number>() // slot index -> kWh still available to buy there
