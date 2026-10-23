@@ -36,6 +36,13 @@
       "when": 1792753069264,
       "tag": "0004_irradiance",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792754572870,
+      "tag": "0005_push_locale",
+      "breakpoints": true
     }
   ]
 }

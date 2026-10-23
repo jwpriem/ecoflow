@@ -57,3 +57,7 @@ export interface PriceSlot {
   energy: number
   feedIn: number
 }
+
+/** Language of the app and its notifications */
+export type Locale = 'en' | 'nl'
+export const LOCALES: Locale[] = ['en', 'nl']

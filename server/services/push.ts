@@ -2,6 +2,7 @@ import { and, eq, sql } from 'drizzle-orm'
 import webpush from 'web-push'
 import type { Db } from '../db/client'
 import { appConfig, pushSubscriptions, sites, users, type PushTopic } from '../db/schema'
+import type { LocalizedPush } from '../lib/notifications'
 import { decryptJson, encryptJson } from '../utils/crypto'
 
 export const PUSH_TOPICS: PushTopic[] = ['plan', 'prices', 'errors', 'daily']
@@ -53,7 +54,7 @@ async function vapidSubject(db: Db, siteId: number): Promise<string> {
  * Never throws: a failing notification must not break the job that triggered it.
  * Subscriptions the push service reports as gone (404/410) are removed.
  */
-export async function notify(db: Db, siteId: number, topic: PushTopic | null, msg: PushMessage, only?: string) {
+export async function notify(db: Db, siteId: number, topic: PushTopic | null, msg: PushMessage | LocalizedPush, only?: string) {
   try {
     const subs = await db
       .select()
@@ -68,17 +69,17 @@ export async function notify(db: Db, siteId: number, topic: PushTopic | null, ms
     if (!subs.length) return { sent: 0, failed: 0, error: 'No subscription for this device' }
     const keys = await vapidKeys(db)
     const subject = await vapidSubject(db, siteId)
-    const payload = JSON.stringify({ ...msg, url: msg.url ?? '/' })
     let sent = 0
     let failed = 0
     let error: string | undefined
     for (const s of subs) {
+      const m = typeof msg === 'function' ? msg(s.locale) : msg
       try {
-        await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, payload, {
+        await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, JSON.stringify({ ...m, url: m.url ?? '/' }), {
           vapidDetails: { subject, publicKey: keys.publicKey, privateKey: keys.privateKey },
           TTL: 6 * 3600,
           urgency: topic === 'errors' ? 'high' : 'normal',
-          ...(msg.tag ? { topic: msg.tag.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 32) } : {}),
+          ...(m.tag ? { topic: m.tag.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 32) } : {}),
         })
         await db.update(pushSubscriptions).set({ lastOkAt: new Date() }).where(eq(pushSubscriptions.id, s.id))
         sent++

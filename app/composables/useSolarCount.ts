@@ -36,8 +36,5 @@ export function useSolarCount() {
   return { count, setCount, solarValue }
 }
 
-export const SOLAR_COUNTS = [
-  { value: 'house', label: 'Used in the house', short: 'House', help: 'Solar the house used straight away, at the price you did not pay' },
-  { value: 'fed_in', label: 'Fed in', short: 'Fed in', help: 'Solar sent to the grid, at the feed-in price' },
-  { value: 'both', label: 'Both', short: 'Both', help: 'Used in the house plus fed in' },
-] as const
+/** The choices; their texts are in m.solarCount */
+export const SOLAR_COUNTS: readonly SolarCount[] = ['house', 'fed_in', 'both']

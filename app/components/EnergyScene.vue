@@ -84,8 +84,8 @@
     </div>
 
     <div v-if="supply.length" class="supply">
-      <div class="spread"><span class="s-title">House powered by</span><span class="small muted num">{{ fmt(houseW) }}</span></div>
-      <div class="s-bar" role="img" :aria-label="`House powered by ${supply.map((s) => `${s.label} ${s.pct}%`).join(', ')}`">
+      <div class="spread"><span class="s-title">{{ m.flow.housePoweredBy }}</span><span class="small muted num">{{ fmt(houseW) }}</span></div>
+      <div class="s-bar" role="img" :aria-label="`${m.flow.housePoweredBy} ${supply.map((s) => `${s.label} ${s.pct}%`).join(', ')}`">
         <div v-for="s in supply" :key="s.key" :style="{ width: `${s.pct}%`, background: s.color }" />
       </div>
       <div class="s-legend">
@@ -100,6 +100,7 @@ const props = withDefaults(
   defineProps<{ solarW: number | null; gridW: number | null; batteryW: number; houseW: number | null; soc?: number; animate?: boolean }>(),
   { soc: 0.6, animate: true },
 )
+const { m } = useLocale()
 
 const STARS = [[30, 30, 1.2], [74, 58, 1], [118, 22, 1.4], [160, 64, 1], [206, 34, 1.2], [250, 72, 1], [286, 20, 1.3], [356, 44, 1], [20, 96, 1], [232, 12, 1], [140, 94, 0.9], [372, 90, 1.1]] as const
 
@@ -119,11 +120,12 @@ const sunColor = computed(() => (sun.value.altitude < 6 ? '#f2913a' : '#f2ba30')
 const sunLabel = computed(() => {
   const { sunrise, sunset } = nextSunEvents(now.value)
   const hhmm = (d: Date) => d.toLocaleTimeString('nl-NL', { timeZone: 'Europe/Amsterdam', hour: '2-digit', minute: '2-digit' })
-  if (sun.value.altitude > -0.833) return sunset ? `sunset ${hhmm(sunset)}` : 'sun up'
-  return sunrise ? `sunrise ${hhmm(sunrise)}` : 'sun down'
+  const t = m.value.flow
+  if (sun.value.altitude > -0.833) return sunset ? t.sunset(hhmm(sunset)) : t.sunUp
+  return sunrise ? t.sunrise(hhmm(sunrise)) : t.sunDown
 })
 
-const fmt = (w: number | null) => (w == null ? '–' : Math.abs(w) >= 1000 ? `${(Math.abs(w) / 1000).toFixed(2)} kW` : `${Math.round(Math.abs(w))} W`)
+const fmt = (w: number | null) => (w == null ? '–' : Math.abs(w) >= 1000 ? `${num(Math.abs(w) / 1000)} kW` : `${Math.round(Math.abs(w))} W`)
 // Same pace as the clean view: faster dots for more power
 const dur = (w: number) => Math.max(0.5, 2.6 - (Math.min(3000, Math.abs(w)) / 3000) * 2.1)
 
@@ -146,13 +148,14 @@ const links = computed(() => {
 })
 
 const chips = computed(() => {
+  const t = m.value.flow
   const g = props.gridW ?? 0
   const b = props.batteryW
   return [
-    { key: 'solar', icon: 'sun', label: 'Solar', value: fmt(props.solarW), color: 'var(--sun)', active: (props.solarW ?? 0) > 5, pos: { left: '36%', top: '14%' } },
-    { key: 'battery', icon: 'battery', label: b > 5 ? 'Charging' : b < -5 ? 'Discharging' : 'Batteries', value: fmt(b), color: batteryColor.value, active: Math.abs(b) > 5, pos: { left: '2%', top: '30%' } },
-    { key: 'grid', icon: 'grid', label: g > 5 ? 'Importing' : g < -5 ? 'Exporting' : 'Grid', value: fmt(props.gridW), color: gridColor, active: Math.abs(g) > 5, pos: { left: '2%', bottom: '3%' } },
-    { key: 'house', icon: 'house', label: 'House', value: fmt(props.houseW), color: 'var(--text)', active: (props.houseW ?? 0) > 5, pos: { right: '2%', bottom: '3%' } },
+    { key: 'solar', icon: 'sun', label: t.solar, value: fmt(props.solarW), color: 'var(--sun)', active: (props.solarW ?? 0) > 5, pos: { left: '36%', top: '14%' } },
+    { key: 'battery', icon: 'battery', label: b > 5 ? t.charging : b < -5 ? t.discharging : t.batteries, value: fmt(b), color: batteryColor.value, active: Math.abs(b) > 5, pos: { left: '2%', top: '30%' } },
+    { key: 'grid', icon: 'grid', label: g > 5 ? t.importing : g < -5 ? t.exporting : t.grid, value: fmt(props.gridW), color: gridColor, active: Math.abs(g) > 5, pos: { left: '2%', bottom: '3%' } },
+    { key: 'house', icon: 'house', label: t.house, value: fmt(props.houseW), color: 'var(--text)', active: (props.houseW ?? 0) > 5, pos: { right: '2%', bottom: '3%' } },
   ]
 })
 
@@ -166,10 +169,11 @@ const supply = computed(() => {
   const pS = Math.round((fromSolar / house) * 100)
   const pB = Math.round((fromBattery / house) * 100)
   const pG = fromGrid > 0 ? 100 - pS - pB : 0
+  const t = m.value.flow
   return [
-    { key: 'solar', label: 'Solar', icon: 'sun', pct: pS, color: 'var(--sun)' },
-    { key: 'battery', label: 'Batteries', icon: 'battery', pct: pB, color: 'var(--dear)' },
-    { key: 'grid', label: 'Grid', icon: 'grid', pct: pG, color: 'var(--import)' },
+    { key: 'solar', label: t.solar, icon: 'sun', pct: pS, color: 'var(--sun)' },
+    { key: 'battery', label: t.batteries, icon: 'battery', pct: pB, color: 'var(--dear)' },
+    { key: 'grid', label: t.grid, icon: 'grid', pct: pG, color: 'var(--import)' },
   ].filter((s) => s.pct > 0)
 })
 

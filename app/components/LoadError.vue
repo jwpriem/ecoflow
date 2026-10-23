@@ -2,7 +2,7 @@
   <section class="load-error" role="alert">
     <h2>{{ text.title }}</h2>
     <p>{{ text.detail }}</p>
-    <button type="button" :disabled="busy" @click="emit('retry')">{{ busy ? 'Trying again…' : 'Try again' }}</button>
+    <button type="button" :disabled="busy" @click="emit('retry')">{{ busy ? m.common.tryingAgain : m.common.tryAgain }}</button>
   </section>
 </template>
 
@@ -10,14 +10,16 @@
 // What went wrong when a page couldn't load, and what happens next, instead of the server's raw status text
 const props = defineProps<{ error: any; what: string; busy?: boolean; auto?: boolean }>()
 const emit = defineEmits<{ retry: [] }>()
+const { m, serverText } = useLocale()
 
 const text = computed(() => {
   const status: number | undefined = props.error?.statusCode ?? props.error?.response?.status
-  const msg: string | undefined = props.error?.data?.statusMessage
-  const again = props.auto ? ' WattWise tries again every 30 seconds.' : ''
-  if (!status) return { title: 'Can’t reach WattWise', detail: `Check your internet connection.${again}` }
-  if (status >= 500) return { title: 'The server isn’t answering', detail: `It replied ${status}${msg ? ` (${msg})` : ''} while loading ${props.what}.${again}` }
-  return { title: `Couldn’t load ${props.what}`, detail: msg ? `${msg}.` : `The server replied ${status}.` }
+  const msg = serverText(props.error?.data?.statusMessage)
+  const t = m.value.load
+  const again = props.auto ? t.autoRetry : ''
+  if (!status) return { title: t.unreachable, detail: t.checkConnection(again) }
+  if (status >= 500) return { title: t.serverDown, detail: t.serverDownDetail(status, msg, props.what, again) }
+  return { title: t.couldntLoad(props.what), detail: msg ? `${msg}.` : t.serverReplied(status) }
 })
 </script>
 

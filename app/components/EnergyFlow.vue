@@ -36,7 +36,7 @@ const POS = {
   battery: [170, 202],
 } as const
 
-const fmt = (w: number | null) => (w == null ? '–' : Math.abs(w) >= 1000 ? `${(Math.abs(w) / 1000).toFixed(2)} kW` : `${Math.round(Math.abs(w))} W`)
+const fmt = (w: number | null) => (w == null ? '–' : Math.abs(w) >= 1000 ? `${num(Math.abs(w) / 1000)} kW` : `${Math.round(Math.abs(w))} W`)
 // Faster dots for more power: 2.6 s per cycle when trickling, 0.5 s at 3 kW
 const dur = (w: number) => Math.max(0.5, 2.6 - (Math.min(3000, Math.abs(w)) / 3000) * 2.1)
 const width = (w: number) => 3 + Math.min(2.5, Math.abs(w) / 1200)
@@ -61,14 +61,16 @@ const links = computed(() => {
   ].map((l) => ({ ...l, active: Math.abs(l.w) > 5, dur: dur(l.w), width: width(l.w) }))
 })
 
+const { m } = useLocale()
 const nodes = computed(() => {
+  const t = m.value.flow
   const g = props.gridW ?? 0
   const b = props.batteryW
   return [
-    { key: 'solar', icon: 'sun', label: 'Solar', value: fmt(props.solarW), x: POS.solar[0], y: POS.solar[1], labelX: 36, labelY: -4, color: 'var(--sys-yellow)', active: (props.solarW ?? 0) > 5 },
-    { key: 'grid', icon: 'grid', label: g > 5 ? 'Importing' : g < -5 ? 'Exporting' : 'Grid', value: fmt(props.gridW), x: POS.grid[0], y: POS.grid[1], labelY: 44, color: g > 0 ? 'var(--sys-blue)' : 'var(--sys-teal)', active: Math.abs(g) > 5 },
-    { key: 'house', icon: 'house', label: 'House', value: fmt(props.houseW), x: POS.house[0], y: POS.house[1], labelY: 44, color: 'var(--text)', active: (props.houseW ?? 0) > 5 },
-    { key: 'battery', icon: 'battery', label: b > 5 ? 'Charging' : b < -5 ? 'Discharging' : 'Batteries', value: fmt(b), x: POS.battery[0], y: POS.battery[1], labelX: 36, labelY: -4, color: b < 0 ? 'var(--sys-orange)' : 'var(--sys-green)', active: Math.abs(b) > 5 },
+    { key: 'solar', icon: 'sun', label: t.solar, value: fmt(props.solarW), x: POS.solar[0], y: POS.solar[1], labelX: 36, labelY: -4, color: 'var(--sys-yellow)', active: (props.solarW ?? 0) > 5 },
+    { key: 'grid', icon: 'grid', label: g > 5 ? t.importing : g < -5 ? t.exporting : t.grid, value: fmt(props.gridW), x: POS.grid[0], y: POS.grid[1], labelY: 44, color: g > 0 ? 'var(--sys-blue)' : 'var(--sys-teal)', active: Math.abs(g) > 5 },
+    { key: 'house', icon: 'house', label: t.house, value: fmt(props.houseW), x: POS.house[0], y: POS.house[1], labelY: 44, color: 'var(--text)', active: (props.houseW ?? 0) > 5 },
+    { key: 'battery', icon: 'battery', label: b > 5 ? t.charging : b < -5 ? t.discharging : t.batteries, value: fmt(b), x: POS.battery[0], y: POS.battery[1], labelX: 36, labelY: -4, color: b < 0 ? 'var(--sys-orange)' : 'var(--sys-green)', active: Math.abs(b) > 5 },
   ]
 })
 

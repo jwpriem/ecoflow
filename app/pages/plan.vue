@@ -1,46 +1,46 @@
 <template>
   <div>
-    <header class="page-head"><h1>Plan</h1></header>
+    <header class="page-head"><h1>{{ m.plan.title }}</h1></header>
 
     <template v-if="data">
       <p v-if="data.override" class="override">
-        <span><strong>Override:</strong> {{ MODE_LABEL[data.override.mode] }} until {{ time(data.override.until) }}</span>
-        <button class="plain" :disabled="busy" @click="endOverride">End override</button>
+        <span><strong>{{ m.plan.override }}</strong> {{ m.plan.until(m.mode[data.override.mode] ?? data.override.mode, time(data.override.until)) }}</span>
+        <button class="plain" :disabled="busy" @click="endOverride">{{ m.plan.endOverride }}</button>
       </p>
-      <p v-if="data.steering === 'ecoflow_ai'" class="note">EcoFlow AI steers the batteries. This plan is only shown.</p>
-      <p v-else-if="data.controlMode === 'manual'" class="note">Monitoring only: this plan isn't sent to the batteries.</p>
+      <p v-if="data.steering === 'ecoflow_ai'" class="note">{{ m.plan.aiSteers }}</p>
+      <p v-else-if="data.controlMode === 'manual'" class="note">{{ m.plan.monitorOnly }}</p>
 
       <!-- No prices: nothing to plan with -->
       <section v-if="!data.slots.length" class="no-prices">
-        <h2>No prices yet</h2>
-        <p>WattWise plans from Tibber's 15-minute prices. Add your Tibber token in Settings: today's prices and the plan appear within a minute, tomorrow's around 13:00.</p>
-        <NuxtLink to="/settings">Open Settings</NuxtLink>
+        <h2>{{ m.plan.noPrices }}</h2>
+        <p>{{ m.plan.noPricesText }}</p>
+        <NuxtLink to="/settings">{{ m.common.openSettings }}</NuxtLink>
       </section>
 
       <template v-else>
       <!-- Readout for the selected quarter; it starts on now -->
       <section class="readout" aria-live="polite">
         <template v-if="picked">
-          <h2 class="r-act"><i class="sw" :style="{ background: colorOf(picked.action) }" />{{ picked.action ? MODE_LABEL[picked.action] : 'No plan' }}</h2>
+          <h2 class="r-act"><i class="sw" :style="{ background: colorOf(picked.action) }" />{{ picked.action ? m.mode[picked.action] : m.plan.noPlan }}</h2>
           <p class="r-line">
-            <span class="r-when">{{ isNow ? 'Now' : dayLabel(picked.slotStart) }}, {{ time(picked.slotStart) }}–{{ time(slotEnd(picked.slotStart)) }}</span>
-            <span class="r-price">{{ cents(picked.total) }} per kWh</span>
-            <span v-if="picked.solarW >= 10" class="r-sun">{{ Math.round(picked.solarW) }} W solar expected</span>
+            <span class="r-when">{{ isNow ? m.common.now : dayLabel(picked.slotStart) }}, {{ time(picked.slotStart) }}–{{ time(slotEnd(picked.slotStart)) }}</span>
+            <span class="r-price">{{ cents(picked.total) }} {{ m.common.perKwh }}</span>
+            <span v-if="picked.solarW >= 10" class="r-sun">{{ m.plan.solarExpected(Math.round(picked.solarW)) }}</span>
           </p>
-          <p v-if="picked.reason" class="r-reason">{{ picked.reason }}</p>
-          <button v-if="!isNow && nowIndex >= 0" class="plain r-back" @click="selected = nowIndex">Back to now</button>
+          <p v-if="picked.reason" class="r-reason">{{ reason(picked.reason) }}</p>
+          <button v-if="!isNow && nowIndex >= 0" class="plain r-back" @click="selected = nowIndex">{{ m.plan.backToNow }}</button>
         </template>
       </section>
 
       <PriceChart v-model="selected" :slots="data.slots" :now="now" />
       <ul class="legend">
-        <li v-for="a in actions" :key="a.value"><i class="sw" :style="{ background: a.color }" />{{ a.label }}</li>
+        <li v-for="a in actions" :key="a.value"><i class="sw" :style="{ background: a.color }" />{{ m.mode[a.value] }}</li>
       </ul>
-      <p v-if="!hasTomorrow" class="hint">Tomorrow's prices come in around 13:00.</p>
-      <p v-if="solarDays.length" class="hint">Expected solar (Open-Meteo): {{ solarDays.map((d) => `${d.label.toLowerCase()} ${d.kwh.toFixed(1)} kWh`).join(', ') }}.</p>
+      <p v-if="!hasTomorrow" class="hint">{{ m.plan.tomorrowAt13 }}</p>
+      <p v-if="solarDays.length" class="hint">{{ m.plan.expectedSolar(solarDays.map((d) => `${d.label.toLowerCase()} ${kwh(d.kwh, 1)}`).join(', ')) }}</p>
 
       <section class="block">
-        <div class="block-head"><h2>Coming up</h2></div>
+        <div class="block-head"><h2>{{ m.plan.comingUp }}</h2></div>
         <template v-for="g in shownGroups" :key="g.day">
           <h3 class="block-sub">{{ g.day }}</h3>
           <ol class="runs">
@@ -48,19 +48,19 @@
               <button type="button" class="run" @click="selected = r.index">
                 <i class="sw" :style="{ background: colorOf(r.action) }" />
                 <span class="run-time">{{ time(r.start) }}–{{ time(r.end) }}</span>
-                <span class="run-act">{{ MODE_LABEL[r.action] ?? '–' }}<em v-if="r.current">now</em></span>
+                <span class="run-act">{{ m.mode[r.action] ?? '–' }}<em v-if="r.current">{{ m.plan.nowTag }}</em></span>
                 <span class="run-price">{{ Math.round(r.min * 100) }}<template v-if="Math.round(r.max * 100) !== Math.round(r.min * 100)">–{{ Math.round(r.max * 100) }}</template> ct</span>
-                <span v-if="r.reason" class="run-reason">{{ r.reason }}</span>
+                <span v-if="r.reason" class="run-reason">{{ reason(r.reason) }}</span>
               </button>
             </li>
           </ol>
         </template>
-        <button v-if="hiddenRuns > 0" class="plain more" @click="allRuns = true">Show {{ hiddenRuns }} more</button>
+        <button v-if="hiddenRuns > 0" class="plain more" @click="allRuns = true">{{ m.plan.showMore(hiddenRuns) }}</button>
       </section>
       </template>
 
       <section class="block">
-        <div class="block-head"><h2>Who steers the batteries</h2></div>
+        <div class="block-head"><h2>{{ m.plan.whoSteers }}</h2></div>
         <template v-if="data.steering">
           <Segmented
             :model-value="data.steering"
@@ -70,60 +70,60 @@
           />
           <p class="hint">
             <span v-if="steeringError" class="error">{{ steeringError }}</span>
-            <template v-else-if="data.steering === 'ecoflow_ai'">EcoFlow's AI mode decides when to charge. WattWise only plans.</template>
-            <template v-else>WattWise applies each plan step through the backup reserve, in Self-Powered mode.</template>
+            <template v-else-if="data.steering === 'ecoflow_ai'">{{ m.plan.aiHint }}</template>
+            <template v-else>{{ m.plan.wwHint }}</template>
           </p>
         </template>
         <template v-if="data.steering !== 'ecoflow_ai'">
           <Segmented
             class="mode"
             :model-value="data.controlMode"
-            :options="[{ value: 'auto', label: 'Follow the plan' }, { value: 'manual', label: 'Monitor only' }]"
+            :options="[{ value: 'auto', label: m.plan.follow }, { value: 'manual', label: m.plan.monitor }]"
             full
-            @update:model-value="(v) => send({ controlMode: v }, v === 'auto' ? 'Following the plan again.' : 'Monitoring only. The plan is no longer sent.')"
+            @update:model-value="(v) => send({ controlMode: v }, v === 'auto' ? m.plan.followingAgain : m.plan.monitoringNow)"
           />
-          <p class="hint">{{ data.controlMode === 'auto' ? 'The batteries get the plan every 15 minutes.' : 'The batteries run on their own. The plan is only shown.' }}</p>
+          <p class="hint">{{ data.controlMode === 'auto' ? m.plan.followHint : m.plan.monitorHint }}</p>
         </template>
       </section>
 
       <section class="block">
-        <div class="block-head"><h2>Override the plan</h2></div>
-        <div class="choices" role="radiogroup" aria-label="Mode">
+        <div class="block-head"><h2>{{ m.plan.overrideTitle }}</h2></div>
+        <div class="choices" role="radiogroup" :aria-label="m.plan.modeAria">
           <label v-for="a in actions" :key="a.value" class="choice">
             <input v-model="overrideMode" type="radio" name="override-mode" :value="a.value" />
             <i class="sw" :style="{ background: a.color }" />
-            <span class="c-label">{{ a.label }}</span>
-            <span class="c-help">{{ a.help }}</span>
+            <span class="c-label">{{ m.mode[a.value] }}</span>
+            <span class="c-help">{{ m.modeHelp[a.value] }}</span>
           </label>
         </div>
         <div class="o-foot">
-          <Segmented v-model="minutes" :options="durations" aria-label="Duration" />
-          <button class="primary" :disabled="busy || !overrideMode" @click="startOverride">{{ overrideMode ? `${actionLabel(overrideMode)} for ${durationLabel}` : 'Choose a mode' }}</button>
+          <Segmented v-model="minutes" :options="durations" :aria-label="m.plan.durationAria" />
+          <button class="primary" :disabled="busy || !overrideMode" @click="startOverride">{{ overrideMode ? m.plan.overrideFor(actionLabel(overrideMode), durationLabel) : m.plan.chooseMode }}</button>
         </div>
       </section>
 
       <details class="block disclosure">
-        <summary>Commands sent <AppIcon name="chevron" class="chev" style="width: 18px; height: 18px" /></summary>
+        <summary>{{ m.plan.commandsSent }} <AppIcon name="chevron" class="chev" style="width: 18px; height: 18px" /></summary>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Time</th><th>Battery</th><th>Mode</th><th>Source</th><th>Result</th></tr></thead>
+            <thead><tr><th>{{ m.plan.cols.time }}</th><th>{{ m.plan.cols.battery }}</th><th>{{ m.plan.cols.mode }}</th><th>{{ m.plan.cols.source }}</th><th>{{ m.plan.cols.result }}</th></tr></thead>
             <tbody>
               <tr v-for="c in data.commands" :key="c.id">
-                <td>{{ dayLabel(c.ts) === 'Today' ? '' : `${dayLabel(c.ts)} ` }}{{ time(c.ts) }}</td>
+                <td>{{ dayOffset(c.ts, now) === 0 ? '' : `${dayLabel(c.ts)} ` }}{{ time(c.ts) }}</td>
                 <td>#{{ c.deviceId }}</td>
-                <td>{{ MODE_LABEL[c.command] }}</td>
-                <td>{{ c.payload.source }}</td>
-                <td>{{ c.result }}</td>
+                <td>{{ m.mode[c.command] ?? c.command }}</td>
+                <td>{{ m.plan.source[c.payload.source] ?? c.payload.source }}</td>
+                <td>{{ m.plan.result[c.result] ?? c.result }}</td>
               </tr>
             </tbody>
           </table>
-          <p v-if="!data.commands?.length" class="hint">Nothing sent yet.</p>
+          <p v-if="!data.commands?.length" class="hint">{{ m.plan.nothingSent }}</p>
         </div>
       </details>
 
       <Transition name="toast"><p v-if="message" class="toast" role="status">{{ message }}</p></Transition>
     </template>
-    <LoadError v-else-if="error" :error="error" what="the plan" :busy="busy" @retry="retry" />
+    <LoadError v-else-if="error" :error="error" :what="m.load.what.plan" :busy="busy" @retry="retry" />
     <div v-else class="skeleton" style="height: 320px" />
   </div>
 </template>
@@ -140,32 +140,21 @@ const now = ref(Date.now())
 const selected = ref(-1)
 
 const SLOT = 15 * 60_000
-const durations = [
-  { value: 30, label: '30 min' },
-  { value: 60, label: '1 h' },
-  { value: 120, label: '2 h' },
-  { value: 240, label: '4 h' },
-] as const
+const { m, reason, serverText, dayLabel: localDay } = useLocale()
+const durations = computed(() => [30, 60, 120, 240].map((value) => ({ value, label: m.value.plan.durations[value]! })))
 const actions = [
-  { value: 'charge_grid', label: 'Charge from grid', help: 'Buy power now and store it', color: 'var(--cheap)' },
-  { value: 'discharge', label: 'Discharge', help: 'Run the house from the batteries', color: 'var(--dear)' },
-  { value: 'self_use', label: 'Self-use', help: 'Store solar, cover the house', color: 'var(--own)' },
-  { value: 'solar_only', label: 'Hold', help: 'Keep the charge, store only solar', color: 'var(--hold)' },
+  { value: 'charge_grid', color: 'var(--cheap)' },
+  { value: 'discharge', color: 'var(--dear)' },
+  { value: 'self_use', color: 'var(--own)' },
+  { value: 'solar_only', color: 'var(--hold)' },
 ] as const
 const colorOf = (a: string | null) => actions.find((x) => x.value === a)?.color ?? 'var(--fill)'
-const actionLabel = (a: string) => actions.find((x) => x.value === a)?.label ?? a
-const durationLabel = computed(() => durations.find((d) => d.value === minutes.value)?.label ?? `${minutes.value} min`)
-const cents = (p: number) => `${(p * 100).toFixed(1).replace('.', ',')} ct`
+const actionLabel = (a: string) => m.value.mode[a] ?? a
+const durationLabel = computed(() => m.value.plan.durations[minutes.value] ?? `${minutes.value} min`)
+const cents = (p: number) => `${num(p * 100, 1)} ct`
 const slotEnd = (s: string) => new Date(new Date(s).getTime() + SLOT)
 
-function dayLabel(d: string | Date) {
-  const day = new Date(d)
-  day.setHours(0, 0, 0, 0)
-  const today = new Date(now.value)
-  today.setHours(0, 0, 0, 0)
-  const diff = Math.round((day.getTime() - today.getTime()) / 86_400_000)
-  return diff === 0 ? 'Today' : diff === 1 ? 'Tomorrow' : diff === -1 ? 'Yesterday' : day.toLocaleDateString('en-GB', { weekday: 'long' })
-}
+const dayLabel = (d: string | Date) => localDay(d, now.value)
 
 const nowIndex = computed(() => (data.value?.slots ?? []).findIndex((s: any) => {
   const t = new Date(s.slotStart).getTime()
@@ -179,7 +168,7 @@ const solarDays = computed(() => {
   for (const s of data.value?.slots ?? []) if (s.solarW) days.set(dayLabel(s.slotStart), (days.get(dayLabel(s.slotStart)) ?? 0) + s.solarW / 4000)
   return [...days].map(([label, kwh]) => ({ label, kwh }))
 })
-const hasTomorrow = computed(() => (data.value?.slots ?? []).some((s: any) => dayLabel(s.slotStart) === 'Tomorrow'))
+const hasTomorrow = computed(() => (data.value?.slots ?? []).some((s: any) => dayOffset(s.slotStart, now.value) === 1))
 
 // From the current quarter on, consecutive slots with the same action and reason become one run
 const runGroups = computed(() => {
@@ -253,9 +242,9 @@ async function setSteering(steering: string) {
   try {
     await api('/api/ecoflow/steering', { method: 'PUT', body: { steering } })
     await load()
-    say(steering === 'wattwise' ? 'WattWise now steers the batteries.' : 'EcoFlow AI now steers the batteries.')
+    say(steering === 'wattwise' ? m.value.plan.wwSteers : m.value.plan.aiSteersNow)
   } catch (e: any) {
-    steeringError.value = e?.data?.statusMessage ?? e?.message ?? 'Switching failed. Try again in a minute.'
+    steeringError.value = serverText(e?.data?.statusMessage) || e?.message || m.value.plan.switchFailed
   }
 }
 
@@ -266,7 +255,7 @@ async function send(body: Record<string, unknown>, done: string) {
     await load()
     say(done)
   } catch (e: any) {
-    say(e?.data?.statusMessage ?? 'The batteries didn\'t take the change. Try again.')
+    say(serverText(e?.data?.statusMessage) || m.value.plan.notTaken)
   } finally {
     busy.value = false
   }
@@ -274,10 +263,10 @@ async function send(body: Record<string, unknown>, done: string) {
 function startOverride() {
   if (!overrideMode.value) return
   const until = new Date(Date.now() + minutes.value * 60_000)
-  send({ mode: overrideMode.value, minutes: minutes.value }, `Override started: ${actionLabel(overrideMode.value)} until ${time(until)}.`)
+  send({ mode: overrideMode.value, minutes: minutes.value }, m.value.plan.overrideStarted(actionLabel(overrideMode.value), time(until)))
   overrideMode.value = null
 }
-const endOverride = () => send({ clear: true }, 'Override ended. Back to the plan.')
+const endOverride = () => send({ clear: true }, m.value.plan.overrideEnded)
 
 let tick: ReturnType<typeof setInterval>
 onMounted(() => {
