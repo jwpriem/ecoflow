@@ -67,7 +67,7 @@
         <div>
           <span class="f-label">Saved today</span>
           <span class="f-value" :class="{ neg: savedToday < 0 }">{{ eur(savedTodayT) }}</span>
-          <span class="f-note">{{ eur(d.today?.savingOpportunity ?? 0) }} compared with exporting</span>
+          <span class="f-note">{{ eur(batteryToday) }} batteries · {{ eur(solarToday) }} solar</span>
         </div>
         <div>
           <span class="f-label">Price now</span>
@@ -162,7 +162,10 @@ const unitState = (b: any) => (b.powerW > 5 ? 'charging' : b.powerW < -5 ? 'disc
 const totalPower = computed(() => (d.value?.devices ?? []).reduce((s: number, b: any) => s + b.powerW, 0))
 const houseW = computed(() => (d.value?.live?.houseNetW != null ? d.value.live.houseNetW + (d.value.live.solarW ?? 0) : null))
 const state = computed(() => (totalPower.value > 5 ? 'charging' : totalPower.value < -5 ? 'discharging' : 'idle'))
-const savedToday = computed(() => d.value?.today?.savingNaive ?? 0)
+const batteryToday = computed(() => d.value?.today?.savingNaive ?? 0)
+// Solar stored in the batteries is counted once, in the battery saving (stored solar counts as free there)
+const solarToday = computed(() => (d.value?.solarToday ? d.value.solarToday.valueSelfUsed + d.value.solarToday.valueExported : 0))
+const savedToday = computed(() => batteryToday.value + solarToday.value)
 const savedTodayT = useTweened(() => savedToday.value)
 const priceT = useTweened(() => d.value?.price?.total ?? 0)
 

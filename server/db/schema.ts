@@ -140,6 +140,37 @@ export const ledger = pgTable(
   (t) => [primaryKey({ columns: [t.deviceId, t.slotStart] }), index('ledger_site_slot').on(t.siteId, t.slotStart)],
 )
 
+/** SolarEdge production per 15-min slot (the API's QUARTER_HOUR average), rewritten while the slot is still settling. */
+export const solarProduction = pgTable(
+  'solar_production',
+  {
+    siteId: integer('site_id').notNull().references(() => sites.id, { onDelete: 'cascade' }),
+    slotStart: ts('slot_start').notNull(),
+    avgW: doublePrecision('avg_w').notNull(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.siteId, t.slotStart] })],
+)
+
+/** Where the solar of one 15-min slot went and what it was worth. Money in EUR. */
+export const solarLedger = pgTable(
+  'solar_ledger',
+  {
+    siteId: integer('site_id').notNull().references(() => sites.id, { onDelete: 'cascade' }),
+    slotStart: ts('slot_start').notNull(),
+    producedKwh: doublePrecision('produced_kwh').notNull(),
+    selfUsedKwh: doublePrecision('self_used_kwh').notNull(),
+    exportedKwh: doublePrecision('exported_kwh').notNull(),
+    toBatteryKwh: doublePrecision('to_battery_kwh').notNull(),
+    priceTotal: doublePrecision('price_total').notNull(),
+    priceFeedIn: doublePrecision('price_feed_in').notNull(),
+    valueSelfUsed: doublePrecision('value_self_used').notNull(),
+    valueExported: doublePrecision('value_exported').notNull(),
+    valueToBattery: doublePrecision('value_to_battery').notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.siteId, t.slotStart] })],
+)
+
 /** Energy "in stock" per battery with what it cost (weighted average). */
 export const batteryPool = pgTable('battery_pool', {
   deviceId: integer('device_id').primaryKey().references(() => devices.id, { onDelete: 'cascade' }),
