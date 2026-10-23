@@ -16,7 +16,7 @@
     <template v-else-if="data">
       <section class="total">
         <p class="t-value" :class="{ neg: headline < 0 }">{{ eur(headlineT) }}</p>
-        <p class="t-line">{{ source === 'solar' ? 'earned by solar' : source === 'battery' ? 'saved by the batteries' : 'saved in total' }} {{ rangeLabel }}</p>
+        <p class="t-line">{{ source === 'solar' ? solarLine : source === 'battery' ? 'saved by the batteries' : 'saved in total' }} {{ rangeLabel }}</p>
       </section>
 
       <div class="basis">
@@ -97,9 +97,12 @@
 
       <!-- Solar -->
       <template v-else-if="source === 'solar'">
+        <div class="basis">
+          <Segmented :model-value="solarCount" :options="solarCounts" aria-label="What solar counts" @update:model-value="setSolarCount" />
+        </div>
         <div class="chart saved">
           <BarChart
-            :key="`ss-${period}-${basis}`"
+            :key="`ss-${period}-${basis}-${solarCount}`"
             :labels="labels"
             stacked
             :series="solarSeries"
@@ -160,7 +163,7 @@
       <template v-else>
         <div class="chart saved">
           <BarChart
-            :key="`t-${period}-${basis}`"
+            :key="`t-${period}-${basis}-${solarCount}`"
             :labels="labels"
             stacked
             :series="[
@@ -180,7 +183,7 @@
           <div>
             <span class="f-label">Solar</span>
             <span class="f-value">{{ eur(solarTotalT) }}</span>
-            <span class="f-note">Power you did not buy, plus what you fed in</span>
+            <span class="f-note">{{ solarHelp }}</span>
           </div>
         </section>
       </template>
@@ -235,7 +238,10 @@ async function load() {
  * price for it and solar earns that price. Either way the total is the same.
  */
 const batterySaving = (r: any) => (r ? (basis.value === 'naive' ? r.savingNaive : r.savingOpportunity) : 0)
-const solarSaving = (r: any) => (r ? r.valueSelfUsed + r.valueExported + (basis.value === 'opportunity' ? r.valueToBattery : 0) : 0)
+const { count: solarCount, setCount: setSolarCount, solarValue } = useSolarCount()
+const solarCounts = SOLAR_COUNTS.map((o) => ({ value: o.value, label: o.short }))
+const solarHelp = computed(() => SOLAR_COUNTS.find((o) => o.value === solarCount.value)!.help)
+const solarSaving = (r: any) => solarValue(r, basis.value === 'opportunity')
 
 const batteryBy = computed(() => new Map<string, any>((data.value?.rows ?? []).map((r: any) => [r.bucket, r])))
 const solarBy = computed(() => new Map<string, any>((data.value?.solar?.rows ?? []).map((r: any) => [r.bucket, r])))
@@ -254,6 +260,7 @@ const headlineT = useTweened(() => headline.value, { stiffness: 60 })
 const batteryTotalT = useTweened(() => batteryTotal.value, { stiffness: 60 })
 const solarTotalT = useTweened(() => solarTotal.value, { stiffness: 60 })
 
+const solarLine = computed(() => ({ house: 'saved by solar used in the house', fed_in: 'earned by feeding in solar', both: 'earned by solar' })[solarCount.value])
 const basisHint = computed(() => {
   if (source.value === 'solar') {
     return basis.value === 'naive'
@@ -266,10 +273,9 @@ const basisHint = computed(() => {
 const savings = computed(() => (data.value?.rows ?? []).map(batterySaving))
 const solarSeries = computed(() => {
   const rows = buckets.value.map((b) => solarBy.value.get(b))
-  const series = [
-    { label: 'Used in the house', data: rows.map((r) => r?.valueSelfUsed ?? 0), color: '--own' },
-    { label: 'Fed in', data: rows.map((r) => r?.valueExported ?? 0), color: '--import' },
-  ]
+  const series: { label: string; data: number[]; color: string }[] = []
+  if (solarCount.value !== 'fed_in') series.push({ label: 'Used in the house', data: rows.map((r) => r?.valueSelfUsed ?? 0), color: '--own' })
+  if (solarCount.value !== 'house') series.push({ label: 'Fed in', data: rows.map((r) => r?.valueExported ?? 0), color: '--import' })
   if (basis.value === 'opportunity') series.push({ label: 'Into the batteries', data: rows.map((r) => r?.valueToBattery ?? 0), color: '--c-battery-1' })
   return series
 })

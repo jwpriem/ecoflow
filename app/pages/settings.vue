@@ -25,6 +25,21 @@
     </div>
     <p class="foot">How Energy flow opens on this device. You can still switch on the Home page. Flow lines stay still when Reduce Motion is on.</p>
 
+    <h3 class="section-title">Solar savings</h3>
+    <div class="list" role="radiogroup" aria-label="What solar savings count">
+      <button
+        v-for="o in solarCounts" :key="o.value" type="button" role="radio" class="list-row indent row-btn"
+        :aria-checked="solar.count.value === o.value" @click="solar.setCount(o.value)"
+      >
+        <span class="lead">
+          <span class="icon-tile"><AppIcon :name="o.value === 'house' ? 'house' : o.value === 'fed_in' ? 'grid' : 'sun'" /></span>
+          <span class="stack-text"><span class="title">{{ o.label }}</span><span class="small muted">{{ o.help }}</span></span>
+        </span>
+        <AppIcon v-if="solar.count.value === o.value" name="check" class="check" />
+      </button>
+    </div>
+    <p class="foot">What Savings and Home count as earned by solar, on this device. You can also switch on the Savings page.</p>
+
     <h3 class="section-title">Connections</h3>
     <div class="list">
       <details v-for="i in integrations" :key="i.provider" class="conn" :open="i.provider === 'solaredge' && !!results.solaredge">
@@ -156,6 +171,8 @@
 
 <script setup lang="ts">
 const flow = useFlowView()
+const solar = useSolarCount()
+const solarCounts = SOLAR_COUNTS
 const FLOW_VIEWS = [
   { value: 'clean', label: 'Clean', help: 'Sources and live values', icon: 'nodes', tile: 'var(--surface-3)' },
   { value: 'detailed', label: 'House', help: 'Your house, the sky over it and where power comes from', icon: 'house', tile: 'var(--sys-blue)' },
