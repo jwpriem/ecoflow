@@ -51,6 +51,8 @@ export default defineEventHandler(async (event) => {
         updatedAt: s.ts ?? null,
         avgCostOpportunity: pool && pool.kwh > 0 ? pool.costOpportunity / pool.kwh : null,
         avgCostNaive: pool && pool.kwh > 0 ? pool.costNaive / pool.kwh : null,
+        // What the energy now in this battery cost to put there (weighted average, losses included)
+        stored: pool ? { kwh: pool.kwh, costNaive: pool.costNaive, costOpportunity: pool.costOpportunity } : null,
       }
     }),
     live: live ?? null,

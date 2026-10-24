@@ -54,6 +54,8 @@ export const nl: Messages = {
     batteriesPct: (p) => `Batterijen ${p}%`,
     kwhOf: (a, b) => `${a} van ${b} kWh`,
     idle: 'rust',
+    storedCost: (e, c) => `Inhoud ingekocht voor ${e} (${c}/kWh)`,
+    storedWorth: (e) => `nu ${e} waard`,
     pricesAndPlan: 'Prijzen en plan van vandaag',
     openPlan: 'Open plan',
     noPrices: 'Nog geen prijzen. Voeg je Tibber-token toe in Instellingen: de kwartierprijzen van vandaag en het plan verschijnen binnen een minuut.',
