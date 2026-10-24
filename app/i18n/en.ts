@@ -55,6 +55,8 @@ export const en = {
     batteriesPct: (p: number) => `Batteries ${p}%`,
     kwhOf: (a: string, b: string) => `${a} of ${b} kWh`,
     idle: 'idle',
+    storedCost: (e: string, c: string) => `Stored energy cost ${e} (${c}/kWh)`,
+    storedWorth: (e: string) => `worth ${e} at the current price`,
     pricesAndPlan: 'Today’s prices and plan',
     openPlan: 'Open plan',
     noPrices: 'No prices yet. Add your Tibber token in Settings: today’s 15-minute prices and the plan appear within a minute.',

@@ -47,6 +47,10 @@
             </div>
           </div>
         </div>
+        <!-- What the stored energy cost to buy, and what it is worth at the current price -->
+        <p v-if="stored" class="pack-value">
+          {{ m.home.storedCost(eur(stored.cost), cents(stored.cost / stored.kwh)) }}<template v-if="d.price"> · {{ m.home.storedWorth(eur(stored.kwh * d.price.total)) }}</template>
+        </p>
       </section>
 
       <!-- The day: prices, the plan and the charge level on one time axis -->
@@ -159,6 +163,12 @@ const storedKwh = computed(() => (d.value?.devices ?? []).reduce((s: number, b: 
 const storedKwhT = useTweened(() => storedKwh.value, { stiffness: 40 })
 const combinedSoc = computed(() => (capacityKwh.value ? storedKwh.value / capacityKwh.value : 0))
 const socT = useTweened(() => combinedSoc.value, { stiffness: 40 })
+// Sum of the ledger pools: solar counts as free, like the savings figure
+const stored = computed(() => {
+  const pools = (d.value?.devices ?? []).map((b: any) => b.stored).filter(Boolean)
+  const kwh = pools.reduce((s: number, p: any) => s + p.kwh, 0)
+  return pools.length && kwh > 0.01 ? { kwh, cost: pools.reduce((s: number, p: any) => s + p.costNaive, 0) } : null
+})
 const unitState = (b: any) => (b.powerW > 5 ? 'charging' : b.powerW < -5 ? 'discharging' : 'idle')
 const totalPower = computed(() => (d.value?.devices ?? []).reduce((s: number, b: any) => s + b.powerW, 0))
 const houseW = computed(() => (d.value?.live?.houseNetW != null ? d.value.live.houseNetW + (d.value.live.solarW ?? 0) : null))
@@ -255,6 +265,7 @@ onBeforeUnmount(() => clearInterval(timer))
 .cell-power { margin-left: auto; color: var(--text-2); }
 .cell-power.charging { color: var(--cheap); }
 .cell-power.discharging { color: var(--dear); }
+.pack-value { margin: 14px 0 0; font-size: 14px; color: var(--text-2); font-variant-numeric: tabular-nums; }
 
 
 
