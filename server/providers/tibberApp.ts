@@ -141,39 +141,70 @@ interface Probe {
   error?: string
 }
 
+/** `me.a.b` -> `{ me { a { b { <sel> } } } }`; `home.a` reads under the given home. */
+function pathQuery(path: string, sel: string): string {
+  const [root, ...rest] = path.split('.')
+  const inner = rest.reduceRight((acc, f) => `${f} { ${acc} }`, sel)
+  return root === 'home' ? `query ($h: String!) { me { home(id: $h) { ${inner} } } }` : `{ me { ${inner} } }`
+}
+
+function readPath(data: Json, path: string): unknown {
+  const [root, ...rest] = path.split('.')
+  let x: any = root === 'home' ? data.me?.home : data.me
+  for (const f of rest) x = x?.[f]
+  return x
+}
+
+// Where the app may list cars and chargers. Non-integrated cars are not in `home.electricVehicles`;
+// `me.myVehicles` exists (an object, not a list), so its list is one level down.
+const VEHICLE_LISTS = ['me.myVehicles.vehicles', 'me.myVehicles.items', 'me.myVehicles.electricVehicles', 'me.myVehicles.list']
+const CHARGER_LISTS = ['home.gizmos', 'me.myChargers.chargers', 'me.myChargers.items', 'me.myEvChargers.chargers', 'home.evCharger', 'me.evChargers']
+// Asked with `{ id }` only for the error text: it says whether the field exists and names its type
+const EXISTS = ['me.myVehicles', 'me.myChargers', 'me.myEvChargers', 'me.charger', 'me.evCharger', 'me.myDevices', 'home.gizmos', 'home.devices']
+
 /**
  * Non-integrated cars may not show up under `electricVehicles`, and the app API allows no
- * introspection. Try the other likely places, and ask for a field that doesn't exist on Me and
- * Home: GraphQL servers answer that with "Did you mean ...?" and so name the real fields.
+ * introspection. Try the other likely places and keep each error: the text names the field's type
+ * or its required arguments, which shows where to look next.
  */
 async function probeCars(creds: TibberAppCredentials, homeId: string): Promise<{ vehicles: TibberAppItem[]; chargers: TibberAppItem[]; probes: Probe[] }> {
   const probes: Probe[] = []
-  let vehicles: TibberAppItem[] = []
-  let chargers: TibberAppItem[] = []
-  const at = (path: string, sel: string) =>
-    path.startsWith('home.') ? `query ($h: String!) { me { home(id: $h) { ${path.slice(5)} ${sel} } } }` : `{ me { ${path.slice(3)} ${sel} } }`
-  const read = (data: Json, path: string): unknown => (path.startsWith('home.') ? data.me?.home?.[path.slice(5)] : data.me?.[path.slice(3)])
+  const vars = (path: string) => (path.startsWith('home.') ? { h: homeId } : undefined)
 
-  const lists = ['home.vehicles', 'home.myVehicles', 'home.evs', 'home.cars', 'me.vehicles', 'me.electricVehicles', 'me.myVehicles', 'home.evChargers', 'home.chargers', 'home.electricVehicleChargers']
-  for (const path of lists) {
-    for (const label of ['name', 'shortName', '']) {
-      try {
-        const data = await gql(creds, at(path, `{ id ${label} }`), path.startsWith('home.') ? { h: homeId } : undefined)
-        const list = ((read(data, path) ?? []) as Json[]).map((x) => ({ id: String(x.id), name: String((label && x[label]) ?? x.id) }))
-        probes.push({ path, count: list.length })
-        if (/charger/i.test(path)) {
-          if (!chargers.length) chargers = list
-        } else if (!vehicles.length) vehicles = list
-        break
-      } catch (err) {
-        if (label === '') probes.push({ path, error: (err as Error).message.slice(0, 300) })
+  async function firstList(paths: string[], chargers: boolean): Promise<TibberAppItem[]> {
+    for (const path of paths) {
+      let lastError = ''
+      for (const label of ['title', 'name', 'shortName', '']) {
+        // Gizmos are every tile in the app: keep only the charger ones
+        const sel = `id ${label}${chargers && path.endsWith('gizmos') ? ' type' : ''}`
+        try {
+          const data = await gql(creds, pathQuery(path, sel), vars(path))
+          const raw = readPath(data, path)
+          if (!Array.isArray(raw)) {
+            lastError = 'not a list'
+            continue
+          }
+          const kept = raw.filter((x: Json) => !('type' in x) || /charg/i.test(String(x.type)))
+          const list = kept.map((x: Json) => ({ id: String(x.id), name: String((label && x[label]) || x.id) }))
+          probes.push({ path, count: list.length })
+          if (list.length) return list
+          lastError = ''
+          break
+        } catch (err) {
+          lastError = (err as Error).message.slice(0, 300)
+        }
       }
+      if (lastError) probes.push({ path, error: lastError })
     }
+    return []
   }
-  // Unknown fields: the error text lists the closest real ones
-  for (const path of ['home.vehicle', 'me.vehicle', 'home.charger']) {
+
+  const vehicles = await firstList(VEHICLE_LISTS, false)
+  const chargers = await firstList(CHARGER_LISTS, true)
+  for (const path of EXISTS) {
     try {
-      await gql(creds, at(path, '{ id }'), path.startsWith('home.') ? { h: homeId } : undefined)
+      await gql(creds, pathQuery(path, 'id'), vars(path))
+      probes.push({ path, error: 'ok' })
     } catch (err) {
       probes.push({ path, error: (err as Error).message.slice(0, 300) })
     }
