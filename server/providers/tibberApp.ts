@@ -158,9 +158,12 @@ function readPath(data: Json, path: string): unknown {
 // Where the app may list cars and chargers. Non-integrated cars are not in `home.electricVehicles`;
 // `me.myVehicles` exists (an object, not a list), so its list is one level down.
 const VEHICLE_LISTS = ['me.myVehicles.vehicles', 'me.myVehicles.items', 'me.myVehicles.electricVehicles', 'me.myVehicles.list']
-const CHARGER_LISTS = ['home.gizmos', 'me.myChargers.chargers', 'me.myChargers.items', 'me.myEvChargers.chargers', 'home.evCharger', 'me.evChargers']
+// `home.evCharger` is one charger, not a list
+const CHARGER_LISTS = ['home.evCharger', 'home.evChargers']
 // Asked with `{ id }` only for the error text: it says whether the field exists and names its type
-const EXISTS = ['me.myVehicles', 'me.myChargers', 'me.myEvChargers', 'me.charger', 'me.evCharger', 'me.myDevices', 'home.gizmos', 'home.devices']
+const EXISTS: string[] = []
+// Fields that may tell the cars apart: the app titles every non-integrated Zeekr just "Zeekr"
+const VEHICLE_DETAILS = ['subtitle', 'shortName', 'name', 'model', 'modelName', 'brand', 'make', 'description', 'displayName', 'batteryCapacity', 'batteryCapacityKwh']
 
 /**
  * Non-integrated cars may not show up under `electricVehicles`, and the app API allows no
@@ -171,21 +174,19 @@ async function probeCars(creds: TibberAppCredentials, homeId: string): Promise<{
   const probes: Probe[] = []
   const vars = (path: string) => (path.startsWith('home.') ? { h: homeId } : undefined)
 
-  async function firstList(paths: string[], chargers: boolean): Promise<TibberAppItem[]> {
+  async function firstList(paths: string[]): Promise<TibberAppItem[]> {
     for (const path of paths) {
       let lastError = ''
       for (const label of ['title', 'name', 'shortName', '']) {
-        // Gizmos are every tile in the app: keep only the charger ones
-        const sel = `id ${label}${chargers && path.endsWith('gizmos') ? ' type' : ''}`
         try {
-          const data = await gql(creds, pathQuery(path, sel), vars(path))
+          const data = await gql(creds, pathQuery(path, `id ${label}`), vars(path))
           const raw = readPath(data, path)
-          if (!Array.isArray(raw)) {
-            lastError = 'not a list'
+          const items = Array.isArray(raw) ? raw : raw && typeof raw === 'object' && 'id' in raw ? [raw as Json] : null
+          if (!items) {
+            lastError = `not a list: ${JSON.stringify(raw)?.slice(0, 200)}`
             continue
           }
-          const kept = raw.filter((x: Json) => !('type' in x) || /charg/i.test(String(x.type)))
-          const list = kept.map((x: Json) => ({ id: String(x.id), name: String((label && x[label]) || x.id) }))
+          const list = items.filter((x: Json) => x?.id).map((x: Json) => ({ id: String(x.id), name: String((label && x[label]) || x.id) }))
           probes.push({ path, count: list.length })
           if (list.length) return list
           lastError = ''
@@ -199,8 +200,11 @@ async function probeCars(creds: TibberAppCredentials, homeId: string): Promise<{
     return []
   }
 
-  const vehicles = await firstList(VEHICLE_LISTS, false)
-  const chargers = await firstList(CHARGER_LISTS, true)
+  const vehicles = await firstList(VEHICLE_LISTS)
+  const chargers = await firstList(CHARGER_LISTS)
+  if (vehicles.length > 1 && new Set(vehicles.map((v) => v.name)).size < vehicles.length) {
+    await addVehicleDetails(creds, vehicles, probes)
+  }
   for (const path of EXISTS) {
     try {
       await gql(creds, pathQuery(path, 'id'), vars(path))
@@ -210,6 +214,27 @@ async function probeCars(creds: TibberAppCredentials, homeId: string): Promise<{
     }
   }
   return { vehicles, chargers, probes }
+}
+
+/** Adds what each detail field says to the car names, so cars with the same title can be told apart. */
+async function addVehicleDetails(creds: TibberAppCredentials, vehicles: TibberAppItem[], probes: Probe[]) {
+  for (const field of VEHICLE_DETAILS) {
+    const path = `me.myVehicles.vehicles.${field}`
+    try {
+      const data = await gql(creds, `{ me { myVehicles { vehicles { id ${field} } } } }`)
+      const list = (data.me?.myVehicles?.vehicles ?? []) as Json[]
+      probes.push({ path, error: `ok: ${JSON.stringify(list.map((x) => x[field])).slice(0, 200)}` })
+      for (const x of list) {
+        const v = vehicles.find((c) => c.id === String(x.id))
+        const value = x[field]
+        if (!v || value == null || typeof value === 'object') continue
+        const text = typeof value === 'number' && /capacity/i.test(field) ? `${value} kWh` : String(value).trim()
+        if (text && !v.name.toLowerCase().includes(text.toLowerCase())) v.name = `${v.name} ${text}`
+      }
+    } catch (err) {
+      probes.push({ path, error: (err as Error).message.slice(0, 300) })
+    }
+  }
 }
 
 /**
