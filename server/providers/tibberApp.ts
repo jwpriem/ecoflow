@@ -24,6 +24,8 @@ export interface TibberAppDiscovery {
   homeId: string
   vehicles: TibberAppItem[]
   chargers: TibberAppItem[]
+  /** What was found, kept in the integration's meta to diagnose an empty car or charger list */
+  debug: { homes: { id: string; cars: number }[]; homeFields: string[] | null }
 }
 
 type Json = Record<string, any>
@@ -110,22 +112,50 @@ async function listItems(creds: TibberAppCredentials, homeId: string, fields: st
   throw new Error(errors.at(-1) ?? 'no matching field')
 }
 
-/** Signs in and finds the home, its cars and its chargers (ids are needed for the settings calls). */
-export async function tibberAppDiscover(creds: TibberAppCredentials, preferredHomeId?: string): Promise<TibberAppDiscovery> {
-  const homes = await gql<{ me: { homes: { id: string }[] } }>(creds, `{ me { homes { id } } }`)
-  const list = homes.me?.homes ?? []
-  if (!list.length) throw new Error('No homes on this Tibber account')
-  const homeId = list.find((h) => h.id === preferredHomeId)?.id ?? list[0]!.id
+type HomeWithCars = { id: string; electricVehicles?: Json[] | null }
 
-  // Field names differ between app versions: use introspection when it is allowed, else known names
-  const names = await homeFields(creds)
-  const pick = (re: RegExp, fallback: string[]) => {
-    const found = names?.filter((n) => re.test(n)) ?? []
-    return [...found, ...fallback.filter((f) => !found.includes(f))]
+/** Every home on the account with its cars, as the app lists them (`me.homes[].electricVehicles`). */
+async function homesWithCars(creds: TibberAppCredentials): Promise<{ id: string; vehicles: TibberAppItem[] }[]> {
+  let lastError: unknown
+  for (const label of ['name', 'shortName']) {
+    try {
+      const data = await gql<{ me: { homes: HomeWithCars[] } }>(creds, `{ me { homes { id electricVehicles { id ${label} } } } }`)
+      return (data.me?.homes ?? []).map((h) => ({
+        id: h.id,
+        vehicles: (h.electricVehicles ?? []).map((x) => ({ id: String(x.id), name: String(x[label] ?? x.id) })),
+      }))
+    } catch (err) {
+      lastError = err
+    }
   }
-  const vehicles = await listItems(creds, homeId, pick(/^electricVehicles$/i, ['electricVehicles']))
-  const chargers = await listItems(creds, homeId, pick(/charger/i, ['evChargers', 'chargers', 'electricVehicleChargers'])).catch(() => [])
-  return { homeId, vehicles, chargers }
+  throw lastError
+}
+
+/**
+ * Signs in and finds the home with the cars, its cars and its charger (ids are needed for the
+ * settings calls). An account can have several homes (an old address, a cabin): the cars are on
+ * one of them, so prefer the given home only when it has cars.
+ */
+export async function tibberAppDiscover(creds: TibberAppCredentials, preferredHomeId?: string): Promise<TibberAppDiscovery> {
+  const homes = await homesWithCars(creds)
+  if (!homes.length) throw new Error('No homes on this Tibber account')
+  const preferred = homes.find((h) => h.id === preferredHomeId)
+  const home = (preferred?.vehicles.length ? preferred : homes.find((h) => h.vehicles.length)) ?? preferred ?? homes[0]!
+
+  // There is no known query for chargers: look for a charger field on Home when introspection is allowed
+  const names = await homeFields(creds)
+  const found = names?.filter((n) => /charger/i.test(n)) ?? []
+  const candidates = [...found, ...['evChargers', 'chargers', 'electricVehicleChargers'].filter((f) => !found.includes(f))]
+  const chargers = await listItems(creds, home.id, candidates).catch(() => [])
+  return {
+    homeId: home.id,
+    vehicles: home.vehicles,
+    chargers,
+    debug: {
+      homes: homes.map((h) => ({ id: h.id, cars: h.vehicles.length })),
+      homeFields: names?.filter((n) => /charg|vehicle|device/i.test(n)) ?? null,
+    },
+  }
 }
 
 /** "Charging with": which car is connected to the charger. */
@@ -141,11 +171,23 @@ export async function tibberAppSetChargerVehicle(creds: TibberAppCredentials, ho
 
 /** The battery level of a non-integrated car, as entered by hand in the Tibber app (0-100). */
 export async function tibberAppSetBatteryLevel(creds: TibberAppCredentials, homeId: string, vehicleId: string, pct: number) {
-  await gql(
-    creds,
-    `mutation SetVehicleSettings($vehicleId: String!, $homeId: String!, $settings: [SettingsItemInput!]) {
-      me { setVehicleSettings(id: $vehicleId, homeId: $homeId, settings: $settings) { __typename } }
-    }`,
-    { vehicleId, homeId, settings: [{ key: 'offline.vehicle.batteryLevel', value: String(pct) }] },
-  )
+  const settings = [{ key: 'offline.vehicle.batteryLevel', value: String(pct) }]
+  try {
+    await gql(
+      creds,
+      `mutation SetVehicleSettings($vehicleId: String!, $homeId: String!, $settings: [SettingsItemInput!]) {
+        me { setVehicleSettings(id: $vehicleId, homeId: $homeId, settings: $settings) { __typename } }
+      }`,
+      { vehicleId, homeId, settings },
+    )
+  } catch {
+    // Newer app versions dropped the homeId argument
+    await gql(
+      creds,
+      `mutation SetVehicleSettings($vehicleId: String!, $settings: [SettingsItemInput!]) {
+        me { setVehicleSettings(id: $vehicleId, settings: $settings) { __typename } }
+      }`,
+      { vehicleId, settings },
+    )
+  }
 }
