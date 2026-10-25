@@ -48,6 +48,7 @@ async function token(creds: TibberAppCredentials, fresh = false): Promise<string
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'User-Agent': UA },
     body: JSON.stringify({ '@type': 'login', email: creds.email, password: creds.password }),
+    signal: AbortSignal.timeout(30_000),
   })
   if (res.status === 400 || res.status === 401) throw new Error('Tibber login failed: wrong email or password')
   if (!res.ok) throw new Error(`Tibber login HTTP ${res.status}`)
@@ -69,6 +70,7 @@ async function gql<T = Json>(creds: TibberAppCredentials, query: string, variabl
       method: 'POST',
       headers: { Authorization: `Bearer ${t}`, Cookie: `token=${t}`, 'Content-Type': 'application/json', 'User-Agent': UA },
       body: JSON.stringify({ query, variables }),
+      signal: AbortSignal.timeout(30_000),
     })
     // Expired or revoked token: sign in once more
     if (res.status === 401 && !fresh) continue

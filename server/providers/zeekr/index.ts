@@ -138,7 +138,8 @@ const asNum = (v: unknown): number | null => {
 }
 
 async function sendJson(url: string, method: string, headers: Record<string, string>, body?: string): Promise<Json> {
-  const res = await fetch(url, { method, headers, body })
+  // A hung request would hold the vehicles job (and its database connection) indefinitely
+  const res = await fetch(url, { method, headers, body, signal: AbortSignal.timeout(30_000) })
   const text = await res.text()
   let data: Json
   try {
