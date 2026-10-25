@@ -201,7 +201,8 @@ async function probeCars(creds: TibberAppCredentials, homeId: string): Promise<{
   }
 
   const vehicles = await firstList(VEHICLE_LISTS)
-  const chargers = await firstList(CHARGER_LISTS)
+  const listed = await firstList(CHARGER_LISTS)
+  const chargers = listed.length ? listed : await gizmoChargers(creds, homeId, probes)
   if (vehicles.length > 1 && new Set(vehicles.map((v) => v.name)).size < vehicles.length) {
     await addVehicleDetails(creds, vehicles, probes)
   }
@@ -214,6 +215,30 @@ async function probeCars(creds: TibberAppCredentials, homeId: string): Promise<{
     }
   }
   return { vehicles, chargers, probes }
+}
+
+/**
+ * The app's home screen is a list of gizmos (a union of single gizmos and groups). A charger the
+ * app controls is one of them: keep the ones whose type or title says charger.
+ */
+async function gizmoChargers(creds: TibberAppCredentials, homeId: string, probes: Probe[]): Promise<TibberAppItem[]> {
+  const isCharger = (g: Json) => /charg|easee|\bev\b/i.test(`${g.type ?? ''} ${g.title ?? ''}`)
+  for (const type of ['Gizmo', 'HomeGizmo']) {
+    const path = `home.gizmos.${type}`
+    try {
+      const data = await gql(
+        creds,
+        `query ($h: String!) { me { home(id: $h) { gizmos { __typename ... on ${type} { id title type } } } } }`,
+        { h: homeId },
+      )
+      const all = ((data.me?.home?.gizmos ?? []) as Json[]).filter((g) => g?.id)
+      probes.push({ path, error: `ok: ${JSON.stringify(all.map((g) => [g.__typename, g.type, g.title])).slice(0, 300)}` })
+      return all.filter(isCharger).map((g) => ({ id: String(g.id), name: String(g.title ?? g.id) }))
+    } catch (err) {
+      probes.push({ path, error: (err as Error).message.slice(0, 300) })
+    }
+  }
+  return []
 }
 
 /** Adds what each detail field says to the car names, so cars with the same title can be told apart. */
