@@ -20,8 +20,13 @@ export interface VehicleState extends VehicleReading {
   ts: string
 }
 
-/** A car counts as "at home" within this distance of the configured solar location. */
+/** A car counts as "at home" within this distance of home. */
 const HOME_RADIUS_M = 250
+
+interface HomePoint {
+  lat: number
+  lon: number
+}
 
 const live = new Map<number, VehicleState[]>()
 export const liveVehicles = (siteId: number) => live.get(siteId)
@@ -38,9 +43,19 @@ function distanceM(lat1: number, lon1: number, lat2: number, lon2: number): numb
   return 2 * R * Math.asin(Math.sqrt(a))
 }
 
-function isAtHome(reading: VehicleReading): boolean {
+/**
+ * Home is the exact point in the Zeekr integration's meta (`home: { lat, lon }`), kept in the
+ * database so the address stays out of the repo. Without it, fall back to the town-level solar location.
+ */
+function homePoint(meta: Record<string, unknown> | null | undefined): HomePoint {
+  const home = meta?.home as Partial<HomePoint> | undefined
+  if (typeof home?.lat === 'number' && typeof home?.lon === 'number') return { lat: home.lat, lon: home.lon }
+  return SOLAR_LOCATION
+}
+
+function isAtHome(reading: VehicleReading, home: HomePoint): boolean {
   if (reading.lat == null || reading.lon == null) return false
-  return distanceM(reading.lat, reading.lon, SOLAR_LOCATION.lat, SOLAR_LOCATION.lon) <= HOME_RADIUS_M
+  return distanceM(reading.lat, reading.lon, home.lat, home.lon) <= HOME_RADIUS_M
 }
 
 async function session(siteId: number, creds: ZeekrCredentials, forceLogin = false): Promise<ZeekrSession> {
@@ -95,6 +110,7 @@ export async function readZeekrVehicles(db: Db, site: Site, key: string, now = n
   const rows = await db.select().from(vehicles).where(eq(vehicles.siteId, site.id))
   if (!rows.length) return []
 
+  const home = homePoint(integ.meta)
   const states: VehicleState[] = []
   let sess: ZeekrSession
   try {
@@ -115,7 +131,7 @@ export async function readZeekrVehicles(db: Db, site: Site, key: string, now = n
         sess = await session(site.id, integ.creds, true)
         reading = await zeekrVehicleReading(integ.creds, sess, row.vin)
       }
-      const state: VehicleState = { ...reading, atHome: isAtHome(reading), ts: now.toISOString() }
+      const state: VehicleState = { ...reading, atHome: isAtHome(reading, home), ts: now.toISOString() }
       states.push(state)
       await db.update(vehicles).set({ state: state as unknown as Record<string, unknown> }).where(eq(vehicles.id, row.id))
       await db.insert(vehicleSamples).values({
