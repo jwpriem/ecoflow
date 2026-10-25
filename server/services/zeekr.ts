@@ -11,6 +11,7 @@ import {
   zeekrVehicleReading,
 } from '../providers/zeekr'
 import { getIntegration, markIntegration, updateIntegration } from './integrations'
+import { pushPluggedCarToTibber } from './tibberEv'
 
 type Site = typeof sites.$inferSelect
 
@@ -18,6 +19,8 @@ type Site = typeof sites.$inferSelect
 export interface VehicleState extends VehicleReading {
   atHome: boolean
   ts: string
+  /** Set once the battery level was sent to Tibber for the current plug-in at home */
+  tibberSyncedAt?: string
 }
 
 /** A car counts as "at home" within this distance of home. */
@@ -132,6 +135,12 @@ export async function readZeekrVehicles(db: Db, site: Site, key: string, now = n
         reading = await zeekrVehicleReading(integ.creds, sess, row.vin)
       }
       const state: VehicleState = { ...reading, atHome: isAtHome(reading, home), ts: now.toISOString() }
+      // Plugged in at home: tell Tibber once per plug-in which car is on the charger and its level
+      const prev = (row.state ?? {}) as Partial<VehicleState>
+      if (state.atHome && state.pluggedIn && state.soc != null) {
+        if (prev.atHome && prev.pluggedIn && prev.tibberSyncedAt) state.tibberSyncedAt = prev.tibberSyncedAt
+        else if (await pushPluggedCarToTibber(db, site, key, row, state.soc, state.targetSoc)) state.tibberSyncedAt = now.toISOString()
+      }
       states.push(state)
       await db.update(vehicles).set({ state: state as unknown as Record<string, unknown> }).where(eq(vehicles.id, row.id))
       await db.insert(vehicleSamples).values({

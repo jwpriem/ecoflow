@@ -84,6 +84,9 @@
               </template>
             </p>
           </template>
+          <p v-if="i.provider === 'tibber_app' && i.configured" class="small muted">
+            {{ m.settings.tibberApp((i.meta.vehicles as any[])?.length ?? 0, (i.meta.chargers as any[])?.length ?? 0) }}
+          </p>
           <label v-for="f in INFO[i.provider]!.fields" :key="f.key" class="field">
             <span>{{ m.settings.fields[f.key] ?? f.key }}</span>
             <input v-model="forms[i.provider]![f.key]" :type="f.secret ? 'password' : 'text'" :placeholder="i.configured ? m.settings.keepSaved : ''" autocomplete="off" />
@@ -223,10 +226,11 @@ const INFO: Record<string, { icon: string; tile: string; fields: Field[] }> = {
       { key: 'vinIv', secret: true },
     ],
   },
+  tibber_app: { icon: 'plug', tile: 'var(--sys-blue)', fields: [{ key: 'email' }, { key: 'password', secret: true }] },
 }
 
 const integrations = ref<any[]>([])
-const forms = reactive<Record<string, Record<string, string>>>({ tibber: {}, solaredge: {}, ecoflow_official: {}, zeekr: {} })
+const forms = reactive<Record<string, Record<string, string>>>({ tibber: {}, solaredge: {}, ecoflow_official: {}, zeekr: {}, tibber_app: {} })
 const results = reactive<Record<string, { ok: boolean; text: string } | undefined>>({})
 const busy = ref('')
 const homeId = ref('')

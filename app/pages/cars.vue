@@ -41,6 +41,7 @@
             <div v-if="c.state.chargePowerW"><dt>{{ m.cars.power }}</dt><dd>{{ watt(c.state.chargePowerW) }}</dd></div>
             <div v-if="c.state.targetSoc != null"><dt>{{ m.cars.target }}</dt><dd>{{ Math.round(c.state.targetSoc * 100) }}%</dd></div>
             <div v-if="c.state.ts"><dt>{{ m.cars.updated }}</dt><dd>{{ time(c.state.ts) }}</dd></div>
+            <div v-if="c.state.tibberSyncedAt"><dt>{{ m.cars.tibberSynced }}</dt><dd>{{ time(c.state.tibberSyncedAt) }}</dd></div>
           </dl>
 
           <details class="edit">
@@ -50,6 +51,13 @@
               <label class="list-row">
                 <span class="title">{{ m.cars.capacity }}</span>
                 <span class="unit-in"><input v-model.number="c.capacityKwh" type="number" step="0.5" inputmode="decimal" /> kWh</span>
+              </label>
+              <label v-if="tibberCars.length" class="list-row">
+                <span class="title">{{ m.cars.tibberCar }}</span>
+                <select v-model="c.tibberVehicleId">
+                  <option :value="null">{{ m.cars.tibberNone }}</option>
+                  <option v-for="t in tibberCars" :key="t.id" :value="t.id">{{ t.name }}</option>
+                </select>
               </label>
               <div class="list-row"><button class="plain" @click="saveCar(c)">{{ m.cars.save }}</button><span v-if="savedId === c.id" class="small pos">{{ m.cars.saved }}</span></div>
             </div>
@@ -74,6 +82,8 @@ const cars = ref<any[] | null>(null)
 const busy = ref('')
 const savedId = ref<number | null>(null)
 const loadError = ref<any>(null)
+// The cars known in the Tibber app, when it is connected: pick which one each car is
+const tibberCars = ref<{ id: string; name: string }[]>([])
 
 function homeClass(c: any) {
   return c.state.atHome ? 'home' : ''
@@ -91,8 +101,12 @@ function statusText(c: any): string {
 async function load() {
   cars.value = await api('/api/vehicles')
 }
+async function loadTibberCars() {
+  const list: any[] = await api('/api/integrations')
+  tibberCars.value = (list.find((i) => i.provider === 'tibber_app')?.meta.vehicles as any[]) ?? []
+}
 async function saveCar(c: any) {
-  await api(`/api/vehicles/${c.id}`, { method: 'PUT', body: { name: c.name, capacityKwh: c.capacityKwh ?? null } })
+  await api(`/api/vehicles/${c.id}`, { method: 'PUT', body: { name: c.name, capacityKwh: c.capacityKwh ?? null, ...(tibberCars.value.length ? { tibberVehicleId: c.tibberVehicleId ?? null } : {}) } })
   savedId.value = c.id
   setTimeout(() => (savedId.value = null), 2500)
 }
@@ -113,6 +127,7 @@ async function retryLoad() {
 let timer: ReturnType<typeof setInterval>
 onMounted(() => {
   safeLoad()
+  loadTibberCars().catch(() => undefined)
   timer = setInterval(safeLoad, 60_000)
 })
 onBeforeUnmount(() => clearInterval(timer))

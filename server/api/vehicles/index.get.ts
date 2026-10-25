@@ -1,17 +1,25 @@
-import { asc, eq } from 'drizzle-orm'
-import { vehicles } from '../../db/schema'
+import { and, asc, eq } from 'drizzle-orm'
+import { integrations, vehicles } from '../../db/schema'
+import type { TibberAppMeta } from '../../services/tibberEv'
 import type { VehicleState } from '../../services/zeekr'
 
 /** The cars and their last known reading (vehicles.state is refreshed on every poll). */
 export default defineEventHandler(async (event) => {
   const { site } = await requireSite(event)
-  const rows = await useDb().select().from(vehicles).where(eq(vehicles.siteId, site.id)).orderBy(asc(vehicles.id))
+  const db = useDb()
+  const rows = await db.select().from(vehicles).where(eq(vehicles.siteId, site.id)).orderBy(asc(vehicles.id))
+  const [tibber] = await db
+    .select({ meta: integrations.meta })
+    .from(integrations)
+    .where(and(eq(integrations.siteId, site.id), eq(integrations.provider, 'tibber_app')))
+  const map = ((tibber?.meta ?? {}) as TibberAppMeta).map ?? {}
   return rows.map((v) => ({
     id: v.id,
     vin: v.vin,
     name: v.name,
     model: v.model,
     capacityKwh: v.capacityKwh,
+    tibberVehicleId: map[v.id] ?? null,
     state: (v.state ?? {}) as Partial<VehicleState>,
   }))
 })
