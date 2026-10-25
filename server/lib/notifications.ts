@@ -21,6 +21,8 @@ const PROVIDER_NAME: Record<string, Record<Locale, string>> = {
   tibber: { en: 'Tibber', nl: 'Tibber' },
   solaredge: { en: 'SolarEdge', nl: 'SolarEdge' },
   ecoflow_official: { en: 'EcoFlow developer API', nl: 'EcoFlow-ontwikkelaars-API' },
+  zeekr: { en: 'Zeekr', nl: 'Zeekr' },
+  tibber_app: { en: 'Tibber app (charging)', nl: 'Tibber-app (laden)' },
 }
 
 /** Only grid charging and discharging are worth a notification; the other modes are the quiet default. */

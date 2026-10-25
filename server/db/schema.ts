@@ -45,7 +45,7 @@ export const sites = pgTable('sites', {
   createdAt: ts('created_at').notNull().defaultNow(),
 })
 
-export type Provider = 'tibber' | 'solaredge' | 'ecoflow_official' | 'zeekr'
+export type Provider = 'tibber' | 'solaredge' | 'ecoflow_official' | 'zeekr' | 'tibber_app'
 
 export const integrations = pgTable(
   'integrations',

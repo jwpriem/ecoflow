@@ -1,11 +1,14 @@
-import type { Provider } from '../../db/schema'
+import { eq } from 'drizzle-orm'
+import { type Provider, vehicles } from '../../db/schema'
 import { tibberHomes, type TibberCredentials } from '../../providers/tibber'
+import { forgetTibberApp } from '../../providers/tibberApp'
 import { getIntegration, markIntegration, saveIntegration } from '../../services/integrations'
 import { refreshPrices } from '../../services/prices'
 import { syncEcoFlowDevices } from '../../services/ecoflow'
 import { syncPulse } from '../../services/pulse'
 import { forgetSolarEdge, testSolarEdge } from '../../services/solaredge'
 import { runStrategy } from '../../services/strategy'
+import { syncTibberApp } from '../../services/tibberEv'
 import { readZeekrVehicles, syncZeekrVehicles } from '../../services/zeekr'
 
 const FIELDS: Record<Provider, string[]> = {
@@ -13,6 +16,7 @@ const FIELDS: Record<Provider, string[]> = {
   solaredge: ['clientId', 'clientSecret'],
   ecoflow_official: ['accessKey', 'secretKey'],
   zeekr: ['username', 'password', 'hmacAccessKey', 'hmacSecretKey', 'passwordPublicKey', 'prodSecret', 'vinKey', 'vinIv'],
+  tibber_app: ['email', 'password'],
 }
 
 /**
@@ -81,6 +85,15 @@ export default defineEventHandler(async (event) => {
     const r = await syncZeekrVehicles(db, site, key)
     // Read the cars straight away so the Cars tab fills without waiting for the 5-minute job
     if (!r.error) await readZeekrVehicles(db, site, key).catch(() => undefined)
+    const synced = await getIntegration(db, site.id, provider, key)
+    return { ok: !r.error, error: r.error ?? null, meta: synced?.meta ?? meta }
+  }
+
+  // Signs in to the Tibber app, finds the home, cars and charger, and matches our cars to Tibber's
+  if (provider === 'tibber_app') {
+    forgetTibberApp()
+    const cars = await db.select().from(vehicles).where(eq(vehicles.siteId, site.id))
+    const r = await syncTibberApp(db, site, key, cars)
     const synced = await getIntegration(db, site.id, provider, key)
     return { ok: !r.error, error: r.error ?? null, meta: synced?.meta ?? meta }
   }

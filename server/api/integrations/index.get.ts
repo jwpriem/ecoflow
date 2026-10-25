@@ -5,7 +5,7 @@ import { ecoflowMqttStatus } from '../../providers/ecoflow/mqtt'
 import { pulseStatus } from '../../providers/tibberPulse'
 import { solarEdgeRedirectUri } from '../../services/solaredge'
 
-const PROVIDERS: Provider[] = ['tibber', 'solaredge', 'ecoflow_official', 'zeekr']
+const PROVIDERS: Provider[] = ['tibber', 'solaredge', 'ecoflow_official', 'zeekr', 'tibber_app']
 
 /** Never returns secrets, only whether they are set and the non-secret settings. */
 export default defineEventHandler(async (event) => {
