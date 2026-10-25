@@ -259,10 +259,11 @@ export async function zeekrVehicleList(creds: ZeekrCredentials, session: ZeekrSe
   }))
 }
 
-/** Reads one car's status, charging status and target SoC. Returns null fields when the car is asleep. */
+/** Reads one car's status, charging status and target SoC. Throws when the status call is refused. */
 export async function zeekrVehicleReading(creds: ZeekrCredentials, session: ZeekrSession, vin: string): Promise<VehicleReading> {
   const status = await appCall(creds, session, 'GET', `${session.regionLoginServer}${VEHSTATUS_PATH}?latest=false&target=new`, undefined, vin)
-  const data: Json = status.success ? (status.data ?? {}) : {}
+  if (!status.success) throw new ZeekrError(`Vehicle status failed: ${status.msg ?? status.code ?? 'unknown'}`)
+  const data: Json = status.data ?? {}
   const ev: Json = data.additionalVehicleStatus?.electricVehicleStatus ?? {}
   const basic: Json = data.basicVehicleStatus ?? {}
   const pos: Json = basic.position ?? {}
