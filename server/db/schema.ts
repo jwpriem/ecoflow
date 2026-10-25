@@ -1,5 +1,6 @@
 import {
   bigserial,
+  boolean,
   doublePrecision,
   index,
   integer,
@@ -44,7 +45,7 @@ export const sites = pgTable('sites', {
   createdAt: ts('created_at').notNull().defaultNow(),
 })
 
-export type Provider = 'tibber' | 'solaredge' | 'ecoflow_official'
+export type Provider = 'tibber' | 'solaredge' | 'ecoflow_official' | 'zeekr'
 
 export const integrations = pgTable(
   'integrations',
@@ -82,6 +83,42 @@ export const devices = pgTable(
     createdAt: ts('created_at').notNull().defaultNow(),
   },
   (t) => [uniqueIndex('devices_site_serial').on(t.siteId, t.serial)],
+)
+
+/** Cars read through the Zeekr app API (read-only). State holds the last reading (see VehicleState). */
+export const vehicles = pgTable(
+  'vehicles',
+  {
+    id: serial('id').primaryKey(),
+    siteId: integer('site_id').notNull().references(() => sites.id, { onDelete: 'cascade' }),
+    provider: text('provider').$type<'zeekr'>().notNull().default('zeekr'),
+    vin: text('vin').notNull(),
+    name: text('name').notNull(),
+    model: text('model'),
+    /** Usable battery capacity, kWh; used to estimate how much charging a car still needs */
+    capacityKwh: doublePrecision('capacity_kwh'),
+    state: jsonb('state').$type<Record<string, unknown>>().notNull().default({}),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('vehicles_site_vin').on(t.siteId, t.vin)],
+)
+
+/** One reading per poll per car. SoC 0-1, chargePowerW + while charging. */
+export const vehicleSamples = pgTable(
+  'vehicle_samples',
+  {
+    id: bigserial('id', { mode: 'number' }).primaryKey(),
+    siteId: integer('site_id').notNull().references(() => sites.id, { onDelete: 'cascade' }),
+    vehicleId: integer('vehicle_id').notNull().references(() => vehicles.id, { onDelete: 'cascade' }),
+    ts: ts('ts').notNull(),
+    soc: doublePrecision('soc'),
+    rangeKm: doublePrecision('range_km'),
+    chargePowerW: doublePrecision('charge_power_w'),
+    charging: boolean('charging').notNull().default(false),
+    pluggedIn: boolean('plugged_in').notNull().default(false),
+    atHome: boolean('at_home').notNull().default(false),
+  },
+  (t) => [index('vehicle_samples_vehicle_ts').on(t.vehicleId, t.ts)],
 )
 
 /** Prices in EUR/kWh per slot. total = what you pay for importing (incl. energy tax + VAT). */

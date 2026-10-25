@@ -6,6 +6,7 @@ import { refreshPrices } from '../services/prices'
 import { refreshIrradiance } from '../services/solarForecast'
 import { syncPulse } from '../services/pulse'
 import { runStrategy } from '../services/strategy'
+import { readZeekrVehicles } from '../services/zeekr'
 
 /** On boot: apply migrations, check the EcoFlow units, start the Tibber Pulse streams and make sure there are prices, a solar forecast and a plan. */
 export default defineNitroPlugin(() => {
@@ -32,6 +33,7 @@ export default defineNitroPlugin(() => {
         await syncPulse(db, site, key)
         await refreshPrices(db, site, key)
         await refreshIrradiance(db, site).catch((err: Error) => console.warn(`[startup] site ${site.id}: solar forecast: ${err.message}`))
+        await readZeekrVehicles(db, site, key).catch((err: Error) => console.warn(`[startup] site ${site.id}: Zeekr: ${err.message}`))
         await runStrategy(db, site)
       } catch (err) {
         console.error(`[startup] site ${site.id}:`, (err as Error).message)

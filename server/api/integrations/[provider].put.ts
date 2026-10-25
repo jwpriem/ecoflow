@@ -6,11 +6,13 @@ import { syncEcoFlowDevices } from '../../services/ecoflow'
 import { syncPulse } from '../../services/pulse'
 import { forgetSolarEdge, testSolarEdge } from '../../services/solaredge'
 import { runStrategy } from '../../services/strategy'
+import { syncZeekrVehicles } from '../../services/zeekr'
 
 const FIELDS: Record<Provider, string[]> = {
   tibber: ['token'],
   solaredge: ['clientId', 'clientSecret'],
   ecoflow_official: ['accessKey', 'secretKey'],
+  zeekr: ['username', 'password', 'hmacAccessKey', 'hmacSecretKey', 'passwordPublicKey', 'prodSecret', 'vinKey', 'vinIv'],
 }
 
 /**
@@ -70,6 +72,13 @@ export default defineEventHandler(async (event) => {
   // Lists the units on the EcoFlow account, adds them as batteries and records the outcome
   if (provider === 'ecoflow_official') {
     const r = await syncEcoFlowDevices(db, site, key)
+    const synced = await getIntegration(db, site.id, provider, key)
+    return { ok: !r.error, error: r.error ?? null, meta: synced?.meta ?? meta }
+  }
+
+  // Signs in to Zeekr, adds every car on the account (incl. shared cars) and records the outcome
+  if (provider === 'zeekr') {
+    const r = await syncZeekrVehicles(db, site, key)
     const synced = await getIntegration(db, site.id, provider, key)
     return { ok: !r.error, error: r.error ?? null, meta: synced?.meta ?? meta }
   }
