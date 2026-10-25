@@ -41,9 +41,10 @@ const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
 
 /**
  * Finds the Tibber car that is this car by name: the plate or the model words other than the
- * brand (Zeekr 001 -> "001", Zeekr X -> "x"). Returns undefined unless exactly one car matches.
+ * brand (Zeekr 001 -> "001", Zeekr X -> "x"), or the battery size ("100 kWh"). Returns undefined
+ * unless exactly one car matches.
  */
-export function matchTibberVehicle(car: { name: string; model: string | null }, options: TibberAppItem[]): string | undefined {
+export function matchTibberVehicle(car: { name: string; model: string | null; capacityKwh?: number | null }, options: TibberAppItem[]): string | undefined {
   const words = new Set<string>()
   for (const w of norm(`${car.model ?? ''}`).split(' ')) if (w && w !== 'zeekr') words.add(w)
   const plate = norm(car.name).replace(/ /g, '')
@@ -51,6 +52,7 @@ export function matchTibberVehicle(car: { name: string; model: string | null }, 
     const n = norm(o.name)
     if (plate && n.replace(/ /g, '').includes(plate)) return true
     const tokens = n.split(' ')
+    if (car.capacityKwh && n.includes(`${Math.round(car.capacityKwh)} kwh`)) return true
     return words.size > 0 && [...words].every((w) => tokens.includes(w))
   })
   return hits.length === 1 ? hits[0]!.id : undefined
@@ -108,8 +110,10 @@ export async function rediscoverTibberApp(db: Db, site: Site, key: string, cars:
   const integ = await getIntegration<TibberAppCredentials>(db, site.id, 'tibber_app', key)
   if (!integ) return
   const meta = (integ.meta ?? {}) as TibberAppMeta
-  if (meta.vehicles?.length && meta.chargers?.length) return
-  const wait = meta.vehicles?.length ? REDISCOVER_CHARGER_MS : REDISCOVER_MS
+  const mapped = cars.every((c) => meta.map?.[c.id])
+  if (meta.vehicles?.length && meta.chargers?.length && mapped) return
+  // Keep looking often while a car is missing or can't be told apart; for a charger only now and then
+  const wait = meta.vehicles?.length && mapped ? REDISCOVER_CHARGER_MS : REDISCOVER_MS
   if (meta.discoveredAt && now.getTime() - new Date(meta.discoveredAt).getTime() < wait) return
   await syncTibberApp(db, site, key, cars)
 }

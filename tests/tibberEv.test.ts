@@ -38,4 +38,12 @@ describe('matching our cars to Tibber cars', () => {
     expect(matchTibberVehicle({ name: 'JPX73G', model: 'Zeekr 001' }, [...tibber, { id: 'd', name: 'Zeekr 001 FR' }])).toBeUndefined()
     expect(matchTibberVehicle({ name: 'JPX73G', model: null }, tibber)).toBeUndefined()
   })
+  it('matches cars with the same title by battery size', () => {
+    const same = [
+      { id: 'a', name: 'Zeekr 100 kWh' },
+      { id: 'b', name: 'Zeekr 66 kWh' },
+    ]
+    expect(matchTibberVehicle({ name: 'JPX73G', model: 'Zeekr 001', capacityKwh: 100 }, same)).toBe('a')
+    expect(matchTibberVehicle({ name: 'JHX67T', model: 'Zeekr X', capacityKwh: 66 }, same)).toBe('b')
+  })
 })
