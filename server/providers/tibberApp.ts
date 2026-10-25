@@ -222,7 +222,7 @@ async function probeCars(creds: TibberAppCredentials, homeId: string): Promise<{
  * app controls is one of them: keep the ones whose type or title says charger.
  */
 async function gizmoChargers(creds: TibberAppCredentials, homeId: string, probes: Probe[]): Promise<TibberAppItem[]> {
-  const isCharger = (g: Json) => /charg|easee|\bev\b/i.test(`${g.type ?? ''} ${g.title ?? ''}`)
+  const isCharger = (g: Json) => /charg|easee|wallbox|\bev\b/i.test(`${g.type ?? ''} ${g.title ?? ''}`)
   for (const type of ['Gizmo', 'HomeGizmo']) {
     const path = `home.gizmos.${type}`
     try {
