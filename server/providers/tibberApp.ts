@@ -25,7 +25,7 @@ export interface TibberAppDiscovery {
   vehicles: TibberAppItem[]
   chargers: TibberAppItem[]
   /** What was found, kept in the integration's meta to diagnose an empty car or charger list */
-  debug: { homes: { id: string; cars: number }[]; homeFields: string[] | null }
+  debug: { homes: { id: string; cars: number }[]; homeFields: string[] | null; probes?: Probe[] }
 }
 
 type Json = Record<string, any>
@@ -131,6 +131,52 @@ async function homesWithCars(creds: TibberAppCredentials): Promise<{ id: string;
   throw lastError
 }
 
+interface Probe {
+  path: string
+  count?: number
+  error?: string
+}
+
+/**
+ * Non-integrated cars may not show up under `electricVehicles`, and the app API allows no
+ * introspection. Try the other likely places, and ask for a field that doesn't exist on Me and
+ * Home: GraphQL servers answer that with "Did you mean ...?" and so name the real fields.
+ */
+async function probeCars(creds: TibberAppCredentials, homeId: string): Promise<{ vehicles: TibberAppItem[]; chargers: TibberAppItem[]; probes: Probe[] }> {
+  const probes: Probe[] = []
+  let vehicles: TibberAppItem[] = []
+  let chargers: TibberAppItem[] = []
+  const at = (path: string, sel: string) =>
+    path.startsWith('home.') ? `query ($h: String!) { me { home(id: $h) { ${path.slice(5)} ${sel} } } }` : `{ me { ${path.slice(3)} ${sel} } }`
+  const read = (data: Json, path: string): unknown => (path.startsWith('home.') ? data.me?.home?.[path.slice(5)] : data.me?.[path.slice(3)])
+
+  const lists = ['home.vehicles', 'home.myVehicles', 'home.evs', 'home.cars', 'me.vehicles', 'me.electricVehicles', 'me.myVehicles', 'home.evChargers', 'home.chargers', 'home.electricVehicleChargers']
+  for (const path of lists) {
+    for (const label of ['name', 'shortName', '']) {
+      try {
+        const data = await gql(creds, at(path, `{ id ${label} }`), path.startsWith('home.') ? { h: homeId } : undefined)
+        const list = ((read(data, path) ?? []) as Json[]).map((x) => ({ id: String(x.id), name: String((label && x[label]) ?? x.id) }))
+        probes.push({ path, count: list.length })
+        if (/charger/i.test(path)) {
+          if (!chargers.length) chargers = list
+        } else if (!vehicles.length) vehicles = list
+        break
+      } catch (err) {
+        if (label === '') probes.push({ path, error: (err as Error).message.slice(0, 300) })
+      }
+    }
+  }
+  // Unknown fields: the error text lists the closest real ones
+  for (const path of ['home.vehicle', 'me.vehicle', 'home.charger']) {
+    try {
+      await gql(creds, at(path, '{ id }'), path.startsWith('home.') ? { h: homeId } : undefined)
+    } catch (err) {
+      probes.push({ path, error: (err as Error).message.slice(0, 300) })
+    }
+  }
+  return { vehicles, chargers, probes }
+}
+
 /**
  * Signs in and finds the home with the cars, its cars and its charger (ids are needed for the
  * settings calls). An account can have several homes (an old address, a cabin): the cars are on
@@ -146,14 +192,23 @@ export async function tibberAppDiscover(creds: TibberAppCredentials, preferredHo
   const names = await homeFields(creds)
   const found = names?.filter((n) => /charger/i.test(n)) ?? []
   const candidates = [...found, ...['evChargers', 'chargers', 'electricVehicleChargers'].filter((f) => !found.includes(f))]
-  const chargers = await listItems(creds, home.id, candidates).catch(() => [])
+  let chargers = await listItems(creds, home.id, candidates).catch(() => [] as TibberAppItem[])
+  let vehicles = home.vehicles
+  let probes: Probe[] | undefined
+  if (!vehicles.length || !chargers.length) {
+    const found = await probeCars(creds, home.id)
+    probes = found.probes
+    if (!vehicles.length) vehicles = found.vehicles
+    if (!chargers.length) chargers = found.chargers
+  }
   return {
     homeId: home.id,
-    vehicles: home.vehicles,
+    vehicles,
     chargers,
     debug: {
       homes: homes.map((h) => ({ id: h.id, cars: h.vehicles.length })),
       homeFields: names?.filter((n) => /charg|vehicle|device/i.test(n)) ?? null,
+      probes,
     },
   }
 }
