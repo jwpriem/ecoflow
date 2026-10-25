@@ -6,7 +6,7 @@ import { syncEcoFlowDevices } from '../../services/ecoflow'
 import { syncPulse } from '../../services/pulse'
 import { forgetSolarEdge, testSolarEdge } from '../../services/solaredge'
 import { runStrategy } from '../../services/strategy'
-import { syncZeekrVehicles } from '../../services/zeekr'
+import { readZeekrVehicles, syncZeekrVehicles } from '../../services/zeekr'
 
 const FIELDS: Record<Provider, string[]> = {
   tibber: ['token'],
@@ -79,6 +79,8 @@ export default defineEventHandler(async (event) => {
   // Signs in to Zeekr, adds every car on the account (incl. shared cars) and records the outcome
   if (provider === 'zeekr') {
     const r = await syncZeekrVehicles(db, site, key)
+    // Read the cars straight away so the Cars tab fills without waiting for the 5-minute job
+    if (!r.error) await readZeekrVehicles(db, site, key).catch(() => undefined)
     const synced = await getIntegration(db, site.id, provider, key)
     return { ok: !r.error, error: r.error ?? null, meta: synced?.meta ?? meta }
   }
