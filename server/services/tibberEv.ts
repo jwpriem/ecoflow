@@ -96,8 +96,9 @@ export async function syncTibberApp(db: Db, site: Site, key: string, cars: Vehic
   }
 }
 
-/** How often to look for the Tibber cars again while none were found */
+/** How often to look again while no cars were found, and while the cars but no charger were found */
 const REDISCOVER_MS = 15 * 60 * 1000
+const REDISCOVER_CHARGER_MS = 6 * 60 * 60 * 1000
 
 /**
  * While the Tibber app is connected but its cars were not found yet, look again now and then
@@ -107,8 +108,9 @@ export async function rediscoverTibberApp(db: Db, site: Site, key: string, cars:
   const integ = await getIntegration<TibberAppCredentials>(db, site.id, 'tibber_app', key)
   if (!integ) return
   const meta = (integ.meta ?? {}) as TibberAppMeta
-  if (meta.vehicles?.length) return
-  if (meta.discoveredAt && now.getTime() - new Date(meta.discoveredAt).getTime() < REDISCOVER_MS) return
+  if (meta.vehicles?.length && meta.chargers?.length) return
+  const wait = meta.vehicles?.length ? REDISCOVER_CHARGER_MS : REDISCOVER_MS
+  if (meta.discoveredAt && now.getTime() - new Date(meta.discoveredAt).getTime() < wait) return
   await syncTibberApp(db, site, key, cars)
 }
 
