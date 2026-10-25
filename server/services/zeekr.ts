@@ -11,7 +11,7 @@ import {
   zeekrVehicleReading,
 } from '../providers/zeekr'
 import { getIntegration, markIntegration, updateIntegration } from './integrations'
-import { pushPluggedCarToTibber } from './tibberEv'
+import { pushPluggedCarToTibber, rediscoverTibberApp } from './tibberEv'
 
 type Site = typeof sites.$inferSelect
 
@@ -159,6 +159,7 @@ export async function readZeekrVehicles(db: Db, site: Site, key: string, now = n
     }
   }
 
+  await rediscoverTibberApp(db, site, key, rows, now).catch(() => undefined)
   live.set(site.id, states)
   await markIntegration(db, integ.row.id, states.length ? undefined : failure)
   return states

@@ -24,6 +24,8 @@ export interface TibberAppMeta {
   map?: Record<string, string>
   lastPush?: { vehicleId: number; pct: number; at: string }
   debug?: TibberAppDiscovery['debug']
+  /** When the cars and charger were last looked up */
+  discoveredAt?: string
 }
 
 /**
@@ -68,7 +70,7 @@ async function dataApiHomeId(db: Db, siteId: number): Promise<string | undefined
 export async function syncTibberApp(db: Db, site: Site, key: string, cars: VehicleRow[]): Promise<{ error?: string }> {
   const integ = await getIntegration<TibberAppCredentials>(db, site.id, 'tibber_app', key)
   if (!integ) return {}
-  const meta = (integ.meta ?? {}) as TibberAppMeta
+  const meta: TibberAppMeta = { ...(integ.meta as TibberAppMeta), discoveredAt: new Date().toISOString() }
   try {
     const found = await tibberAppDiscover(integ.creds, meta.homeId ?? (await dataApiHomeId(db, site.id)))
     if (!found.vehicles.length) {
@@ -92,6 +94,22 @@ export async function syncTibberApp(db: Db, site: Site, key: string, cars: Vehic
     await markIntegration(db, integ.row.id, error)
     return { error }
   }
+}
+
+/** How often to look for the Tibber cars again while none were found */
+const REDISCOVER_MS = 15 * 60 * 1000
+
+/**
+ * While the Tibber app is connected but its cars were not found yet, look again now and then
+ * (from the 5-minute car read), so a fix or a car added in the app is picked up without a re-save.
+ */
+export async function rediscoverTibberApp(db: Db, site: Site, key: string, cars: VehicleRow[], now = new Date()) {
+  const integ = await getIntegration<TibberAppCredentials>(db, site.id, 'tibber_app', key)
+  if (!integ) return
+  const meta = (integ.meta ?? {}) as TibberAppMeta
+  if (meta.vehicles?.length) return
+  if (meta.discoveredAt && now.getTime() - new Date(meta.discoveredAt).getTime() < REDISCOVER_MS) return
+  await syncTibberApp(db, site, key, cars)
 }
 
 /**

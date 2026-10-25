@@ -76,8 +76,12 @@ async function gql<T = Json>(creds: TibberAppCredentials, query: string, variabl
     })
     // Expired or revoked token: sign in once more
     if (res.status === 401 && !fresh) continue
-    if (!res.ok) throw new Error(`Tibber app HTTP ${res.status}`)
-    const body = (await res.json()) as { data?: T; errors?: { message: string }[] }
+    // A query the schema rejects comes back as 400 with the reason in the GraphQL errors
+    const body = (await res.json().catch(() => ({}))) as { data?: T; errors?: { message: string }[] }
+    if (!res.ok) {
+      const why = body.errors?.map((e) => e.message).join('; ')
+      throw new Error(`Tibber app HTTP ${res.status}${why ? `: ${why}` : ''}`)
+    }
     if (body.errors?.length) throw new Error(`Tibber app: ${body.errors.map((e) => e.message).join('; ')}`)
     if (!body.data) throw new Error('Tibber app: empty response')
     return body.data
