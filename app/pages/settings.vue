@@ -209,10 +209,24 @@ const INFO: Record<string, { icon: string; tile: string; fields: Field[] }> = {
   tibber: { icon: 'bolt', tile: 'var(--sys-blue)', fields: [{ key: 'token', secret: true }] },
   solaredge: { icon: 'sun', tile: 'var(--c-discharge)', fields: [{ key: 'clientId' }, { key: 'clientSecret', secret: true }] },
   ecoflow_official: { icon: 'key', tile: 'var(--surface-3)', fields: [{ key: 'accessKey', secret: true }, { key: 'secretKey', secret: true }] },
+  zeekr: {
+    icon: 'car',
+    tile: 'var(--sys-blue)',
+    fields: [
+      { key: 'username' },
+      { key: 'password', secret: true },
+      { key: 'hmacAccessKey', secret: true },
+      { key: 'hmacSecretKey', secret: true },
+      { key: 'passwordPublicKey', secret: true },
+      { key: 'prodSecret', secret: true },
+      { key: 'vinKey', secret: true },
+      { key: 'vinIv', secret: true },
+    ],
+  },
 }
 
 const integrations = ref<any[]>([])
-const forms = reactive<Record<string, Record<string, string>>>({ tibber: {}, solaredge: {}, ecoflow_official: {} })
+const forms = reactive<Record<string, Record<string, string>>>({ tibber: {}, solaredge: {}, ecoflow_official: {}, zeekr: {} })
 const results = reactive<Record<string, { ok: boolean; text: string } | undefined>>({})
 const busy = ref('')
 const homeId = ref('')

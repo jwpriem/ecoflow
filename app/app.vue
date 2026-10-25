@@ -18,6 +18,7 @@ const tabs = [
   { to: '/', key: 'home', icon: 'house' },
   { to: '/savings', key: 'savings', icon: 'chart' },
   { to: '/plan', key: 'plan', icon: 'calendar' },
+  { to: '/cars', key: 'cars', icon: 'car' },
   { to: '/settings', key: 'settings', icon: 'gear' },
 ] as const
 </script>

@@ -65,6 +65,16 @@
       <circle cx="12" cy="8" r="4" />
       <path d="M4 21c1-4.5 4.5-6.5 8-6.5s7 2 8 6.5" />
     </template>
+    <template v-else-if="name === 'car'">
+      <path d="M3 13.5 5 8a2 2 0 0 1 1.9-1.3h10.2A2 2 0 0 1 19 8l2 5.5" />
+      <path d="M3 13.5h18V18a1 1 0 0 1-1 1h-1.5a1 1 0 0 1-1-1v-1H6.5v1a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1Z" />
+      <path d="M6.5 16h0M17.5 16h0" />
+    </template>
+    <template v-else-if="name === 'plug'">
+      <path d="M9 2v6M15 2v6" />
+      <path d="M6 8h12v3a6 6 0 0 1-12 0Z" />
+      <path d="M12 17v5" />
+    </template>
   </svg>
 </template>
 
