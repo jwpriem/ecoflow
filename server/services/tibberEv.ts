@@ -1,7 +1,9 @@
+import { and, eq } from 'drizzle-orm'
 import type { Db } from '../db/client'
-import type { sites, vehicles } from '../db/schema'
+import { integrations, type sites, type vehicles } from '../db/schema'
 import {
   type TibberAppCredentials,
+  type TibberAppDiscovery,
   type TibberAppItem,
   tibberAppDiscover,
   tibberAppSetBatteryLevel,
@@ -21,6 +23,7 @@ export interface TibberAppMeta {
   /** our vehicles.id -> Tibber vehicle id */
   map?: Record<string, string>
   lastPush?: { vehicleId: number; pct: number; at: string }
+  debug?: TibberAppDiscovery['debug']
 }
 
 /**
@@ -51,14 +54,27 @@ export function matchTibberVehicle(car: { name: string; model: string | null }, 
   return hits.length === 1 ? hits[0]!.id : undefined
 }
 
+/** The home picked for prices in the Tibber (Data API) integration: the same id in the app API. */
+async function dataApiHomeId(db: Db, siteId: number): Promise<string | undefined> {
+  const [row] = await db
+    .select({ meta: integrations.meta })
+    .from(integrations)
+    .where(and(eq(integrations.siteId, siteId), eq(integrations.provider, 'tibber')))
+  const id = row?.meta.homeId
+  return typeof id === 'string' ? id : undefined
+}
+
 /** Sign in, discover the home, cars and charger, and map our cars to Tibber cars where the names match. */
 export async function syncTibberApp(db: Db, site: Site, key: string, cars: VehicleRow[]): Promise<{ error?: string }> {
   const integ = await getIntegration<TibberAppCredentials>(db, site.id, 'tibber_app', key)
   if (!integ) return {}
   const meta = (integ.meta ?? {}) as TibberAppMeta
   try {
-    const found = await tibberAppDiscover(integ.creds, meta.homeId)
-    if (!found.vehicles.length) throw new Error('No cars in the Tibber app: add them under You → Electric cars first')
+    const found = await tibberAppDiscover(integ.creds, meta.homeId ?? (await dataApiHomeId(db, site.id)))
+    if (!found.vehicles.length) {
+      await updateIntegration(db, integ.row.id, { meta: { ...meta, debug: found.debug } as Record<string, unknown> }, key)
+      throw new Error('No cars found in the Tibber app on any home')
+    }
     const map = { ...(meta.map ?? {}) }
     for (const car of cars) {
       if (map[car.id] && found.vehicles.some((v) => v.id === map[car.id])) continue
@@ -67,7 +83,7 @@ export async function syncTibberApp(db: Db, site: Site, key: string, cars: Vehic
       else delete map[car.id]
     }
     const chargerId = found.chargers.some((c) => c.id === meta.chargerId) ? meta.chargerId : found.chargers[0]?.id
-    const next: TibberAppMeta = { ...meta, homeId: found.homeId, chargerId, vehicles: found.vehicles, chargers: found.chargers, map }
+    const next: TibberAppMeta = { ...meta, homeId: found.homeId, chargerId, vehicles: found.vehicles, chargers: found.chargers, map, debug: found.debug }
     await updateIntegration(db, integ.row.id, { meta: next as Record<string, unknown> }, key)
     await markIntegration(db, integ.row.id)
     return {}
