@@ -59,4 +59,14 @@ describe('bookSlot', () => {
     expect(r.pool.kwh).toBeCloseTo(0.9)
     expect(r.pool.costNaive).toBeCloseTo(0.1) // now 0.111/kWh
   })
+
+  it('books SoC noise as signed loss so it cancels out', () => {
+    let pool = { kwh: 1, costNaive: 0, costOpportunity: 0 }
+    const a = bookSlot({ pool, samples: [], priceTotal: 0.3, priceFeedIn: 0.3, measuredKwh: 0.98 })
+    pool = a.pool
+    const b = bookSlot({ pool, samples: [], priceTotal: 0.3, priceFeedIn: 0.3, measuredKwh: 1 })
+    expect(a.lossKwh).toBeCloseTo(0.02)
+    expect(b.lossKwh).toBeCloseTo(-0.02)
+    expect(a.lossKwh + b.lossKwh).toBeCloseTo(0)
+  })
 })

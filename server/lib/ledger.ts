@@ -7,6 +7,9 @@
  *   at the pool's average cost. Two costs are tracked: naive (solar = 0) and opportunity (solar = feed-in price).
  * - After each slot the pool is reconciled to the measured SoC. Lost kWh disappear but their cost stays,
  *   so round-trip losses show up as a higher cost per kWh.
+ * - lossKwh is signed: a slot where the SoC reads higher than booked gives a negative loss. SoC readings are
+ *   noisy (whole percents, lag behind the power readings), so counting only the drops books that noise as loss.
+ *   Signed, the sum over any period is charged - discharged - change in stored energy.
  */
 
 export interface Pool {
@@ -90,7 +93,7 @@ export function bookSlot(input: {
 
   let lossKwh = 0
   if (input.measuredKwh !== undefined) {
-    if (pool.kwh > input.measuredKwh) lossKwh = pool.kwh - input.measuredKwh
+    lossKwh = pool.kwh - input.measuredKwh
     pool.kwh = Math.max(0, input.measuredKwh)
   }
 

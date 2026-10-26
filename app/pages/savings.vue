@@ -37,7 +37,7 @@
           <div>
             <span class="f-label">{{ m.savings.charged }}</span>
             <span class="f-value">{{ num(chargedT, 1) }}<small> kWh</small></span>
-            <span class="f-note">{{ m.savings.lost(kwh(data.totals.lossKwh, 1)) }}</span>
+            <span class="f-note">{{ m.savings.lost(kwh(Math.max(0, data.totals.lossKwh), 1)) }}</span>
           </div>
         </section>
 
