@@ -29,7 +29,7 @@
               {{ c.state.soc == null ? '–' : Math.round(c.state.soc * 100) }}<small>%</small>
             </span>
             <div class="car-meta">
-              <span class="status-line" :class="statusClass(c)">{{ statusText(c) }}</span>
+              <span class="status-line" :class="carStatus(c).cls">{{ carStatus(c).text }}</span>
               <span v-if="c.state.rangeKm != null" class="small muted">{{ m.cars.range(Math.round(c.state.rangeKm)) }}</span>
             </div>
           </div>
@@ -78,6 +78,7 @@
 <script setup lang="ts">
 const api = useApi()
 const { m } = useLocale()
+const { carStatus } = useCarStatus()
 const cars = ref<any[] | null>(null)
 const busy = ref('')
 const savedId = ref<number | null>(null)
@@ -88,16 +89,6 @@ const tibberCars = ref<{ id: string; name: string }[]>([])
 function homeClass(c: any) {
   return c.state.atHome ? 'home' : ''
 }
-function statusClass(c: any) {
-  return c.state.charging ? 'charging' : c.state.pluggedIn ? 'plugged' : ''
-}
-function statusText(c: any): string {
-  if (c.state.soc == null) return m.value.cars.asleep
-  if (c.state.charging) return c.state.chargePowerW ? m.value.cars.chargingAt(watt(c.state.chargePowerW)) : m.value.cars.charging
-  if (c.state.pluggedIn) return m.value.cars.plugged
-  return m.value.cars.idle
-}
-
 async function load() {
   cars.value = await api('/api/vehicles')
 }

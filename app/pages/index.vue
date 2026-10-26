@@ -83,6 +83,23 @@
         </div>
       </section>
 
+      <!-- The cars at a glance; the Cars tab has the details -->
+      <section v-if="cars.length" class="block">
+        <div class="block-head">
+          <h2>{{ m.home.cars }}</h2>
+          <NuxtLink to="/cars">{{ m.home.openCars }}</NuxtLink>
+        </div>
+        <NuxtLink v-for="c in cars" :key="c.id" to="/cars" class="car-row">
+          <span class="cr-name">{{ c.model || c.name }}</span>
+          <span class="cr-pct">{{ c.state.soc == null ? '–' : Math.round(c.state.soc * 100) }}<small>%</small></span>
+          <div class="cr-bar"><div class="cr-fill" :class="carStatus(c).cls" :style="{ width: `${(c.state.soc ?? 0) * 100}%` }" /></div>
+          <span class="cr-status">
+            <span :class="carStatus(c).cls">{{ carStatus(c).text }}</span>
+            · {{ c.state.atHome ? m.cars.atHome : m.cars.away }}<template v-if="c.state.rangeKm != null"> · {{ Math.round(c.state.rangeKm) }} km</template>
+          </span>
+        </NuxtLink>
+      </section>
+
       <section v-if="d.devices.length || d.live" class="block">
         <div class="block-head">
           <h2>{{ m.home.energyFlow }}</h2>
@@ -125,11 +142,14 @@ const api = useApi()
 const d = ref<any>(null)
 const soc = ref<any>(null)
 const plan = ref<any>(null)
+// Empty when no cars are connected: the block then stays hidden
+const cars = ref<any[]>([])
 const error = ref<any>(null)
 const loading = ref(false)
 const sky = useState<'day' | 'night'>('sky', () => 'day')
 const { view, animate } = useFlowView()
 const { m } = useLocale()
+const { carStatus } = useCarStatus()
 const viewOptions = computed(() => [
   { value: 'clean' as const, label: m.value.home.viewClean },
   { value: 'detailed' as const, label: m.value.home.viewHouse },
@@ -146,10 +166,16 @@ const cents = (p: number) => `${num(p * 100, 1)} ct`
 async function load() {
   loading.value = true
   try {
-    const [dash, s, p] = await Promise.all([api('/api/dashboard'), api('/api/soc').catch(() => null), api('/api/plan').catch(() => null)])
+    const [dash, s, p, v] = await Promise.all([
+      api('/api/dashboard'),
+      api('/api/soc').catch(() => null),
+      api('/api/plan').catch(() => null),
+      api('/api/vehicles').catch(() => null),
+    ])
     d.value = dash
     if (s) soc.value = s
     if (p) plan.value = p
+    if (v) cars.value = v
     error.value = null
   } catch (e) {
     error.value = e
@@ -280,6 +306,19 @@ onBeforeUnmount(() => clearInterval(timer))
 .n-time, .n-price { font-variant-numeric: tabular-nums; font-stretch: 85%; }
 .n-time { color: var(--text-2); }
 .n-price { font-size: 14px; color: var(--text-2); }
+
+/* Cars: one compact row each, the whole row opens the Cars tab */
+.car-row { display: grid; grid-template-columns: 1fr auto; align-items: baseline; gap: 6px 12px; padding: 10px 0; color: inherit; text-decoration: none; }
+.car-row + .car-row { border-top: 1px solid var(--rule); }
+.cr-name { font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cr-pct { font-size: 24px; line-height: 1; font-weight: 600; font-stretch: 75%; font-variant-numeric: tabular-nums; }
+.cr-pct small { font-size: 14px; font-weight: 400; color: var(--text-2); }
+.cr-bar { grid-column: 1 / -1; height: 6px; border-radius: 3px; background: var(--fill); overflow: hidden; }
+.cr-fill { height: 100%; border-radius: 3px; background: var(--text-2); transition: width 1s var(--ease-out); }
+.cr-fill.charging { background: var(--cheap); }
+.cr-status { grid-column: 1 / -1; font-size: 13px; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.cr-status .charging { color: var(--cheap); font-weight: 600; }
+.cr-status .plugged { color: var(--text); }
 
 .sources { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; color: var(--text-2); }
 .sources > span { display: inline-flex; align-items: center; gap: 6px; }

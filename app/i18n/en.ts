@@ -98,6 +98,8 @@ export const en = {
     viewClean: 'Clean',
     viewHouse: 'House',
     upNext: 'Up next',
+    cars: 'Cars',
+    openCars: 'Open cars',
     chargingGrid: 'Charging from the grid',
     chargingSun: 'Charging from the sun',
     charging: 'Charging',
