@@ -97,6 +97,8 @@ export const nl: Messages = {
     viewClean: 'Simpel',
     viewHouse: 'Huis',
     upNext: 'Hierna',
+    cars: 'Auto’s',
+    openCars: 'Open auto’s',
     chargingGrid: 'Laden van het net',
     chargingSun: 'Laden met zon',
     charging: 'Laden',
