@@ -35,8 +35,8 @@ const pct = (f: number | null | undefined) => (f == null ? 0 : Math.min(1, Math.
 <style scoped>
 .car-figure { margin: 20px 0 24px; display: flex; flex-direction: column; align-items: center; }
 .photo { display: block; max-width: 100%; height: auto; }
-/* The floor sits right under the tyres: the photo's own shadow fades into it */
-.floor { position: relative; align-self: stretch; height: 8px; margin-top: -6px; border-radius: 2px; background: var(--fill); }
+/* The charge bar keeps some air under the tyres, so the car doesn't stand on it */
+.floor { position: relative; align-self: stretch; height: 8px; margin-top: 16px; border-radius: 2px; background: var(--fill); }
 .charge { height: 100%; border-radius: 2px; background: var(--text); transition: width 1s var(--ease-out); }
 /* The leading edge shows energy going in */
 .charge.charging { box-shadow: inset -4px 0 0 var(--cheap); animation: breathe 2.4s ease-in-out infinite; }
