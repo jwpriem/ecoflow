@@ -1,7 +1,7 @@
 <template>
   <!-- The car, parked on its own charge: the floor under the tyres is the battery, filled with ink like the pack on Home -->
   <figure class="car-figure" role="img" :aria-label="label">
-    <img v-if="photo" class="photo" :src="photo.src" :width="photo.w" :height="photo.h" :style="{ width: `${photo.scale * 100}%` }" alt="" decoding="async" />
+    <img v-if="photo" class="photo" :src="photo.src" :width="photo.w" :height="photo.h" :style="{ width: `${photo.scale * SIZE * 100}%` }" alt="" decoding="async" />
     <div class="floor">
       <div class="charge" :class="{ charging }" :style="{ width: `${pct(soc)}%` }" />
       <!-- The charge limit, marked under the floor like the reserve under the batteries -->
@@ -15,7 +15,9 @@
 const props = defineProps<{ soc: number | null; charging?: boolean | null; target?: number | null; model?: string | null; name?: string | null; label: string }>()
 
 // Product renders by Zeekr (zeekr.eu, zeekrlife.com), cut to the car. Each is drawn at its real length
-// against the longest, the 001 (4,970 mm), so the two cars keep their sizes next to each other
+// against the longest, the 001 (4,970 mm), so the two cars keep their sizes next to each other.
+// The longest takes 60% of the width, so the car doesn't crowd the figures around it
+const SIZE = 0.6
 const PHOTOS = {
   '001': { src: '/cars/zeekr-001.webp', w: 1200, h: 495, scale: 1 },
   x: { src: '/cars/zeekr-x.webp', w: 1200, h: 604, scale: 4450 / 4970 },
@@ -31,7 +33,7 @@ const pct = (f: number | null | undefined) => (f == null ? 0 : Math.min(1, Math.
 </script>
 
 <style scoped>
-.car-figure { margin: 0; display: flex; flex-direction: column; align-items: center; }
+.car-figure { margin: 20px 0 24px; display: flex; flex-direction: column; align-items: center; }
 .photo { display: block; max-width: 100%; height: auto; }
 /* The floor sits right under the tyres: the photo's own shadow fades into it */
 .floor { position: relative; align-self: stretch; height: 8px; margin-top: -6px; border-radius: 2px; background: var(--fill); }
