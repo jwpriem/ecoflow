@@ -23,26 +23,19 @@
           </header>
 
           <CarFigure
-            :soc="c.state.soc" :charging="c.state.charging" :plugged="c.state.pluggedIn" :target="c.state.targetSoc"
+            :soc="c.state.soc" :charging="c.state.charging" :target="c.state.targetSoc" :model="c.model" :name="c.name"
             :label="m.cars.figureAria(c.name, c.state.soc == null ? m.cars.levelUnknown : m.cars.pctCharged(Math.round(c.state.soc * 100)), carStatus(c).text)"
           />
 
           <div class="readout">
-            <span class="pct">{{ c.state.soc == null ? '–' : Math.round(c.state.soc * 100) }}<small>%</small></span>
-            <span v-if="c.state.rangeKm != null" class="km">{{ Math.round(c.state.rangeKm) }}<small> km</small></span>
-          </div>
-          <p class="status-line" :class="carStatus(c).cls">{{ carStatus(c).text }}</p>
-
-          <!-- Range: what's in the battery now, and what a full charge would give -->
-          <div v-if="scale(c)" class="ruler" role="img" :aria-label="m.cars.rangeAria(Math.round(c.state.rangeKm), scale(c)!.full)">
-            <div class="track">
-              <span class="now" :style="{ width: `${(c.state.rangeKm / scale(c)!.max) * 100}%` }" />
-              <span class="more" :style="{ left: `${(c.state.rangeKm / scale(c)!.max) * 100}%`, width: `${((scale(c)!.full - c.state.rangeKm) / scale(c)!.max) * 100}%` }" />
+            <div>
+              <span class="pct">{{ c.state.soc == null ? '–' : Math.round(c.state.soc * 100) }}<small>%</small></span>
+              <p class="status-line" :class="carStatus(c).cls">{{ carStatus(c).text }}</p>
             </div>
-            <div class="ticks" aria-hidden="true">
-              <span v-for="t in scale(c)!.ticks" :key="t" :style="{ left: `${(t / scale(c)!.max) * 100}%` }">{{ t }}</span>
+            <div v-if="c.state.rangeKm != null" class="range">
+              <span class="km">{{ Math.round(c.state.rangeKm) }}<small> km</small></span>
+              <p v-if="fullRange(c)" class="status-line muted">{{ m.cars.fullRange(fullRange(c)!) }}</p>
             </div>
-            <p class="hint">{{ m.cars.fullRange(scale(c)!.full) }}</p>
           </div>
 
           <dl class="facts">
@@ -95,14 +88,11 @@ const loadError = ref<any>(null)
 // The cars known in the Tibber app, when it is connected: pick which one each car is
 const tibberCars = ref<{ id: string; name: string }[]>([])
 
-// The range scale: the full-charge range extrapolated from the current one, in round 100 or 200 km steps
-function scale(c: any) {
+// The range on a full charge, extrapolated from the current one, to the nearest 10 km
+function fullRange(c: any) {
   const { rangeKm, soc } = c.state
   if (rangeKm == null || soc == null || soc < 0.05) return null
-  const full = Math.round(rangeKm / soc / 10) * 10
-  const step = full > 600 ? 200 : 100
-  const max = Math.ceil(full / step) * step
-  return { full, max, ticks: Array.from({ length: max / step + 1 }, (_, i) => i * step) }
+  return Math.round(rangeKm / soc / 10) * 10
 }
 async function load() {
   cars.value = await api('/api/vehicles')
@@ -147,30 +137,21 @@ onBeforeUnmount(() => clearInterval(timer))
 
 /* Each car is a section on the canvas, split by a rule like the blocks on Home */
 .car { border-top: 1px solid var(--rule); padding-top: 14px; margin-bottom: 44px; }
-.car-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; margin-bottom: 20px; }
+.car-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; margin-bottom: 8px; }
 .car-name { font-size: 21px; font-weight: 700; font-stretch: 112%; letter-spacing: -0.005em; margin: 0; }
 .where { display: inline-flex; align-items: center; gap: 5px; margin-left: auto; font-size: 14px; color: var(--text-2); }
 .where svg { width: 16px; height: 16px; }
 .where.home { color: var(--text); }
 .sub { flex-basis: 100%; font-size: 14px; color: var(--text-2); }
 
-.readout { display: flex; justify-content: space-between; align-items: baseline; margin-top: 18px; }
+.readout { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-top: 16px; }
+.range { text-align: right; }
 .pct, .km { font-size: 48px; line-height: 1; font-weight: 650; font-stretch: 75%; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
 .pct small { font-size: 24px; font-weight: 500; color: var(--text-2); margin-left: 1px; }
 .km small { font-size: 18px; font-weight: 500; color: var(--text-2); }
-.status-line { margin: 6px 0 0; font-weight: 600; }
+.status-line { margin: 6px 0 0; font-size: 14px; font-weight: 600; }
+.status-line.muted { font-weight: 400; color: var(--text-2); }
 .status-line.charging { color: var(--cheap); }
-
-.ruler { margin-top: 16px; }
-.track { position: relative; height: 6px; background: var(--fill-2); border-radius: 3px; }
-.track span { position: absolute; top: 0; bottom: 0; }
-.now { left: 0; background: var(--text); border-radius: 3px; transition: width 1s var(--ease-out); }
-.more { background: repeating-linear-gradient(90deg, var(--text-2) 0 3px, transparent 3px 6px); opacity: 0.6; }
-.ticks { position: relative; height: 18px; margin-top: 6px; font-size: 12px; color: var(--text-2); font-variant-numeric: tabular-nums; font-stretch: 88%; }
-.ticks span { position: absolute; transform: translateX(-50%); }
-.ticks span:first-child { transform: none; }
-.ticks span:last-child { transform: translateX(-100%); }
-.ruler .hint { text-align: right; margin-top: 2px; }
 
 .facts { margin: 22px 0 0; border-top: 1px solid var(--rule); }
 .facts > div { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--rule); }
