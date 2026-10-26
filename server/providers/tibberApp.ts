@@ -309,9 +309,14 @@ export async function tibberAppSetChargerVehicle(creds: TibberAppCredentials, ho
   )
 }
 
-/** The battery level of a non-integrated car, as entered by hand in the Tibber app (0-100). */
-export async function tibberAppSetBatteryLevel(creds: TibberAppCredentials, homeId: string, vehicleId: string, pct: number) {
-  const settings = [{ key: 'offline.vehicle.batteryLevel', value: String(pct) }]
+/** One setting of a car in the Tibber app; a null value clears it ("No specific departure time"). */
+export interface TibberAppSetting {
+  key: string
+  value: string | null
+}
+
+/** Change one or more settings of a car. */
+export async function tibberAppSetVehicleSettings(creds: TibberAppCredentials, homeId: string, vehicleId: string, settings: TibberAppSetting[]) {
   try {
     await gql(
       creds,
@@ -330,4 +335,19 @@ export async function tibberAppSetBatteryLevel(creds: TibberAppCredentials, home
       { vehicleId, settings },
     )
   }
+}
+
+/** A car's settings as the app has them (`me.vehicle(id).userSettings`), such as its departure times. */
+export async function tibberAppVehicleSettings(creds: TibberAppCredentials, vehicleId: string): Promise<TibberAppSetting[]> {
+  const data = await gql<{ me: { vehicle: { userSettings?: { key: string; value: unknown }[] | null } | null } }>(
+    creds,
+    `query ($v: String!) { me { vehicle(id: $v) { userSettings { key value } } } }`,
+    { v: vehicleId },
+  )
+  return (data.me?.vehicle?.userSettings ?? []).map((s) => ({ key: String(s.key), value: s.value == null ? null : String(s.value) }))
+}
+
+/** The battery level of a non-integrated car, as entered by hand in the Tibber app (0-100). */
+export async function tibberAppSetBatteryLevel(creds: TibberAppCredentials, homeId: string, vehicleId: string, pct: number) {
+  await tibberAppSetVehicleSettings(creds, homeId, vehicleId, [{ key: 'offline.vehicle.batteryLevel', value: String(pct) }])
 }

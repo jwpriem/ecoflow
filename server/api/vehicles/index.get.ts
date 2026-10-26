@@ -12,7 +12,8 @@ export default defineEventHandler(async (event) => {
     .select({ meta: integrations.meta })
     .from(integrations)
     .where(and(eq(integrations.siteId, site.id), eq(integrations.provider, 'tibber_app')))
-  const map = ((tibber?.meta ?? {}) as TibberAppMeta).map ?? {}
+  const meta = (tibber?.meta ?? {}) as TibberAppMeta
+  const map = meta.map ?? {}
   return rows.map((v) => ({
     id: v.id,
     vin: v.vin,
@@ -20,6 +21,8 @@ export default defineEventHandler(async (event) => {
     model: v.model,
     capacityKwh: v.capacityKwh,
     tibberVehicleId: map[v.id] ?? null,
+    /** The departure last set from WattWise */
+    departure: meta.departures?.[v.id] ?? null,
     state: (v.state ?? {}) as Partial<VehicleState>,
   }))
 })

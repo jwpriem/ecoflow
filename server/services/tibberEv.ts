@@ -1,15 +1,20 @@
 import { and, eq } from 'drizzle-orm'
 import type { Db } from '../db/client'
 import { integrations, type sites, type vehicles } from '../db/schema'
+import { departureAskMessage } from '../lib/notifications'
 import {
   type TibberAppCredentials,
   type TibberAppDiscovery,
   type TibberAppItem,
+  type TibberAppSetting,
   tibberAppDiscover,
   tibberAppSetBatteryLevel,
   tibberAppSetChargerVehicle,
+  tibberAppSetVehicleSettings,
+  tibberAppVehicleSettings,
 } from '../providers/tibberApp'
 import { getIntegration, markIntegration, updateIntegration } from './integrations'
+import { notify } from './push'
 
 type Site = typeof sites.$inferSelect
 type VehicleRow = typeof vehicles.$inferSelect
@@ -23,6 +28,8 @@ export interface TibberAppMeta {
   /** our vehicles.id -> Tibber vehicle id */
   map?: Record<string, string>
   lastPush?: { vehicleId: number; pct: number; at: string }
+  /** our vehicles.id -> the departure last set from WattWise */
+  departures?: Record<string, { day: Weekday; time: string; at: string }>
   debug?: TibberAppDiscovery['debug']
   /** When the cars and charger were last looked up */
   discoveredAt?: string
@@ -147,4 +154,96 @@ export async function pushPluggedCarToTibber(
     await markIntegration(db, integ.row.id, (err as Error).message)
     return false
   }
+}
+
+export const WEEKDAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as const
+export type Weekday = (typeof WEEKDAYS)[number]
+export type DepartureSchedule = Record<Weekday, string | null>
+
+const HHMM = /^([01]?\d|2[0-3]):[0-5]\d$/
+export const isDepartureTime = (v: unknown): v is string => typeof v === 'string' && HHMM.test(v)
+
+/**
+ * The key of one weekday's departure time. The app namespaces it by how the car was added
+ * (`offline.vehicle.` for a car entered by hand, `online.vehicle.smartCharging.` for a connected
+ * one), so take the car's own key when it has one.
+ */
+export function departureKey(settings: TibberAppSetting[], day: Weekday): string {
+  const suffix = `departureTimes.${day}`
+  return settings.find((s) => s.key.endsWith(suffix))?.key ?? `offline.vehicle.${suffix}`
+}
+
+/** The weekly departure schedule ("HH:MM" per weekday, null for no specific departure time). */
+export function departureSchedule(settings: TibberAppSetting[]): DepartureSchedule {
+  const out = {} as DepartureSchedule
+  for (const day of WEEKDAYS) {
+    const value = settings.find((s) => s.key === departureKey(settings, day))?.value
+    out[day] = isDepartureTime(value) ? value.padStart(5, '0') : null
+  }
+  return out
+}
+
+/**
+ * The setting changes that leave only the given day with a departure time: that day first, then a
+ * clear for every other day that has one. Without the current settings every other day is cleared.
+ */
+export function departureChanges(settings: TibberAppSetting[] | null, day: Weekday, time: string): TibberAppSetting[] {
+  const now = settings ? departureSchedule(settings) : null
+  const changes: TibberAppSetting[] = []
+  if (now?.[day] !== time) changes.push({ key: departureKey(settings ?? [], day), value: time })
+  for (const d of WEEKDAYS) {
+    if (d !== day && (!now || now[d] !== null)) changes.push({ key: departureKey(settings ?? [], d), value: null })
+  }
+  return changes
+}
+
+async function tibberCar(db: Db, site: Site, key: string, carId: number) {
+  const integ = await getIntegration<TibberAppCredentials>(db, site.id, 'tibber_app', key)
+  if (!integ) throw new Error('Tibber app is not connected')
+  const meta = (integ.meta ?? {}) as TibberAppMeta
+  const vehicleId = meta.map?.[carId]
+  if (!meta.homeId || !vehicleId) throw new Error('This car is not linked to a car in Tibber')
+  return { integ, meta, homeId: meta.homeId, vehicleId }
+}
+
+/** The car's departure schedule as it is in Tibber now. */
+export async function getTibberDeparture(db: Db, site: Site, key: string, carId: number): Promise<DepartureSchedule> {
+  const { integ, vehicleId } = await tibberCar(db, site, key, carId)
+  return departureSchedule(await tibberAppVehicleSettings(integ.creds, vehicleId))
+}
+
+/**
+ * Sets the car's departure in Tibber to one day and time, and every other day to "No specific
+ * departure time", so Tibber's smart charging plans for this departure only.
+ */
+export async function setTibberDeparture(db: Db, site: Site, key: string, carId: number, day: Weekday, time: string): Promise<DepartureSchedule> {
+  const { integ, meta, homeId, vehicleId } = await tibberCar(db, site, key, carId)
+  const current = await tibberAppVehicleSettings(integ.creds, vehicleId).catch(() => null)
+  try {
+    // One setting per call: the app clears a day with one null per mutation, several nulls in one
+    // mutation are accepted but leave the times in place
+    for (const change of departureChanges(current, day, time)) {
+      await tibberAppSetVehicleSettings(integ.creds, homeId, vehicleId, [change])
+    }
+  } catch (err) {
+    await markIntegration(db, integ.row.id, (err as Error).message)
+    throw err
+  }
+  const departures = { ...(meta.departures ?? {}), [carId]: { day, time, at: new Date().toISOString() } }
+  await updateIntegration(db, integ.row.id, { meta: { ...meta, departures } as Record<string, unknown> }, key)
+  await markIntegration(db, integ.row.id)
+  const after = await tibberAppVehicleSettings(integ.creds, vehicleId).catch(() => null)
+  if (after) return departureSchedule(after)
+  return Object.fromEntries(WEEKDAYS.map((d) => [d, d === day ? time : null])) as DepartureSchedule
+}
+
+/**
+ * Called when a car is newly plugged in at home: when it is linked to a car in Tibber, ask on the
+ * phone when it has to leave. The notification opens the departure picker on the Cars page.
+ */
+export async function askDeparture(db: Db, site: Site, key: string, car: VehicleRow) {
+  const integ = await getIntegration<TibberAppCredentials>(db, site.id, 'tibber_app', key)
+  const meta = (integ?.meta ?? {}) as TibberAppMeta
+  if (!meta.homeId || !meta.map?.[car.id]) return
+  await notify(db, site.id, 'car', departureAskMessage(car.name, car.id))
 }

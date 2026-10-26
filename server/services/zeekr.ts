@@ -11,7 +11,7 @@ import {
   zeekrVehicleReading,
 } from '../providers/zeekr'
 import { getIntegration, markIntegration, updateIntegration } from './integrations'
-import { pushPluggedCarToTibber, rediscoverTibberApp } from './tibberEv'
+import { askDeparture, pushPluggedCarToTibber, rediscoverTibberApp } from './tibberEv'
 
 type Site = typeof sites.$inferSelect
 
@@ -137,6 +137,10 @@ export async function readZeekrVehicles(db: Db, site: Site, key: string, now = n
       const state: VehicleState = { ...reading, atHome: isAtHome(reading, home), ts: now.toISOString() }
       // Plugged in at home: tell Tibber once per plug-in which car is on the charger and its level
       const prev = (row.state ?? {}) as Partial<VehicleState>
+      // Just plugged in at home: ask when the car has to leave
+      if (state.atHome && state.pluggedIn && prev.ts && !(prev.atHome && prev.pluggedIn)) {
+        await askDeparture(db, site, key, row).catch(() => undefined)
+      }
       if (state.atHome && state.pluggedIn && state.soc != null) {
         if (prev.atHome && prev.pluggedIn && prev.tibberSyncedAt) state.tibberSyncedAt = prev.tibberSyncedAt
         else if (await pushPluggedCarToTibber(db, site, key, row, state.soc, state.targetSoc)) state.tibberSyncedAt = now.toISOString()
