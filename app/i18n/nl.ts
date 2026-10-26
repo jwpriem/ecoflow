@@ -12,7 +12,6 @@ export const nl: Messages = {
     away: 'Onderweg',
     range: (km: number) => `${km} km actieradius`,
     fullRange: (km) => `Ongeveer ${km} km als hij vol is`,
-    rangeAria: (now, full) => `Nu ${now} km, ongeveer ${full} km als hij vol is`,
     figureAria: (name, level, state) => `${name}, ${level}${state ? `, ${state.toLowerCase()}` : ''}`,
     pctCharged: (p) => `${p}% geladen`,
     levelUnknown: 'laadniveau onbekend',

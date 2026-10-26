@@ -13,7 +13,6 @@ export const en = {
     away: 'Away',
     range: (km: number) => `${km} km range`,
     fullRange: (km: number) => `About ${km} km when full`,
-    rangeAria: (now: number, full: number) => `${now} km now, about ${full} km when full`,
     figureAria: (name: string, level: string, state: string) => `${name}, ${level}${state ? `, ${state.toLowerCase()}` : ''}`,
     pctCharged: (p: number) => `${p}% charged`,
     levelUnknown: 'charge level unknown',
