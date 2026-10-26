@@ -44,7 +44,10 @@
             <div v-if="c.state.targetSoc != null"><dt>{{ m.cars.target }}</dt><dd>{{ Math.round(c.state.targetSoc * 100) }}%</dd></div>
             <div v-if="c.state.ts"><dt>{{ m.cars.updated }}</dt><dd>{{ time(c.state.ts) }}</dd></div>
             <div v-if="c.state.tibberSyncedAt"><dt>{{ m.cars.tibberSynced }}</dt><dd>{{ time(c.state.tibberSyncedAt) }}</dd></div>
+            <div v-if="c.departure"><dt>{{ m.cars.departure.fact }}</dt><dd>{{ departureText(c.departure) }}</dd></div>
           </dl>
+
+          <button v-if="c.tibberVehicleId" class="depart" @click="asking = c">{{ m.cars.departure.button }}</button>
 
           <details class="edit">
             <summary>{{ m.cars.edit }}</summary>
@@ -68,6 +71,7 @@
       </template>
 
       <p v-if="cars.length" class="foot">{{ m.cars.foot }}</p>
+      <DepartureSheet :car="asking" @close="closeSheet" @saved="safeLoad" />
     </template>
 
     <template v-else>
@@ -87,6 +91,27 @@ const savedId = ref<number | null>(null)
 const loadError = ref<any>(null)
 // The cars known in the Tibber app, when it is connected: pick which one each car is
 const tibberCars = ref<{ id: string; name: string }[]>([])
+// The car whose departure is being asked; ?departure=<id> (from the plug-in notification) opens it
+const route = useRoute()
+const router = useRouter()
+const asking = ref<any | null>(null)
+
+const DAY_INDEX: Record<string, number> = { sunday: 0, monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6 }
+function departureText(d: { day: string; time: string }) {
+  // Any date on that weekday gives its name
+  const date = new Date(2024, 0, 7 + DAY_INDEX[d.day]!)
+  return `${date.toLocaleDateString(m.value.dateLocale, { weekday: 'long' })} ${d.time}`
+}
+function openFromRoute() {
+  const id = Number(route.query.departure)
+  if (!id || !cars.value) return
+  asking.value = cars.value.find((c) => c.id === id) ?? null
+}
+function closeSheet() {
+  asking.value = null
+  if (route.query.departure) router.replace({ query: { ...route.query, departure: undefined } })
+}
+watch(() => route.query.departure, openFromRoute)
 
 // The range on a full charge, extrapolated from the current one, to the nearest 10 km
 function fullRange(c: any) {
@@ -110,6 +135,7 @@ async function safeLoad() {
   try {
     await load()
     loadError.value = null
+    if (!asking.value) openFromRoute()
   } catch (e) {
     loadError.value = e
   }
@@ -159,6 +185,7 @@ onBeforeUnmount(() => clearInterval(timer))
 .facts dd { margin: 0; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
 .facts dd.live { color: var(--cheap); }
 
+.depart { margin-top: 14px; width: 100%; }
 .edit { margin-top: 12px; }
 .edit summary { cursor: pointer; font-size: 14px; color: var(--text-2); padding: 6px 0; }
 .unit-in { display: inline-flex; align-items: center; justify-content: flex-end; gap: 4px; color: var(--text-2); width: 55%; }

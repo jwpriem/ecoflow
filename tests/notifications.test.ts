@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { dailyMessage, planChangeMessage, pricesMessage } from '../server/lib/notifications'
+import { dailyMessage, departureAskMessage, planChangeMessage, pricesMessage } from '../server/lib/notifications'
 import type { PlanSlot } from '../server/lib/strategy'
 
 const TZ = 'Europe/Amsterdam'
@@ -51,5 +51,13 @@ describe('dailyMessage', () => {
     const m = dailyMessage({ savingNaive: 0.84, dischargedKwh: 3.21, chargedSolarKwh: 0, chargedGridKwh: 2 })
     expect(m('en').body).toBe('3.2 kWh used from the batteries, 2.0 kWh bought cheap.')
     expect(m('nl').body).toBe('3,2 kWh uit de batterijen gebruikt, 2,0 kWh goedkoop ingekocht.')
+  })
+})
+
+describe('departureAskMessage', () => {
+  it('opens the departure picker for the car', () => {
+    const msg = departureAskMessage('Zeekr X', 2)
+    expect(msg('nl')).toMatchObject({ title: 'Zeekr X is aangesloten', url: '/cars?departure=2', tag: 'departure-2' })
+    expect(msg('en').title).toBe('Zeekr X is plugged in')
   })
 })

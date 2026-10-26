@@ -5,7 +5,7 @@ import { appConfig, pushSubscriptions, sites, users, type PushTopic } from '../d
 import type { LocalizedPush } from '../lib/notifications'
 import { decryptJson, encryptJson } from '../utils/crypto'
 
-export const PUSH_TOPICS: PushTopic[] = ['plan', 'prices', 'errors', 'daily']
+export const PUSH_TOPICS: PushTopic[] = ['plan', 'prices', 'errors', 'daily', 'car']
 
 export interface PushMessage {
   title: string

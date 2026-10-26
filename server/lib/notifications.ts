@@ -70,6 +70,14 @@ export function pricesMessage(slots: PriceSlot[], timeZone: string): LocalizedPu
   return (l) => ({ ...text[l], url: '/plan', tag: 'prices' })
 }
 
+/** A car was just plugged in at home: tap to set when it has to leave, for Tibber's smart charging. */
+export function departureAskMessage(carName: string, carId: number): LocalizedPush {
+  return (l) =>
+    l === 'nl'
+      ? { title: `${carName} is aangesloten`, body: 'Wanneer moet je weer weg? Tik om de vertrektijd in Tibber te zetten.', url: `/cars?departure=${carId}`, tag: `departure-${carId}` }
+      : { title: `${carName} is plugged in`, body: 'When do you need to leave? Tap to set the departure time in Tibber.', url: `/cars?departure=${carId}`, tag: `departure-${carId}` }
+}
+
 export function integrationErrorMessage(provider: string, error: string): LocalizedPush {
   return (l) => {
     const name = PROVIDER_NAME[provider]?.[l] ?? provider
