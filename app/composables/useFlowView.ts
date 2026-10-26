@@ -1,6 +1,7 @@
 export type FlowView = 'clean' | 'detailed'
 
-const KEY_DEFAULT = 'energyFlow.defaultView'
+// Same key as before, so the default someone picked in the old Settings section carries over
+const KEY_VIEW = 'energyFlow.defaultView'
 const KEY_ANIMATE = 'energyFlow.animate'
 
 function read(key: string): string | null {
@@ -19,30 +20,25 @@ function write(key: string, value: string) {
 }
 
 /**
- * How the Energy flow card looks. Stored on this device (it's a display preference, like
- * the iOS Settings app keeps per device): the default view chosen in Settings, whether the
- * flow lines move, and the view picked on the card for the current session.
+ * How the Energy flow card looks. Stored on this device (it's a display preference): the view
+ * last picked on the card opens next time, and whether the flow lines move.
  */
 export function useFlowView() {
-  const defaultView = useState<FlowView>('flow-default', () => (read(KEY_DEFAULT) === 'detailed' ? 'detailed' : 'clean'))
+  const stored = useState<FlowView>('flow-view', () => (read(KEY_VIEW) === 'detailed' ? 'detailed' : 'clean'))
   const animate = useState<boolean>('flow-animate', () => read(KEY_ANIMATE) !== 'off')
-  // Set when the person switches on the card; cleared when they pick a new default
-  const sessionView = useState<FlowView | null>('flow-session', () => null)
 
   const view = computed<FlowView>({
-    get: () => sessionView.value ?? defaultView.value,
-    set: (v) => (sessionView.value = v),
+    get: () => stored.value,
+    set: (v) => {
+      stored.value = v
+      write(KEY_VIEW, v)
+    },
   })
 
-  function setDefault(v: FlowView) {
-    defaultView.value = v
-    sessionView.value = null
-    write(KEY_DEFAULT, v)
-  }
   function setAnimate(on: boolean) {
     animate.value = on
     write(KEY_ANIMATE, on ? 'on' : 'off')
   }
 
-  return { view, defaultView, animate, setDefault, setAnimate }
+  return { view, animate, setAnimate }
 }

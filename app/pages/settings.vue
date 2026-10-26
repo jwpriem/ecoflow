@@ -18,27 +18,78 @@
     </div>
     <p class="foot">{{ m.settings.languageFoot }}</p>
 
-    <h3 class="section-title">{{ m.settings.energyFlow }}</h3>
-    <div class="list" role="radiogroup" :aria-label="m.settings.flowAria">
-      <button
-        v-for="o in FLOW_VIEWS" :key="o.value" type="button" role="radio" class="list-row indent row-btn"
-        :aria-checked="flow.defaultView.value === o.value" @click="flow.setDefault(o.value)"
-      >
-        <span class="lead">
-          <span class="icon-tile"><AppIcon :name="o.icon" /></span>
-          <span class="stack-text"><span class="title">{{ m.settings[o.text].label }}</span><span class="small muted">{{ m.settings[o.text].help }}</span></span>
-        </span>
-        <AppIcon v-if="flow.defaultView.value === o.value" name="check" class="check" />
-      </button>
-      <label class="list-row indent">
-        <span class="lead">
-          <span class="icon-tile"><AppIcon name="wave" /></span>
-          <span class="title">{{ m.settings.animate }}</span>
-        </span>
-        <span class="switch"><input type="checkbox" :checked="flow.animate.value" @change="flow.setAnimate(($event.target as HTMLInputElement).checked)" /><span /></span>
-      </label>
-    </div>
-    <p class="foot">{{ m.settings.flowFoot }}</p>
+    <!-- Who steers: one decision with three outcomes -->
+    <template v-if="control && devs.length">
+      <h3 class="section-title">{{ m.settings.whoSteers }}</h3>
+      <div class="list" role="radiogroup" :aria-label="m.settings.whoSteers">
+        <button
+          v-for="o in controlOptions" :key="o" type="button" role="radio" class="list-row row-btn"
+          :aria-checked="controlChoice === o" :disabled="busy === 'control'" @click="setControl(o)"
+        >
+          <span class="stack-text"><span class="title">{{ m.settings.control[o].label }}</span><span class="small muted">{{ m.settings.control[o].help }}</span></span>
+          <AppIcon v-if="controlChoice === o" name="check" class="check" />
+        </button>
+      </div>
+      <p class="foot" :class="{ error: controlMsg && !controlMsg.ok }" role="status">{{ busy === 'control' ? m.settings.switching : controlMsg?.text ?? m.settings.controlFoot }}</p>
+    </template>
+
+    <template v-if="strategy">
+      <h3 class="section-title">{{ m.settings.strategy }}</h3>
+      <div class="list" @change="saveStrategySoon">
+        <div class="list-row stack">
+          <div class="spread"><span class="title">{{ m.settings.reserve }}</span><span class="detail">{{ pct.reserveSoc }}%</span></div>
+          <input v-model.number="pct.reserveSoc" type="range" min="0" max="90" step="5" class="range" :style="{ '--p': pct.reserveSoc / 90 }" :aria-label="m.settings.reserve" />
+          <span class="small muted">{{ m.settings.help.reserve }}</span>
+        </div>
+        <div class="list-row stack">
+          <div class="spread"><span class="title">{{ m.settings.maxSoc }}</span><span class="detail">{{ pct.maxSoc }}%</span></div>
+          <input v-model.number="pct.maxSoc" type="range" min="50" max="100" step="5" class="range" :style="{ '--p': (pct.maxSoc - 50) / 50 }" :aria-label="m.settings.maxSoc" />
+          <span class="small muted">{{ m.settings.help.maxSoc }}</span>
+        </div>
+        <div class="list-row stack">
+          <div class="spread"><span class="title">{{ m.settings.efficiency }}</span><span class="detail">{{ pct.roundTripEfficiency }}%</span></div>
+          <input v-model.number="pct.roundTripEfficiency" type="range" min="50" max="100" class="range" :style="{ '--p': (pct.roundTripEfficiency - 50) / 50 }" :aria-label="m.settings.efficiency" />
+          <span class="small muted">{{ m.settings.help.efficiency }}</span>
+        </div>
+        <label class="list-row">
+          <span class="stack-text"><span class="title">{{ m.settings.gridCharge }}</span><span class="small muted">{{ m.settings.help.gridCharge }}</span></span>
+          <span class="switch"><input v-model="strategy.gridCharge" type="checkbox" /><span /></span>
+        </label>
+        <label class="list-row">
+          <span class="stack-text"><span class="title">{{ m.settings.minProfit }}</span><span class="small muted">{{ m.settings.help.minProfit }}</span></span>
+          <span class="unit-in">€ <input v-model.number="strategy.minSpread" type="number" step="0.01" inputmode="decimal" /> /kWh</span>
+        </label>
+        <label class="list-row">
+          <span class="stack-text"><span class="title">{{ m.settings.typicalLoad }}</span><span class="small muted">{{ m.settings.help.typicalLoad }}</span></span>
+          <span class="unit-in"><input v-model.number="strategy.avgLoadW" type="number" inputmode="numeric" /> W</span>
+        </label>
+        <label class="list-row">
+          <span class="stack-text"><span class="title">{{ m.settings.maxOutput }}</span><span class="small muted">{{ m.settings.help.maxOutput }}</span></span>
+          <span class="unit-in"><input v-model.number="strategy.maxOutputW" type="number" inputmode="numeric" /> W</span>
+        </label>
+        <label class="list-row">
+          <span class="stack-text"><span class="title">{{ m.settings.dailyCycle }}</span><span class="small muted">{{ m.settings.help.dailyCycle }}</span></span>
+          <span class="unit-in"><input v-model.number="strategy.dailyCycleKwh" type="number" step="0.1" inputmode="decimal" /> kWh</span>
+        </label>
+      </div>
+
+      <h3 class="section-title">{{ m.settings.feedIn }}</h3>
+      <div class="list" @change="saveStrategySoon">
+        <label class="list-row">
+          <span class="stack-text"><span class="title">{{ m.settings.nettingUntil }}</span><span class="small muted">{{ m.settings.help.nettingUntil }}</span></span>
+          <input v-model="strategy.feedIn.nettingUntil" type="date" />
+        </label>
+        <label class="list-row">
+          <span class="stack-text"><span class="title">{{ m.settings.afterFactor }}</span><span class="small muted">{{ m.settings.help.afterFactor }}</span></span>
+          <span class="unit-in">× <input v-model.number="strategy.feedIn.factor" type="number" step="0.05" inputmode="decimal" /></span>
+        </label>
+        <label class="list-row">
+          <span class="stack-text"><span class="title">{{ m.settings.fee }}</span><span class="small muted">{{ m.settings.help.fee }}</span></span>
+          <span class="unit-in">€ <input v-model.number="strategy.feedIn.feeEur" type="number" step="0.005" inputmode="decimal" /> /kWh</span>
+        </label>
+      </div>
+      <p class="foot" :class="{ error: strategyMsg && !strategyMsg.ok }" role="status">{{ strategyMsg?.text ?? m.settings.strategyFoot }}</p>
+    </template>
 
     <h3 class="section-title">{{ m.settings.solarSavings }}</h3>
     <div class="list" role="radiogroup" :aria-label="m.settings.solarAria">
@@ -78,7 +129,7 @@
           <template v-if="i.provider === 'solaredge'">
             <p class="small muted">{{ m.settings.redirectUri }} <code class="copy">{{ i.redirectUri }}</code></p>
             <p v-if="i.configured" class="small muted">
-              {{ i.meta.authorized ? `${m.settings.site(String(i.meta.siteId))}${(i.meta.lastTest as any)?.name ? ` · ${(i.meta.lastTest as any).name}` : ''}` : m.settings.notSignedIn }}
+              {{ i.meta.authorized ? `${m.settings.site(String(i.meta.siteId))}${(i.meta.lastTest as any)?.name ? `, ${(i.meta.lastTest as any).name}` : ''}.` : m.settings.notSignedIn }}
               <template v-if="i.meta.credits">
                 {{ m.settings.credits(i.credits.today, i.credits.dailyCap, (i.meta.credits as any).month, (i.meta.credits as any).monthUsed, i.credits.monthly) }}
               </template>
@@ -111,47 +162,16 @@
 
     <template v-for="d in devs" :key="d.id">
       <h3 class="section-title">{{ d.name || m.settings.battery }}</h3>
-      <div class="list">
+      <div class="list" @change="saveDevice(d)">
         <label class="list-row"><span class="title">{{ m.settings.name }}</span><input v-model="d.name" /></label>
         <label class="list-row"><span class="title">{{ m.settings.capacity }}</span><span class="unit-in"><input v-model.number="d.capacityWh" type="number" inputmode="numeric" /> Wh</span></label>
         <label class="list-row"><span class="title">{{ m.settings.maxCharge }}</span><span class="unit-in"><input v-model.number="d.maxChargeW" type="number" inputmode="numeric" /> W</span></label>
         <label class="list-row"><span class="title">{{ m.settings.maxDischarge }}</span><span class="unit-in"><input v-model.number="d.maxDischargeW" type="number" inputmode="numeric" /> W</span></label>
-        <div class="list-row"><button class="plain" @click="saveDevice(d)">{{ m.settings.saveDevice(d.name) }}</button><span v-if="deviceMsg === d.id" class="small pos">{{ m.settings.saved }}</span></div>
       </div>
+      <p v-if="deviceMsg?.id === d.id" class="foot" :class="{ error: deviceMsg?.ok === false }" role="status">{{ deviceMsg?.text }}</p>
     </template>
     <p v-if="!devs.length && !loadError" class="foot">{{ m.settings.noBatteries }}</p>
     <p v-else class="foot">{{ m.settings.batteriesFoot }}</p>
-
-    <template v-if="strategy">
-      <h3 class="section-title">{{ m.settings.strategy }}</h3>
-      <div class="list">
-        <div class="list-row stack">
-          <div class="spread"><span class="title">{{ m.settings.reserve }}</span><span class="detail">{{ pct.reserveSoc }}%</span></div>
-          <input v-model.number="pct.reserveSoc" type="range" min="0" max="90" step="5" class="range" :style="{ '--p': pct.reserveSoc / 90 }" />
-        </div>
-        <div class="list-row stack">
-          <div class="spread"><span class="title">{{ m.settings.maxSoc }}</span><span class="detail">{{ pct.maxSoc }}%</span></div>
-          <input v-model.number="pct.maxSoc" type="range" min="50" max="100" step="5" class="range" :style="{ '--p': (pct.maxSoc - 50) / 50 }" />
-        </div>
-        <div class="list-row stack">
-          <div class="spread"><span class="title">{{ m.settings.efficiency }}</span><span class="detail">{{ pct.roundTripEfficiency }}%</span></div>
-          <input v-model.number="pct.roundTripEfficiency" type="range" min="50" max="100" class="range" :style="{ '--p': (pct.roundTripEfficiency - 50) / 50 }" />
-        </div>
-        <label class="list-row"><span class="title">{{ m.settings.gridCharge }}</span><span class="switch"><input v-model="strategy.gridCharge" type="checkbox" /><span /></span></label>
-        <label class="list-row"><span class="title">{{ m.settings.minProfit }}</span><span class="unit-in">€ <input v-model.number="strategy.minSpread" type="number" step="0.01" inputmode="decimal" /> /kWh</span></label>
-        <label class="list-row"><span class="title">{{ m.settings.typicalLoad }}</span><span class="unit-in"><input v-model.number="strategy.avgLoadW" type="number" inputmode="numeric" /> W</span></label>
-        <label class="list-row"><span class="title">{{ m.settings.maxOutput }}</span><span class="unit-in"><input v-model.number="strategy.maxOutputW" type="number" inputmode="numeric" /> W</span></label>
-        <label class="list-row"><span class="title">{{ m.settings.dailyCycle }}</span><span class="unit-in"><input v-model.number="strategy.dailyCycleKwh" type="number" step="0.1" inputmode="decimal" /> kWh</span></label>
-      </div>
-
-      <h3 class="section-title">{{ m.settings.feedIn }}</h3>
-      <div class="list">
-        <label class="list-row"><span class="title">{{ m.settings.nettingUntil }}</span><input v-model="strategy.feedIn.nettingUntil" type="date" /></label>
-        <label class="list-row"><span class="title">{{ m.settings.afterFactor }}</span><input v-model.number="strategy.feedIn.factor" type="number" step="0.05" inputmode="decimal" /></label>
-        <label class="list-row"><span class="title">{{ m.settings.fee }}</span><span class="unit-in">€ <input v-model.number="strategy.feedIn.feeEur" type="number" step="0.005" inputmode="decimal" /> /kWh</span></label>
-      </div>
-      <button class="primary wide" @click="saveStrategy">{{ strategyMsg || m.settings.saveStrategy }}</button>
-    </template>
 
     <h3 class="section-title">{{ m.settings.notifications }}</h3>
     <div class="list">
@@ -177,6 +197,15 @@
     </div>
     <p v-if="push.error.value" class="foot error">{{ push.error.value }}</p>
 
+    <h3 class="section-title">{{ m.settings.display }}</h3>
+    <div class="list">
+      <label class="list-row">
+        <span class="title">{{ m.settings.animate }}</span>
+        <span class="switch"><input type="checkbox" :checked="flow.animate.value" @change="flow.setAnimate(($event.target as HTMLInputElement).checked)" /><span /></span>
+      </label>
+    </div>
+    <p class="foot">{{ m.settings.displayFoot }}</p>
+
     <h3 class="section-title">{{ m.settings.account }}</h3>
     <div class="list">
       <div class="list-row indent">
@@ -192,10 +221,6 @@ import type { Locale } from '~/composables/useLocale'
 const flow = useFlowView()
 const solar = useSolarCount()
 const { m, locale, setLocale, serverText } = useLocale()
-const FLOW_VIEWS = [
-  { value: 'clean', text: 'flowClean', icon: 'nodes', tile: 'var(--surface-3)' },
-  { value: 'detailed', text: 'flowHouse', icon: 'house', tile: 'var(--sys-blue)' },
-] as const
 const api = useApi()
 const { setToken } = useAuth()
 const push = usePush()
@@ -236,11 +261,51 @@ const busy = ref('')
 const homeId = ref('')
 const devs = ref<any[]>([])
 const strategy = ref<any>(null)
-const strategyMsg = ref('')
+type Msg = { ok: boolean; text: string } | null
+const strategyMsg = ref<Msg>(null)
 const me = ref<any>(null)
-const deviceMsg = ref<number | null>(null)
+const deviceMsg = ref<{ id: number; ok: boolean; text: string } | null>(null)
 
 const pct = reactive({ reserveSoc: 10, maxSoc: 100, roundTripEfficiency: 85 })
+
+// Steering and Follow/Monitor are one decision for the person: who decides what the batteries do
+type Control = 'ecoflow_ai' | 'wattwise' | 'monitor'
+const control = ref<{ steering: 'ecoflow_ai' | 'wattwise' | null; controlMode: 'auto' | 'manual' } | null>(null)
+const controlMsg = ref<Msg>(null)
+const controlChoice = computed<Control | null>(() => {
+  if (!control.value) return null
+  if (control.value.steering === 'ecoflow_ai') return 'ecoflow_ai'
+  return control.value.controlMode === 'manual' ? 'monitor' : 'wattwise'
+})
+// EcoFlow AI is only a choice when the EcoFlow developer API is connected
+const controlOptions = computed<Control[]>(() => [...(control.value?.steering ? ['ecoflow_ai' as const] : []), 'wattwise', 'monitor'])
+
+async function setControl(v: Control) {
+  const cur = control.value
+  if (!cur || v === controlChoice.value) return
+  busy.value = 'control'
+  controlMsg.value = null
+  const steer = (steering: string) => api('/api/ecoflow/steering', { method: 'PUT', body: { steering } })
+  const mode = (controlMode: string) => api('/api/plan/override', { method: 'POST', body: { controlMode } })
+  try {
+    if (v === 'ecoflow_ai') await steer('ecoflow_ai')
+    else if (v === 'monitor') {
+      // Stop sending first, so handing over from EcoFlow AI doesn't push a plan step on the way
+      if (cur.controlMode !== 'manual') await mode('manual')
+      if (cur.steering === 'ecoflow_ai') await steer('wattwise')
+    } else {
+      if (cur.steering === 'ecoflow_ai') await steer('wattwise')
+      if (cur.controlMode !== 'auto') await mode('auto')
+    }
+    controlMsg.value = { ok: true, text: m.value.settings.controlDone[v] }
+  } catch (e: any) {
+    controlMsg.value = { ok: false, text: serverText(e?.data?.statusMessage) || e?.message || m.value.settings.switchFailed }
+  } finally {
+    const plan: any = await api('/api/plan').catch(() => null)
+    if (plan) control.value = { steering: plan.steering, controlMode: plan.controlMode }
+    busy.value = ''
+  }
+}
 
 async function load() {
   integrations.value = await api('/api/integrations')
@@ -248,10 +313,8 @@ async function load() {
   homeId.value = (t?.meta.homeId as string) ?? ''
   devs.value = await api('/api/devices')
   const plan: any = await api('/api/plan')
-  strategy.value = plan.strategy
-  pct.reserveSoc = Math.round(plan.strategy.reserveSoc * 100)
-  pct.maxSoc = Math.round(plan.strategy.maxSoc * 100)
-  pct.roundTripEfficiency = Math.round(plan.strategy.roundTripEfficiency * 100)
+  control.value = { steering: plan.steering, controlMode: plan.controlMode }
+  setStrategy(plan.strategy)
   me.value = await api('/api/auth/me')
 }
 
@@ -294,19 +357,41 @@ async function remove(provider: string) {
   await load()
 }
 
+// Settings save as they change (on change, not on every keystroke); the line under each group says what happened
+const whyNot = (e: any) => m.value.settings.notSaved(serverText(e?.data?.statusMessage) || m.value.settings.noAnswer)
 async function saveDevice(d: any) {
-  await api(`/api/devices/${d.id}`, { method: 'PUT', body: { name: d.name, capacityWh: d.capacityWh, maxChargeW: d.maxChargeW, maxDischargeW: d.maxDischargeW } })
-  deviceMsg.value = d.id
-  setTimeout(() => (deviceMsg.value = null), 2500)
+  try {
+    await api(`/api/devices/${d.id}`, { method: 'PUT', body: { name: d.name, capacityWh: d.capacityWh, maxChargeW: d.maxChargeW, maxDischargeW: d.maxDischargeW } })
+    deviceMsg.value = { id: d.id, ok: true, text: m.value.settings.deviceSaved(d.name || m.value.settings.battery) }
+  } catch (e: any) {
+    deviceMsg.value = { id: d.id, ok: false, text: whyNot(e) }
+  }
 }
 
+function setStrategy(s: any) {
+  strategy.value = s
+  pct.reserveSoc = Math.round(s.reserveSoc * 100)
+  pct.maxSoc = Math.round(s.maxSoc * 100)
+  pct.roundTripEfficiency = Math.round(s.roundTripEfficiency * 100)
+}
+
+// Keyboard steps on a slider fire one change each: wait for a pause before saving
+let strategyTimer: ReturnType<typeof setTimeout>
+function saveStrategySoon() {
+  clearTimeout(strategyTimer)
+  strategyTimer = setTimeout(saveStrategy, 400)
+}
 async function saveStrategy() {
-  strategy.value = await api('/api/strategy', {
-    method: 'PUT',
-    body: { ...strategy.value, reserveSoc: pct.reserveSoc / 100, maxSoc: pct.maxSoc / 100, roundTripEfficiency: pct.roundTripEfficiency / 100 },
-  })
-  strategyMsg.value = m.value.settings.strategySaved
-  setTimeout(() => (strategyMsg.value = ''), 3000)
+  try {
+    // The server clamps out-of-range values; show what it kept
+    setStrategy(await api('/api/strategy', {
+      method: 'PUT',
+      body: { ...strategy.value, reserveSoc: pct.reserveSoc / 100, maxSoc: pct.maxSoc / 100, roundTripEfficiency: pct.roundTripEfficiency / 100 },
+    }))
+    strategyMsg.value = { ok: true, text: m.value.settings.strategySaved }
+  } catch (e: any) {
+    strategyMsg.value = { ok: false, text: whyNot(e) }
+  }
 }
 
 async function logout() {
@@ -368,6 +453,11 @@ function onVisible() {
 .conn-body p { margin: 0 0 12px; }
 .unit-in { display: inline-flex; align-items: center; justify-content: flex-end; gap: 4px; color: var(--text-2); width: 55%; }
 .unit-in input { width: 100%; }
+/* A row with help text gives the words the room and keeps the value narrow */
+.stack-text + .unit-in, .stack-text + input { width: auto; flex: none; }
+.stack-text + .unit-in input { width: 7ch; }
+.list-row > .stack-text { flex: 1 1 auto; }
+.row-btn:disabled { opacity: 0.6; }
 .copy { user-select: all; word-break: break-all; }
 .foot { font-size: 13px; color: var(--text-2); margin: -4px 2px 0; max-width: 60ch; }
 .wide { width: 100%; margin-top: 4px; padding: 13px; }

@@ -49,7 +49,7 @@
         </div>
         <!-- What the stored energy cost to buy, and what it is worth at the current price -->
         <p v-if="stored" class="pack-value">
-          {{ m.home.storedCost(eur(stored.cost), cents(stored.cost / stored.kwh)) }}<template v-if="d.price"> · {{ m.home.storedWorth(eur(stored.kwh * d.price.total)) }}</template>
+          {{ m.home.storedCost(eur(stored.cost), cents(stored.cost / stored.kwh)) }}<template v-if="d.price">, {{ m.home.storedWorth(eur(stored.kwh * d.price.total)) }}</template>
         </p>
       </section>
 
@@ -95,7 +95,7 @@
           <div class="cr-bar"><div class="cr-fill" :class="carStatus(c).cls" :style="{ width: `${(c.state.soc ?? 0) * 100}%` }" /></div>
           <span class="cr-status">
             <span :class="carStatus(c).cls">{{ carStatus(c).text }}</span>
-            · {{ c.state.atHome ? m.cars.atHome : m.cars.away }}<template v-if="c.state.rangeKm != null"> · {{ Math.round(c.state.rangeKm) }} km</template>
+, {{ (c.state.atHome ? m.cars.atHome : m.cars.away).toLowerCase() }}<template v-if="c.state.rangeKm != null">, {{ Math.round(c.state.rangeKm) }} km</template>
           </span>
         </NuxtLink>
       </section>
@@ -109,18 +109,6 @@
           <EnergyFlow v-if="view === 'clean'" key="clean" :solar-w="d.live?.solarW ?? null" :grid-w="d.live?.gridW ?? null" :battery-w="totalPower" :house-w="houseW" :animate="animate" />
           <EnergyScene v-else key="detailed" :solar-w="d.live?.solarW ?? null" :grid-w="d.live?.gridW ?? null" :battery-w="totalPower" :house-w="houseW" :soc="combinedSoc" :animate="animate" />
         </Transition>
-      </section>
-
-      <section v-if="nextRuns.length" class="block">
-        <div class="block-head"><h2>{{ m.home.upNext }}</h2></div>
-        <ol class="next">
-          <li v-for="p in nextRuns" :key="String(p.slotStart)">
-            <i :style="{ background: ACTION_COLOR[p.action] }" />
-            <span class="n-time">{{ time(p.slotStart) }}–{{ time(p.end) }}</span>
-            <span class="n-act">{{ m.mode[p.action] }}</span>
-            <span class="n-price">{{ cents(p.price) }}</span>
-          </li>
-        </ol>
       </section>
 
       <footer class="sources">
@@ -154,13 +142,7 @@ const viewOptions = computed(() => [
   { value: 'clean' as const, label: m.value.home.viewClean },
   { value: 'detailed' as const, label: m.value.home.viewHouse },
 ])
-const PROVIDER: Record<string, string> = { tibber: 'Tibber', solaredge: 'SolarEdge', ecoflow_official: 'EcoFlow' }
-const ACTION_COLOR: Record<string, string> = {
-  charge_grid: 'var(--cheap)',
-  discharge: 'var(--dear)',
-  self_use: 'var(--own)',
-  solar_only: 'var(--hold)',
-}
+const PROVIDER: Record<string, string> = { tibber: 'Tibber', solaredge: 'SolarEdge', ecoflow_official: 'EcoFlow', zeekr: 'Zeekr', tibber_app: 'Tibber app' }
 const cents = (p: number) => `${num(p * 100, 1)} ct`
 
 async function load() {
@@ -175,7 +157,7 @@ async function load() {
     d.value = dash
     if (s) soc.value = s
     if (p) plan.value = p
-    if (v) cars.value = v
+    if (v) cars.value = v as any[]
     error.value = null
   } catch (e) {
     error.value = e
@@ -239,7 +221,12 @@ const detail = computed(() => {
   const parts: string[] = []
   const run = currentRun.value
   const t = m.value.home
-  if (state.value !== 'idle') parts.push(t.powerUntil(watt(Math.abs(totalPower.value)), run ? time(run.end) : null))
+  const next = nextRuns.value[1]
+  const w = watt(Math.abs(totalPower.value))
+  // The plan's next step lives in this sentence now that Home has no Up next list; the full list is on Plan
+  if (state.value !== 'idle') {
+    parts.push(next ? t.powerUntilThen(w, run ? time(run.end) : null, (m.value.mode[next.action] ?? next.action).toLowerCase()) : t.powerUntil(w, run ? time(run.end) : null))
+  } else if (next) parts.push(t.nextFrom(m.value.mode[next.action] ?? next.action, time(next.slotStart)))
   else if (run) parts.push(t.nextChange(time(run.end)))
   if (d.value?.price) parts.push(t.costsNow(cents(d.value.price.total)))
   return parts.join(' ')
@@ -298,14 +285,6 @@ onBeforeUnmount(() => clearInterval(timer))
 .block :deep(.flow) { max-width: 420px; margin: 0 auto; }
 .swap-enter-active, .swap-leave-active { transition: opacity 0.2s; }
 .swap-enter-from, .swap-leave-to { opacity: 0; }
-
-.next { list-style: none; margin: 0; padding: 0; }
-.next li { display: grid; grid-template-columns: 10px 104px 1fr auto; align-items: baseline; gap: 12px; padding: 10px 0; font-size: 16px; }
-.next li + li { border-top: 1px solid var(--rule); }
-.next i { width: 10px; height: 10px; border-radius: 2px; align-self: center; }
-.n-time, .n-price { font-variant-numeric: tabular-nums; font-stretch: 85%; }
-.n-time { color: var(--text-2); }
-.n-price { font-size: 14px; color: var(--text-2); }
 
 /* Cars: one compact row each, the whole row opens the Cars tab */
 .car-row { display: grid; grid-template-columns: 1fr auto; align-items: baseline; gap: 6px 12px; padding: 10px 0; color: inherit; text-decoration: none; }
