@@ -50,6 +50,13 @@
       "when": 1792929468854,
       "tag": "0006_vehicles",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1793048400000,
+      "tag": "0007_signed_loss",
+      "breakpoints": true
     }
   ]
 }
