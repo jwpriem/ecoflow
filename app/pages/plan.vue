@@ -7,8 +7,8 @@
         <span><strong>{{ m.plan.override }}</strong> {{ m.plan.until(m.mode[data.override.mode] ?? data.override.mode, time(data.override.until)) }}</span>
         <button class="plain" :disabled="busy" @click="endOverride">{{ m.plan.endOverride }}</button>
       </p>
-      <p v-if="data.steering === 'ecoflow_ai'" class="note">{{ m.plan.aiSteers }}</p>
-      <p v-else-if="data.controlMode === 'manual'" class="note">{{ m.plan.monitorOnly }}</p>
+      <p v-if="data.steering === 'ecoflow_ai'" class="note">{{ m.plan.aiSteers }} <NuxtLink to="/settings">{{ m.plan.changeInSettings }}</NuxtLink></p>
+      <p v-else-if="data.controlMode === 'manual'" class="note">{{ m.plan.monitorOnly }} <NuxtLink to="/settings">{{ m.plan.changeInSettings }}</NuxtLink></p>
 
       <!-- No prices: nothing to plan with -->
       <section v-if="!data.slots.length" class="no-prices">
@@ -60,33 +60,6 @@
       </template>
 
       <section class="block">
-        <div class="block-head"><h2>{{ m.plan.whoSteers }}</h2></div>
-        <template v-if="data.steering">
-          <Segmented
-            :model-value="data.steering"
-            :options="[{ value: 'ecoflow_ai', label: 'EcoFlow AI' }, { value: 'wattwise', label: 'WattWise' }]"
-            full
-            @update:model-value="(v) => setSteering(v)"
-          />
-          <p class="hint">
-            <span v-if="steeringError" class="error">{{ steeringError }}</span>
-            <template v-else-if="data.steering === 'ecoflow_ai'">{{ m.plan.aiHint }}</template>
-            <template v-else>{{ m.plan.wwHint }}</template>
-          </p>
-        </template>
-        <template v-if="data.steering !== 'ecoflow_ai'">
-          <Segmented
-            class="mode"
-            :model-value="data.controlMode"
-            :options="[{ value: 'auto', label: m.plan.follow }, { value: 'manual', label: m.plan.monitor }]"
-            full
-            @update:model-value="(v) => send({ controlMode: v }, v === 'auto' ? m.plan.followingAgain : m.plan.monitoringNow)"
-          />
-          <p class="hint">{{ data.controlMode === 'auto' ? m.plan.followHint : m.plan.monitorHint }}</p>
-        </template>
-      </section>
-
-      <section class="block">
         <div class="block-head"><h2>{{ m.plan.overrideTitle }}</h2></div>
         <div class="choices" role="radiogroup" :aria-label="m.plan.modeAria">
           <label v-for="a in actions" :key="a.value" class="choice">
@@ -110,10 +83,10 @@
             <tbody>
               <tr v-for="c in data.commands" :key="c.id">
                 <td>{{ dayOffset(c.ts, now) === 0 ? '' : `${dayLabel(c.ts)} ` }}{{ time(c.ts) }}</td>
-                <td>#{{ c.deviceId }}</td>
+                <td>{{ deviceNames[c.deviceId] ?? `#${c.deviceId}` }}</td>
                 <td>{{ m.mode[c.command] ?? c.command }}</td>
                 <td>{{ m.plan.source[c.payload.source] ?? c.payload.source }}</td>
-                <td>{{ m.plan.result[c.result] ?? c.result }}</td>
+                <td :class="{ error: String(c.result).startsWith('error') }">{{ resultText(c.result) }}</td>
               </tr>
             </tbody>
           </table>
@@ -236,16 +209,16 @@ function say(text: string) {
   toast = setTimeout(() => (message.value = ''), 4000)
 }
 
-const steeringError = ref('')
-async function setSteering(steering: string) {
-  steeringError.value = ''
-  try {
-    await api('/api/ecoflow/steering', { method: 'PUT', body: { steering } })
-    await load()
-    say(steering === 'wattwise' ? m.value.plan.wwSteers : m.value.plan.aiSteersNow)
-  } catch (e: any) {
-    steeringError.value = serverText(e?.data?.statusMessage) || e?.message || m.value.plan.switchFailed
-  }
+// The command log in words: the battery's name, why it was sent, and what came back
+const deviceNames = ref<Record<number, string>>({})
+function resultText(r: string) {
+  const [head, ...rest] = String(r).split(': ')
+  const detail = rest.join(': ')
+  const t = m.value.plan.result
+  if (head === 'ok') return t.sent(detail)
+  if (head === 'skipped') return t.notSent(detail)
+  if (head?.startsWith('error')) return t.failed(detail)
+  return r
 }
 
 async function send(body: Record<string, unknown>, done: string) {
@@ -271,6 +244,9 @@ const endOverride = () => send({ clear: true }, m.value.plan.overrideEnded)
 let tick: ReturnType<typeof setInterval>
 onMounted(() => {
   load()
+  api('/api/devices')
+    .then((list: any) => (deviceNames.value = Object.fromEntries(list.map((d: any) => [d.id, d.name]))))
+    .catch(() => undefined)
   // The now marker moves every minute; the plan itself refreshes every 5
   let n = 0
   tick = setInterval(() => {
@@ -322,7 +298,6 @@ onBeforeUnmount(() => clearInterval(tick))
 .current .run-act { font-weight: 600; }
 .run-reason { grid-column: 3 / -1; font-size: 13px; color: var(--text-2); margin-top: 2px; }
 
-.mode { margin-top: 20px; }
 
 .choices { display: grid; border-top: 1px solid var(--rule); }
 .choice {

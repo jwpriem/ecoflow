@@ -5,40 +5,49 @@
 
     <template v-else-if="cars !== null">
       <!-- Nothing connected yet -->
-      <section v-if="!cars.length" class="status">
-        <h2 class="headline">{{ m.cars.connectTitle }}</h2>
-        <p class="detail">{{ m.cars.connectText }}</p>
+      <section v-if="!cars.length" class="nothing">
+        <h2>{{ m.cars.connectTitle }}</h2>
+        <p>{{ m.cars.connectText }}</p>
         <NuxtLink to="/settings" class="go">{{ m.common.openSettings }}</NuxtLink>
       </section>
 
       <template v-for="c in cars" :key="c.id">
         <section class="car">
-          <div class="car-head">
-            <div class="stack-text">
-              <h2 class="car-name">{{ c.name }}</h2>
-              <span v-if="c.model" class="small muted">{{ c.model }}</span>
-            </div>
-            <span class="chip" :class="homeClass(c)">
+          <header class="car-head">
+            <h2 class="car-name">{{ c.name }}</h2>
+            <span class="where" :class="{ home: c.state.atHome }">
               <AppIcon :name="c.state.atHome ? 'house' : 'car'" />
               {{ c.state.atHome ? m.cars.atHome : m.cars.away }}
             </span>
-          </div>
+            <span v-if="c.model" class="sub">{{ c.model }}</span>
+          </header>
 
-          <div class="car-figure">
-            <span class="pct" :class="{ charging: c.state.charging }">
-              {{ c.state.soc == null ? '–' : Math.round(c.state.soc * 100) }}<small>%</small>
-            </span>
-            <div class="car-meta">
-              <span class="status-line" :class="carStatus(c).cls">{{ carStatus(c).text }}</span>
-              <span v-if="c.state.rangeKm != null" class="small muted">{{ m.cars.range(Math.round(c.state.rangeKm)) }}</span>
+          <CarFigure
+            :soc="c.state.soc" :charging="c.state.charging" :plugged="c.state.pluggedIn" :target="c.state.targetSoc"
+            :label="m.cars.figureAria(c.name, c.state.soc == null ? m.cars.levelUnknown : m.cars.pctCharged(Math.round(c.state.soc * 100)), carStatus(c).text)"
+          />
+
+          <div class="readout">
+            <span class="pct">{{ c.state.soc == null ? '–' : Math.round(c.state.soc * 100) }}<small>%</small></span>
+            <span v-if="c.state.rangeKm != null" class="km">{{ Math.round(c.state.rangeKm) }}<small> km</small></span>
+          </div>
+          <p class="status-line" :class="carStatus(c).cls">{{ carStatus(c).text }}</p>
+
+          <!-- Range: what's in the battery now, and what a full charge would give -->
+          <div v-if="scale(c)" class="ruler" role="img" :aria-label="m.cars.rangeAria(Math.round(c.state.rangeKm), scale(c)!.full)">
+            <div class="track">
+              <span class="now" :style="{ width: `${(c.state.rangeKm / scale(c)!.max) * 100}%` }" />
+              <span class="more" :style="{ left: `${(c.state.rangeKm / scale(c)!.max) * 100}%`, width: `${((scale(c)!.full - c.state.rangeKm) / scale(c)!.max) * 100}%` }" />
             </div>
+            <div class="ticks" aria-hidden="true">
+              <span v-for="t in scale(c)!.ticks" :key="t" :style="{ left: `${(t / scale(c)!.max) * 100}%` }">{{ t }}</span>
+            </div>
+            <p class="hint">{{ m.cars.fullRange(scale(c)!.full) }}</p>
           </div>
-
-          <div class="bar"><div class="bar-fill" :class="{ charging: c.state.charging }" :style="{ width: `${(c.state.soc ?? 0) * 100}%` }" /></div>
 
           <dl class="facts">
             <div><dt>{{ m.cars.plug }}</dt><dd>{{ c.state.pluggedIn ? m.cars.pluggedIn : m.cars.unplugged }}</dd></div>
-            <div v-if="c.state.chargePowerW"><dt>{{ m.cars.power }}</dt><dd>{{ watt(c.state.chargePowerW) }}</dd></div>
+            <div v-if="c.state.chargePowerW"><dt>{{ m.cars.power }}</dt><dd class="live">{{ watt(c.state.chargePowerW) }}</dd></div>
             <div v-if="c.state.targetSoc != null"><dt>{{ m.cars.target }}</dt><dd>{{ Math.round(c.state.targetSoc * 100) }}%</dd></div>
             <div v-if="c.state.ts"><dt>{{ m.cars.updated }}</dt><dd>{{ time(c.state.ts) }}</dd></div>
             <div v-if="c.state.tibberSyncedAt"><dt>{{ m.cars.tibberSynced }}</dt><dd>{{ time(c.state.tibberSyncedAt) }}</dd></div>
@@ -86,8 +95,14 @@ const loadError = ref<any>(null)
 // The cars known in the Tibber app, when it is connected: pick which one each car is
 const tibberCars = ref<{ id: string; name: string }[]>([])
 
-function homeClass(c: any) {
-  return c.state.atHome ? 'home' : ''
+// The range scale: the full-charge range extrapolated from the current one, in round 100 or 200 km steps
+function scale(c: any) {
+  const { rangeKm, soc } = c.state
+  if (rangeKm == null || soc == null || soc < 0.05) return null
+  const full = Math.round(rangeKm / soc / 10) * 10
+  const step = full > 600 ? 200 : 100
+  const max = Math.ceil(full / step) * step
+  return { full, max, ticks: Array.from({ length: max / step + 1 }, (_, i) => i * step) }
 }
 async function load() {
   cars.value = await api('/api/vehicles')
@@ -125,38 +140,47 @@ onBeforeUnmount(() => clearInterval(timer))
 </script>
 
 <style scoped>
-.page-head { margin-bottom: 8px; }
-.status { text-align: center; padding: 40px 16px; }
-.headline { font-size: 22px; margin: 0 0 8px; }
-.detail { color: var(--text-2); margin: 0 0 20px; max-width: 42ch; margin-inline: auto; }
-.go { display: inline-block; padding: 10px 18px; border-radius: 999px; background: var(--text); color: var(--surface); font-weight: 600; }
-.car { background: var(--surface-2, var(--surface)); border-radius: 18px; padding: 18px; margin-bottom: 16px; }
-.car-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
-.car-name { font-size: 18px; margin: 0; }
-.stack-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.chip { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; color: var(--text-2); background: var(--fill-2, var(--fill)); padding: 4px 10px; border-radius: 999px; white-space: nowrap; }
-.chip svg { width: 15px; height: 15px; }
-.chip.home { color: var(--text); }
-.car-figure { display: flex; align-items: baseline; gap: 16px; margin: 14px 0 10px; }
-.pct { font-size: 46px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1; }
-.pct small { font-size: 22px; font-weight: 600; color: var(--text-2); }
-.pct.charging { color: var(--cheap, var(--c-charge, #34c759)); }
-.car-meta { display: flex; flex-direction: column; gap: 3px; }
-.status-line { font-weight: 600; }
-.status-line.charging { color: var(--cheap, var(--c-charge, #34c759)); }
-.status-line.plugged { color: var(--text); }
-.bar { height: 8px; border-radius: 4px; background: var(--fill); overflow: hidden; }
-.bar-fill { height: 100%; border-radius: 4px; background: var(--text-2); transition: width 0.6s var(--spring, ease); }
-.bar-fill.charging { background: var(--cheap, var(--c-charge, #34c759)); }
-.facts { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px 16px; margin: 16px 0 4px; }
-.facts div { display: flex; flex-direction: column; gap: 2px; }
-.facts dt { font-size: 12px; color: var(--text-2); }
-.facts dd { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; }
-.edit { margin-top: 8px; }
+.nothing { border-top: 1px solid var(--rule); padding-top: 18px; margin-bottom: 36px; }
+.nothing h2 { font-size: 21px; font-weight: 700; font-stretch: 112%; margin: 0 0 6px; }
+.nothing p { margin: 0 0 14px; color: var(--text-2); max-width: 46ch; }
+.go { font-weight: 600; }
+
+/* Each car is a section on the canvas, split by a rule like the blocks on Home */
+.car { border-top: 1px solid var(--rule); padding-top: 14px; margin-bottom: 44px; }
+.car-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; margin-bottom: 20px; }
+.car-name { font-size: 21px; font-weight: 700; font-stretch: 112%; letter-spacing: -0.005em; margin: 0; }
+.where { display: inline-flex; align-items: center; gap: 5px; margin-left: auto; font-size: 14px; color: var(--text-2); }
+.where svg { width: 16px; height: 16px; }
+.where.home { color: var(--text); }
+.sub { flex-basis: 100%; font-size: 14px; color: var(--text-2); }
+
+.readout { display: flex; justify-content: space-between; align-items: baseline; margin-top: 18px; }
+.pct, .km { font-size: 48px; line-height: 1; font-weight: 650; font-stretch: 75%; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+.pct small { font-size: 24px; font-weight: 500; color: var(--text-2); margin-left: 1px; }
+.km small { font-size: 18px; font-weight: 500; color: var(--text-2); }
+.status-line { margin: 6px 0 0; font-weight: 600; }
+.status-line.charging { color: var(--cheap); }
+
+.ruler { margin-top: 16px; }
+.track { position: relative; height: 6px; background: var(--fill-2); border-radius: 3px; }
+.track span { position: absolute; top: 0; bottom: 0; }
+.now { left: 0; background: var(--text); border-radius: 3px; transition: width 1s var(--ease-out); }
+.more { background: repeating-linear-gradient(90deg, var(--text-2) 0 3px, transparent 3px 6px); opacity: 0.6; }
+.ticks { position: relative; height: 18px; margin-top: 6px; font-size: 12px; color: var(--text-2); font-variant-numeric: tabular-nums; font-stretch: 88%; }
+.ticks span { position: absolute; transform: translateX(-50%); }
+.ticks span:first-child { transform: none; }
+.ticks span:last-child { transform: translateX(-100%); }
+.ruler .hint { text-align: right; margin-top: 2px; }
+
+.facts { margin: 22px 0 0; border-top: 1px solid var(--rule); }
+.facts > div { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--rule); }
+.facts dt { color: var(--text-2); }
+.facts dd { margin: 0; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+.facts dd.live { color: var(--cheap); }
+
+.edit { margin-top: 12px; }
 .edit summary { cursor: pointer; font-size: 14px; color: var(--text-2); padding: 6px 0; }
 .unit-in { display: inline-flex; align-items: center; justify-content: flex-end; gap: 4px; color: var(--text-2); width: 55%; }
 .unit-in input { width: 100%; }
 .foot { font-size: 13px; color: var(--text-2); margin: 4px 2px 0; max-width: 60ch; }
-.muted { color: var(--text-2); }
-.pos { color: var(--c-ok, #34c759); }
 </style>
