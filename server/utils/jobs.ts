@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm'
 import { sites } from '../db/schema'
 
-const LOCK_KEYS = { collect: 7101, ledger: 7102, strategy: 7103, prices: 7104, digest: 7105, vehicles: 7106 } as const
+const LOCK_KEYS = { collect: 7101, ledger: 7102, strategy: 7103, prices: 7104, digest: 7105, vehicles: 7106, retention: 7107 } as const
 
 /**
  * Run a background job for every site, holding a Postgres advisory lock for the duration.
