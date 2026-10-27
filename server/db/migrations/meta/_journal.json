@@ -57,6 +57,13 @@
       "when": 1793048400000,
       "tag": "0007_signed_loss",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1793093517792,
+      "tag": "0008_pg_stat_statements",
+      "breakpoints": true
     }
   ]
 }

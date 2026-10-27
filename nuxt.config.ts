@@ -56,6 +56,8 @@ export default defineNuxtConfig({
       '*/15 * * * *': ['ledger', 'strategy'],
       '5 * * * *': ['prices'],
       '0 * * * *': ['digest'],
+      // At night, away from the hourly jobs
+      '40 2 * * *': ['retention'],
     },
   },
   typescript: { strict: true },
