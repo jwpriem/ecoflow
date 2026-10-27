@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, inArray } from 'drizzle-orm'
+import { and, asc, desc, eq, gte } from 'drizzle-orm'
 import { batteryPool, devices, integrations, plans, samples } from '../db/schema'
 import type { DeviceState } from '../providers/ecoflow'
 import { slotStartOf, startOfLocalDay } from '../lib/time'
@@ -12,25 +12,35 @@ export default defineEventHandler(async (event) => {
   const { site } = await requireSite(event)
   const db = useDb()
   const now = new Date()
-  const devs = await db.select().from(devices).where(eq(devices.siteId, site.id)).orderBy(asc(devices.id))
-  const pools = devs.length ? await db.select().from(batteryPool).where(inArray(batteryPool.deviceId, devs.map((d) => d.id))) : []
-
-  let live = liveState(site.id)
-  if (!live) {
-    const [grid] = await db.select().from(samples).where(and(eq(samples.siteId, site.id), eq(samples.kind, 'grid'))).orderBy(desc(samples.ts)).limit(1)
-    const [solar] = await db.select().from(samples).where(and(eq(samples.siteId, site.id), eq(samples.kind, 'solar'))).orderBy(desc(samples.ts)).limit(1)
-    if (grid) live = { ts: grid.ts.toISOString(), gridW: grid.powerW, houseNetW: grid.powerW - devs.reduce((t, d) => t + ((d.state as DeviceState).powerW ?? 0), 0), solarW: solar?.powerW ?? null, houseSource: 'pulse', solarSource: solar ? 'solaredge' : null }
-  }
-
   const slot = slotStartOf(now)
-  const [price] = await getPrices(db, site.id, slot, new Date(slot.getTime() + 15 * 60_000))
-  const next = await db.select().from(plans).where(and(eq(plans.siteId, site.id), gte(plans.slotStart, slot))).orderBy(asc(plans.slotStart)).limit(16)
-
   const dayStart = startOfLocalDay(now, site.timezone)
-  const [today] = await savingsByPeriod(db, site, 'day', dayStart, now)
-  const [solarToday] = await solarByPeriod(db, site, 'day', dayStart, now)
+  const latest = (kind: 'grid' | 'solar') =>
+    db.select().from(samples).where(and(eq(samples.siteId, site.id), eq(samples.kind, kind))).orderBy(desc(samples.ts)).limit(1).then((r) => r[0])
+  const cached = liveState(site.id)
 
-  const ints = await db.select({ provider: integrations.provider, status: integrations.status }).from(integrations).where(eq(integrations.siteId, site.id))
+  // None of these depend on each other: run them together, so Home waits for one round trip instead of ten
+  const [devs, pools, [price], next, [today], [solarToday], ints, grid, solar] = await Promise.all([
+    db.select().from(devices).where(eq(devices.siteId, site.id)).orderBy(asc(devices.id)),
+    db
+      .select({ pool: batteryPool })
+      .from(batteryPool)
+      .innerJoin(devices, eq(devices.id, batteryPool.deviceId))
+      .where(eq(devices.siteId, site.id))
+      .then((r) => r.map((p) => p.pool)),
+    getPrices(db, site.id, slot, new Date(slot.getTime() + 15 * 60_000)),
+    db.select().from(plans).where(and(eq(plans.siteId, site.id), gte(plans.slotStart, slot))).orderBy(asc(plans.slotStart)).limit(16),
+    savingsByPeriod(db, site, 'day', dayStart, now),
+    solarByPeriod(db, site, 'day', dayStart, now),
+    db.select({ provider: integrations.provider, status: integrations.status }).from(integrations).where(eq(integrations.siteId, site.id)),
+    // The last stored readings, only when the collector has no live state in memory (just after a restart)
+    cached ? undefined : latest('grid'),
+    cached ? undefined : latest('solar'),
+  ])
+
+  let live = cached
+  if (!live && grid) {
+    live = { ts: grid.ts.toISOString(), gridW: grid.powerW, houseNetW: grid.powerW - devs.reduce((t, d) => t + ((d.state as DeviceState).powerW ?? 0), 0), solarW: solar?.powerW ?? null, houseSource: 'pulse', solarSource: solar ? 'solaredge' : null }
+  }
 
   return {
     now: now.toISOString(),

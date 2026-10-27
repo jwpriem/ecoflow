@@ -1,6 +1,7 @@
 import { and, eq, gte, lt, sql } from 'drizzle-orm'
 import type { Db } from '../db/client'
 import { integrations, irradiance, type sites, solarProduction } from '../db/schema'
+import { changed } from '../db/upsert'
 import { defaultFactor, expectedSolarW, FORECAST_DAYS, FORECAST_PAST_DAYS, fitFactor, SOLAR_LOCATION } from '../lib/solarForecast'
 import { openMeteoIrradiance } from '../providers/openMeteo'
 
@@ -15,7 +16,12 @@ export async function refreshIrradiance(db: Db, site: Site): Promise<number> {
     await db
       .insert(irradiance)
       .values(rows.slice(i, i + 1000).map((r) => ({ siteId: site.id, slotStart: r.slotStart, ghi: r.ghi, updatedAt: now })))
-      .onConflictDoUpdate({ target: [irradiance.siteId, irradiance.slotStart], set: { ghi: sql.raw('excluded.ghi'), updatedAt: now } })
+      .onConflictDoUpdate({
+        target: [irradiance.siteId, irradiance.slotStart],
+        set: { ghi: sql.raw('excluded.ghi'), updatedAt: now },
+        // Each hourly call returns weeks of slots, almost all as before
+        setWhere: changed('irradiance', ['ghi']),
+      })
   }
   return rows.length
 }
@@ -41,13 +47,29 @@ export async function solarFactor(db: Db, site: Site, now = new Date()) {
   return { ...fitFactor(pairs, defaultFactor(peak)), peakPowerKw: peak }
 }
 
+// The fit moves only as new quarter-hours come in, but Home asks for the forecast every 30 seconds
+const FACTOR_TTL_MS = 15 * 60_000
+const factorCache = new Map<number, { at: number; value: Promise<Awaited<ReturnType<typeof solarFactor>>> }>()
+
+function cachedSolarFactor(db: Db, site: Site) {
+  const hit = factorCache.get(site.id)
+  if (hit && Date.now() - hit.at < FACTOR_TTL_MS) return hit.value
+  const value = solarFactor(db, site)
+  factorCache.set(site.id, { at: Date.now(), value })
+  // A failed fit is not kept: the next call tries again
+  value.catch(() => factorCache.delete(site.id))
+  return value
+}
+
 /** Expected solar production in W per slot start (ms) */
 export async function solarForecastW(db: Db, site: Site, from: Date, to: Date): Promise<Map<number, number>> {
-  const rows = await db
-    .select()
-    .from(irradiance)
-    .where(and(eq(irradiance.siteId, site.id), gte(irradiance.slotStart, from), lt(irradiance.slotStart, to)))
+  const [rows, { factor, peakPowerKw: peak }] = await Promise.all([
+    db
+      .select()
+      .from(irradiance)
+      .where(and(eq(irradiance.siteId, site.id), gte(irradiance.slotStart, from), lt(irradiance.slotStart, to))),
+    cachedSolarFactor(db, site),
+  ])
   if (!rows.length) return new Map()
-  const { factor, peakPowerKw: peak } = await solarFactor(db, site)
   return new Map(rows.map((r) => [r.slotStart.getTime(), expectedSolarW(r.ghi, factor, peak)]))
 }
