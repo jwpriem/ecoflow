@@ -107,7 +107,7 @@
         </div>
         <Transition name="swap" mode="out-in">
           <EnergyFlow v-if="view === 'clean'" key="clean" :solar-w="d.live?.solarW ?? null" :grid-w="d.live?.gridW ?? null" :battery-w="totalPower" :house-w="houseW" :animate="animate" />
-          <EnergyScene v-else key="detailed" :solar-w="d.live?.solarW ?? null" :grid-w="d.live?.gridW ?? null" :battery-w="totalPower" :house-w="houseW" :soc="combinedSoc" :animate="animate" />
+          <EnergyScene v-else key="detailed" :solar-w="d.live?.solarW ?? null" :grid-w="d.live?.gridW ?? null" :battery-w="totalPower" :house-w="sceneHouseW" :soc="combinedSoc" :car="sceneCar" :animate="animate" />
         </Transition>
       </section>
 
@@ -180,6 +180,24 @@ const stored = computed(() => {
 const unitState = (b: any) => (b.powerW > 5 ? 'charging' : b.powerW < -5 ? 'discharging' : 'idle')
 const totalPower = computed(() => (d.value?.devices ?? []).reduce((s: number, b: any) => s + b.powerW, 0))
 const houseW = computed(() => (d.value?.live?.houseNetW != null ? d.value.live.houseNetW + (d.value.live.solarW ?? 0) : null))
+// The car drawn beside the house: one that's charging first, then one plugged in, then any at home.
+// A reading older than half an hour (the poll runs every 5 minutes) no longer says where the car is.
+const sceneCar = computed(() => {
+  const now = Date.now()
+  const rank = (c: any) => (c.state.charging ? 0 : c.state.pluggedIn ? 1 : 2)
+  const c = cars.value
+    .filter((c) => c.state.atHome && c.state.ts && now - Date.parse(c.state.ts) < 30 * 60_000)
+    .sort((a, b) => rank(a) - rank(b))[0]
+  if (!c) return null
+  const charging = !!c.state.charging
+  return { name: c.name, soc: c.state.soc ?? null, plugged: !!c.state.pluggedIn, charging, powerW: charging ? (c.state.chargePowerW ?? null) : null }
+})
+// The scene draws the charging car on its own, so the house there shows what's left without it
+const sceneHouseW = computed(() => {
+  const car = sceneCar.value
+  if (houseW.value == null || !car?.charging || !car.powerW) return houseW.value
+  return Math.max(0, houseW.value - car.powerW)
+})
 const state = computed(() => (totalPower.value > 5 ? 'charging' : totalPower.value < -5 ? 'discharging' : 'idle'))
 const batteryToday = computed(() => d.value?.today?.savingNaive ?? 0)
 // Solar stored in the batteries is counted once, in the battery saving (stored solar counts as free there)

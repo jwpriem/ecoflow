@@ -174,8 +174,8 @@ const links = computed(() => {
     { key: 'grid', d: 'M34 240H188Q200 240 200 228V214', w: grid, forward: grid > 0, color: gridColor },
     { key: 'house', d: 'M216 198H254', w: house, forward: true, color: 'var(--text)' },
     // Meter to the charger along the ground cable, then up the cable into the car
-    { key: 'car', d: 'M210 210Q214 240 226 240H300V208', w: props.car?.charging ? (props.car.powerW ?? 0) : 0, forward: true, color: 'var(--cheap)' },
-    { key: 'carCable', d: 'M300 207C300 228 314 230 316 216', w: props.car?.charging ? (props.car.powerW ?? 0) : 0, forward: true, color: 'var(--cheap)', bare: true },
+    { key: 'car', d: 'M210 210Q214 240 226 240H300V208', w: props.car?.charging ? (props.car.powerW ?? 1000) : 0, forward: true, color: 'var(--cheap)' },
+    { key: 'carCable', d: 'M300 207C300 228 314 230 316 216', w: props.car?.charging ? (props.car.powerW ?? 1000) : 0, forward: true, color: 'var(--cheap)', bare: true },
   ].map((l) => ({ ...l, active: Math.abs(l.w) > 5, dur: dur(l.w) }))
 })
 
