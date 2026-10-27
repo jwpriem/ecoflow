@@ -1,12 +1,15 @@
 import { and, asc, desc, eq, gte, inArray, isNull, lt, sql } from 'drizzle-orm'
 import type { Db } from '../db/client'
 import { ledger, prices, samples, type sites, solarLedger, solarProduction } from '../db/schema'
+import { changed } from '../db/upsert'
 import { bookSolarSlot, type GridMinute, seBucketStart, slotKwh } from '../lib/solar'
 import { addMs, slotStartOf } from '../lib/time'
 import type { Period } from './ledger'
 
 type Site = typeof sites.$inferSelect
 const DAY_MS = 86_400_000
+const SOLAR_LEDGER_COLUMNS = ['produced_kwh', 'self_used_kwh', 'exported_kwh', 'to_battery_kwh', 'price_total', 'price_feed_in', 'value_self_used',
+  'value_exported', 'value_to_battery']
 
 export async function latestSolarSlot(db: Db, siteId: number): Promise<Date | undefined> {
   const [row] = await db
@@ -33,6 +36,7 @@ export async function storeSolarProduction(db: Db, site: Site, buckets: { timest
     .onConflictDoUpdate({
       target: [solarProduction.siteId, solarProduction.slotStart],
       set: { avgW: sql.raw('excluded.avg_w'), updatedAt: now },
+      setWhere: changed('solar_production', ['avg_w']),
     })
 }
 
@@ -43,11 +47,21 @@ export async function storeSolarProduction(db: Db, site: Site, buckets: { timest
  */
 export async function runSolarLedger(db: Db, site: Site, upTo = new Date()): Promise<number> {
   const end = slotStartOf(upTo)
+  // Only slots with meter readings can be booked: one without (the collector was down) would otherwise stay
+  // the oldest gap forever and make every run book all the days since again
   const [gap] = await db
     .select({ slotStart: sql<Date | null>`min(${solarProduction.slotStart})`.mapWith(solarProduction.slotStart) })
     .from(solarProduction)
     .leftJoin(solarLedger, and(eq(solarLedger.siteId, solarProduction.siteId), eq(solarLedger.slotStart, solarProduction.slotStart)))
-    .where(and(eq(solarProduction.siteId, site.id), isNull(solarLedger.slotStart), lt(solarProduction.slotStart, end)))
+    .where(
+      and(
+        eq(solarProduction.siteId, site.id),
+        isNull(solarLedger.slotStart),
+        lt(solarProduction.slotStart, end),
+        sql`exists (select 1 from ${samples} where ${samples.siteId} = ${solarProduction.siteId} and ${samples.kind} = 'grid'
+          and ${samples.ts} >= ${solarProduction.slotStart} and ${samples.ts} < ${solarProduction.slotStart} + interval '15 minutes')`,
+      ),
+    )
   const recent = end.getTime() - DAY_MS
   const from = new Date(Math.min(recent, gap?.slotStart?.getTime() ?? recent))
   let booked = 0
@@ -118,10 +132,9 @@ export async function runSolarLedger(db: Db, site: Site, upTo = new Date()): Pro
       .values(out)
       .onConflictDoUpdate({
         target: [solarLedger.siteId, solarLedger.slotStart],
-        set: Object.fromEntries(
-          ['produced_kwh', 'self_used_kwh', 'exported_kwh', 'to_battery_kwh', 'price_total', 'price_feed_in', 'value_self_used', 'value_exported',
-            'value_to_battery'].map((c) => [c.replace(/_([a-z])/g, (_, l: string) => l.toUpperCase()), sql.raw(`excluded.${c}`)]),
-        ),
+        set: Object.fromEntries(SOLAR_LEDGER_COLUMNS.map((c) => [c.replace(/_([a-z])/g, (_, l: string) => l.toUpperCase()), sql.raw(`excluded.${c}`)])),
+        // The last day is booked again on every run; leave the slots that came out the same alone
+        setWhere: changed('solar_ledger', SOLAR_LEDGER_COLUMNS),
       })
     booked += out.length
   }

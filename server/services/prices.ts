@@ -1,6 +1,7 @@
 import { and, asc, eq, gte, lt, sql } from 'drizzle-orm'
 import type { Db } from '../db/client'
 import { prices, type sites } from '../db/schema'
+import { changed } from '../db/upsert'
 import { feedInPrice } from '../lib/feedin'
 import { pricesMessage } from '../lib/notifications'
 import { addMs, SLOT_MS, slotStartOf, startOfLocalDay } from '../lib/time'
@@ -26,6 +27,7 @@ export async function upsertPrices(db: Db, rows: (typeof prices.$inferInsert)[])
           source: sql`excluded.source`,
           slotMinutes: sql`excluded.slot_minutes`,
         },
+        setWhere: changed('prices', ['energy', 'tax', 'total', 'feed_in', 'source', 'slot_minutes']),
       })
   }
 }

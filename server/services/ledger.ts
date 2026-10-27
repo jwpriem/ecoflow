@@ -1,11 +1,14 @@
 import { and, asc, eq, gte, inArray, lt, sql } from 'drizzle-orm'
 import type { Db } from '../db/client'
 import { batteryPool, devices, ledger, prices, samples, type sites } from '../db/schema'
+import { changed } from '../db/upsert'
 import { bookSlot, type LedgerSample, type Pool } from '../lib/ledger'
 import { addMs, SLOT_MS, slotStartOf } from '../lib/time'
 
 type Site = typeof sites.$inferSelect
 const DAY_MS = 86_400_000
+const LEDGER_COLUMNS = ['charged_solar_kwh', 'charged_grid_kwh', 'discharged_kwh', 'price_total', 'price_feed_in', 'cost_naive', 'cost_opportunity',
+  'value_discharged', 'saving_naive', 'saving_opportunity', 'loss_kwh', 'soc_end']
 
 interface Moment {
   gridW: number
@@ -126,12 +129,9 @@ export async function runLedger(db: Db, site: Site, upTo = new Date()): Promise<
         .onConflictDoUpdate({
           target: [ledger.deviceId, ledger.slotStart],
           set: Object.fromEntries(
-            ['charged_solar_kwh', 'charged_grid_kwh', 'discharged_kwh', 'price_total', 'price_feed_in', 'cost_naive', 'cost_opportunity',
-              'value_discharged', 'saving_naive', 'saving_opportunity', 'loss_kwh', 'soc_end'].map((c) => [
-              c.replace(/_([a-z])/g, (_, l: string) => l.toUpperCase()),
-              sql.raw(`excluded.${c}`),
-            ]),
+            LEDGER_COLUMNS.map((c) => [c.replace(/_([a-z])/g, (_, l: string) => l.toUpperCase()), sql.raw(`excluded.${c}`)]),
           ),
+          setWhere: changed('ledger', LEDGER_COLUMNS),
         })
     }
     booked += ledgerRows.length

@@ -1,5 +1,5 @@
 import type { H3Event } from 'h3'
-import { and, eq, gt } from 'drizzle-orm'
+import { and, asc, eq, gt } from 'drizzle-orm'
 import { sessions, sites, users } from '../db/schema'
 import { newToken, sha256 } from './crypto'
 
@@ -13,25 +13,39 @@ export async function createSession(userId: number, userAgent?: string) {
   return { token, expiresAt }
 }
 
-export async function requireUser(event: H3Event) {
+function bearerHash(event: H3Event) {
   const header = getHeader(event, 'authorization') ?? ''
   const token = header.startsWith('Bearer ') ? header.slice(7) : ''
   if (!token) throw createError({ statusCode: 401, statusMessage: 'Not logged in' })
+  return sha256(token)
+}
+
+export async function requireUser(event: H3Event) {
   const [row] = await useDb()
     .select({ user: users, sessionId: sessions.id })
     .from(sessions)
     .innerJoin(users, eq(users.id, sessions.userId))
-    .where(and(eq(sessions.tokenHash, sha256(token)), gt(sessions.expiresAt, new Date())))
+    .where(and(eq(sessions.tokenHash, bearerHash(event)), gt(sessions.expiresAt, new Date())))
   if (!row) throw createError({ statusCode: 401, statusMessage: 'Session expired' })
   return { ...row.user, sessionId: row.sessionId }
 }
 
-/** The user's site. Single site per user for now; the data model already allows more. */
+/**
+ * The user's site. Single site per user for now; the data model already allows more.
+ * Session, user and site come in one query: every API call starts here.
+ */
 export async function requireSite(event: H3Event) {
-  const user = await requireUser(event)
-  const [site] = await useDb().select().from(sites).where(eq(sites.userId, user.id)).limit(1)
-  if (!site) throw createError({ statusCode: 404, statusMessage: 'No site configured' })
-  return { user, site }
+  const [row] = await useDb()
+    .select({ user: users, sessionId: sessions.id, site: sites })
+    .from(sessions)
+    .innerJoin(users, eq(users.id, sessions.userId))
+    .leftJoin(sites, eq(sites.userId, users.id))
+    .where(and(eq(sessions.tokenHash, bearerHash(event)), gt(sessions.expiresAt, new Date())))
+    .orderBy(asc(sites.id))
+    .limit(1)
+  if (!row) throw createError({ statusCode: 401, statusMessage: 'Session expired' })
+  if (!row.site) throw createError({ statusCode: 404, statusMessage: 'No site configured' })
+  return { user: { ...row.user, sessionId: row.sessionId }, site: row.site }
 }
 
 export function encryptionKey(): string {
