@@ -2,6 +2,7 @@ import { and, asc, eq, gte, inArray, lt, sql } from 'drizzle-orm'
 import type { Db } from '../db/client'
 import { batteryPool, devices, ledger, prices, samples, type sites } from '../db/schema'
 import { changed } from '../db/upsert'
+import { fallbackFeedIn } from '../lib/feedin'
 import { bookSlot, type LedgerSample, type Pool } from '../lib/ledger'
 import { addMs, SLOT_MS, slotStartOf } from '../lib/time'
 
@@ -77,7 +78,7 @@ export async function runLedger(db: Db, site: Site, upTo = new Date()): Promise<
     for (let slot = chunk; slot < chunkEnd; slot = addMs(slot, SLOT_MS)) {
       const price = priceBySlot.get(slot.getTime())
       const priceTotal = price?.total ?? site.strategy.fallbackPrice
-      const priceFeedIn = price?.feedIn ?? priceTotal
+      const priceFeedIn = price?.feedIn ?? fallbackFeedIn(slot, priceTotal, site.strategy.feedIn, site.timezone)
       const moms = bySlot.get(slot.getTime()) ?? []
 
       for (const [deviceId, pool] of pools) {

@@ -47,7 +47,8 @@ export const defaultStrategy: StrategyConfig = {
   maxOutputW: 800,
   maxOutputAuto: true,
   dailyCycleKwh: 0,
-  feedIn: { nettingUntil: '2027-01-01', factor: 1, feeEur: 0 },
+  // Tibber's terms (2026-09): the spot price minus a verkoopvergoeding of €0.018/kWh, no separate feed-in costs
+  feedIn: { nettingUntil: '2027-01-01', factor: 1, feeEur: 0.018 },
   fallbackPrice: 0.25,
 }
 
