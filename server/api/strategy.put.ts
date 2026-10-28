@@ -1,7 +1,8 @@
 import { eq } from 'drizzle-orm'
-import { sites } from '../db/schema'
+import { devices, sites } from '../db/schema'
 import { defaultStrategy, type StrategyConfig } from '../lib/types'
-import { runStrategy } from '../services/strategy'
+import { refreshTypicalLoad } from '../services/load'
+import { effectiveStrategy, runStrategy } from '../services/strategy'
 
 function num(v: unknown, min: number, max: number, fallback: number) {
   const n = Number(v)
@@ -19,7 +20,9 @@ export default defineEventHandler(async (event) => {
     minSpread: num(b.minSpread, 0, 1, cur.minSpread),
     gridCharge: typeof b.gridCharge === 'boolean' ? b.gridCharge : cur.gridCharge,
     avgLoadW: num(b.avgLoadW, 50, 5000, cur.avgLoadW),
+    avgLoadAuto: typeof b.avgLoadAuto === 'boolean' ? b.avgLoadAuto : cur.avgLoadAuto,
     maxOutputW: num(b.maxOutputW, 50, 10000, cur.maxOutputW),
+    maxOutputAuto: typeof b.maxOutputAuto === 'boolean' ? b.maxOutputAuto : cur.maxOutputAuto,
     dailyCycleKwh: num(b.dailyCycleKwh, 0, 100, cur.dailyCycleKwh),
     fallbackPrice: num(b.fallbackPrice, 0, 2, cur.fallbackPrice),
     feedIn: {
@@ -28,7 +31,13 @@ export default defineEventHandler(async (event) => {
       feeEur: num(b.feedIn?.feeEur, -1, 1, cur.feedIn.feeEur),
     },
   }
-  const [updated] = await useDb().update(sites).set({ strategy: next }).where(eq(sites.id, site.id)).returning()
-  await runStrategy(useDb(), updated!)
-  return next
+  const db = useDb()
+  let [updated] = await db.update(sites).set({ strategy: next }).where(eq(sites.id, site.id)).returning()
+  // Switched to auto: work the typical load out now rather than tonight
+  if (next.avgLoadAuto && !cur.avgLoadAuto) {
+    await refreshTypicalLoad(db, updated!)
+    ;[updated] = await db.select().from(sites).where(eq(sites.id, site.id))
+  }
+  await runStrategy(db, updated!)
+  return effectiveStrategy(updated!, await db.select({ model: devices.model, maxDischargeW: devices.maxDischargeW }).from(devices).where(eq(devices.siteId, site.id)))
 })

@@ -1,6 +1,7 @@
 import { and, eq } from 'drizzle-orm'
 import type { Db } from '../db/client'
 import { devices, type sites } from '../db/schema'
+import { batteryModel } from '../lib/batteryModels'
 import type { BatteryMode } from '../lib/types'
 import {
   backupReserveFor,
@@ -40,12 +41,17 @@ export async function syncEcoFlowDevices(db: Db, site: Site, key: string): Promi
     const existing = await db.select().from(devices).where(eq(devices.siteId, site.id))
     for (const d of list) {
       if (existing.some((e) => e.serial === d.sn)) continue
+      const model = d.productName || 'STREAM Pro'
+      const spec = batteryModel(model)
       await db.insert(devices).values({
         siteId: site.id,
         driver: 'ecoflow_official',
         serial: d.sn,
         name: d.deviceName || d.productName || d.sn,
-        model: d.productName || 'STREAM Pro',
+        model,
+        capacityWh: spec.capacityWh,
+        maxChargeW: spec.maxChargeW,
+        maxDischargeW: spec.maxDischargeW,
       })
     }
     const meta = {

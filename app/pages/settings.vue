@@ -47,14 +47,23 @@
             <span class="stack-text"><span class="title">{{ m.settings.minProfit }}</span><span class="small muted">{{ m.settings.help.minProfit }}</span></span>
             <span class="unit-in">€ <input v-model.number="strategy.minSpread" type="number" step="0.01" inputmode="decimal" /> /kWh</span>
           </label>
-          <label class="list-row">
-            <span class="stack-text"><span class="title">{{ m.settings.typicalLoad }}</span><span class="small muted">{{ m.settings.help.typicalLoad }}</span></span>
-            <span class="unit-in"><input v-model.number="strategy.avgLoadW" type="number" inputmode="numeric" /> W</span>
-          </label>
-          <label class="list-row">
-            <span class="stack-text"><span class="title">{{ m.settings.maxOutput }}</span><span class="small muted">{{ m.settings.help.maxOutput }}</span></span>
-            <span class="unit-in"><input v-model.number="strategy.maxOutputW" type="number" inputmode="numeric" /> W</span>
-          </label>
+          <!-- Worked out by WattsWise unless switched to a value of your own -->
+          <div class="list-row">
+            <span class="stack-text">
+              <span class="title">{{ m.settings.typicalLoad }}</span>
+              <span class="small muted">{{ strategy.avgLoadAuto ? m.settings.help.typicalLoadAuto : m.settings.help.typicalLoad }}</span>
+              <label class="auto small"><input v-model="strategy.avgLoadAuto" type="checkbox" /> {{ m.settings.auto }}</label>
+            </span>
+            <span class="unit-in"><input v-model.number="strategy.avgLoadW" type="number" inputmode="numeric" :disabled="strategy.avgLoadAuto" :aria-label="m.settings.typicalLoad" /> W</span>
+          </div>
+          <div class="list-row">
+            <span class="stack-text">
+              <span class="title">{{ m.settings.maxOutput }}</span>
+              <span class="small muted">{{ strategy.maxOutputAuto ? m.settings.help.maxOutputAuto : m.settings.help.maxOutput }}</span>
+              <label class="auto small"><input v-model="strategy.maxOutputAuto" type="checkbox" /> {{ m.settings.auto }}</label>
+            </span>
+            <span class="unit-in"><input v-model.number="strategy.maxOutputW" type="number" inputmode="numeric" :disabled="strategy.maxOutputAuto" :aria-label="m.settings.maxOutput" /> W</span>
+          </div>
           <label class="list-row">
             <span class="stack-text"><span class="title">{{ m.settings.dailyCycle }}</span><span class="small muted">{{ m.settings.help.dailyCycle }}</span></span>
             <span class="unit-in"><input v-model.number="strategy.dailyCycleKwh" type="number" step="0.1" inputmode="decimal" /> kWh</span>
@@ -576,6 +585,9 @@ function onVisible() {
 .list-row > .stack-text { flex: 1 1 auto; }
 .row-btn:disabled { opacity: 0.6; }
 .danger-text { color: var(--alert); }
+.auto { display: inline-flex; align-items: center; gap: 6px; margin-top: 4px; color: var(--text-2); }
+.auto input { width: 16px; height: 16px; margin: 0; }
+.unit-in input:disabled { opacity: 0.6; }
 .admin-link { color: var(--text); text-decoration: none; }
 .danger-fill { background: var(--alert); border-color: var(--alert); color: #fff; }
 .copy { user-select: all; word-break: break-all; }
