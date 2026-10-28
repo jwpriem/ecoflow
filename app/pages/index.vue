@@ -147,6 +147,7 @@ const sky = useState<'day' | 'night'>('sky', () => 'day')
 const { view, animate } = useFlowView()
 const { m } = useLocale()
 const { carStatus } = useCarStatus()
+const { loadMe } = useAuth()
 const viewOptions = computed(() => [
   { value: 'clean' as const, label: m.value.home.viewClean },
   { value: 'detailed' as const, label: m.value.home.viewHouse },
@@ -161,7 +162,8 @@ async function load() {
       api('/api/dashboard'),
       api('/api/soc').catch(() => null),
       api('/api/plan').catch(() => null),
-      api('/api/vehicles').catch(() => null),
+      // Cars only for a household with the experimental integrations on; for others the server refuses
+      loadMe().then((me) => (me?.experimental ? api('/api/vehicles') : null)).catch(() => null),
     ])
     d.value = dash
     if (s) soc.value = s

@@ -17,15 +17,18 @@
 </template>
 
 <script setup lang="ts">
-const { loggedIn } = useAuth()
+const { loggedIn, experimental, loadMe } = useAuth()
 const { locale, m } = useLocale()
 const sky = useState<'day' | 'night'>('sky', () => 'day')
 useHead({ htmlAttrs: { lang: locale } })
-const tabs = [
+const ALL_TABS = [
   { to: '/', key: 'home', icon: 'house' },
   { to: '/savings', key: 'savings', icon: 'chart' },
   { to: '/plan', key: 'plan', icon: 'calendar' },
-  { to: '/cars', key: 'cars', icon: 'car' },
+  { to: '/cars', key: 'cars', icon: 'car', experimental: true },
   { to: '/settings', key: 'settings', icon: 'gear' },
 ] as const
+// The Cars tab only for a household with the experimental integrations on
+const tabs = computed(() => ALL_TABS.filter((t) => !('experimental' in t) || experimental.value))
+watch(loggedIn, (on) => on && loadMe().catch(() => undefined), { immediate: true })
 </script>

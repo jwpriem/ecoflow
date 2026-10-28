@@ -3,13 +3,14 @@ import { batteryPool, devices, integrations, plans, samples } from '../db/schema
 import type { DeviceState } from '../providers/ecoflow'
 import { slotStartOf, startOfLocalDay } from '../lib/time'
 import { liveState } from '../services/collector'
+import { isExperimentalProvider } from '../services/experimental'
 import { getPrices } from '../services/prices'
 import { savingsByPeriod } from '../services/ledger'
 import { solarByPeriod } from '../services/solar'
 import { pulseStatus } from '../providers/tibberPulse'
 
 export default defineEventHandler(async (event) => {
-  const { site } = await requireSite(event)
+  const { site, experimental } = await requireSite(event)
   const db = useDb()
   const now = new Date()
   const slot = slotStartOf(now)
@@ -72,7 +73,8 @@ export default defineEventHandler(async (event) => {
     solarToday: solarToday ?? null,
     sources: {
       pulse: pulseStatus(site.id),
-      integrations: ints,
+      // Experimental connections stay invisible to a household without them, even with credentials still stored
+      integrations: experimental ? ints : ints.filter((i) => !isExperimentalProvider(i.provider)),
     },
   }
 })
