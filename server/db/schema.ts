@@ -362,6 +362,20 @@ export const pushSubscriptions = pgTable(
   (t) => [index('push_subscriptions_site').on(t.siteId)],
 )
 
+/** One row per background job run that did its work (not skipped), for the admin's job health. Kept for two days. */
+export const jobRuns = pgTable(
+  'job_runs',
+  {
+    id: bigserial('id', { mode: 'number' }).primaryKey(),
+    job: text('job').notNull(),
+    startedAt: ts('started_at').notNull(),
+    durationMs: integer('duration_ms').notNull(),
+    sitesOk: integer('sites_ok').notNull(),
+    sitesFailed: integer('sites_failed').notNull(),
+  },
+  (t) => [index('job_runs_job_started').on(t.job, t.startedAt)],
+)
+
 /** What admins did to whom: one row per action. The target is kept as a number, so the row outlives the user. */
 export const adminAudit = pgTable(
   'admin_audit',
