@@ -32,6 +32,7 @@ const ACCESS: Record<string, 'owner' | 'household' | 'account' | 'public' | 'adm
   'invite/details.post.ts': 'public',
   'invite/signup.post.ts': 'public',
   'invite/accept.post.ts': 'account',
+  'admin/signup-mode.put.ts': 'admin',
   'admin/users/[id].put.ts': 'admin',
   'admin/users/[id].delete.ts': 'admin',
   'admin/users/[id]/verification.post.ts': 'admin',
