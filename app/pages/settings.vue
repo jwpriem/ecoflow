@@ -219,6 +219,7 @@
         </div>
         <p class="foot">{{ m.settings.languageFoot }}</p>
       </section>
+      <HouseholdSection style="--o: 9" />
       <section class="group" style="--o: 9">
         <h3 class="section-title">{{ m.settings.account }}</h3>
         <div class="list">

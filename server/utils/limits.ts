@@ -16,6 +16,8 @@ export const LIMITS = {
   passwordUser: new RateLimiter(10, 60 * MIN),
   verifyResendUser: new RateLimiter(3, 60 * MIN),
   verifyIp: new RateLimiter(20, 60 * MIN),
+  inviteUser: new RateLimiter(10, 60 * MIN),
+  inviteIp: new RateLimiter(30, 60 * MIN),
 }
 
 /** The visitor's address. App Platform puts it in do-connecting-ip; elsewhere the first X-Forwarded-For entry. */
