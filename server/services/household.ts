@@ -167,7 +167,7 @@ export async function signUpWithInvite(db: Db, input: InviteSignupInput, now = n
 }
 
 /** Out of the household and into a fresh, empty one of their own. Their devices stop getting its notifications. */
-async function moveOut(tx: Tx, userId: number) {
+export async function moveOut(tx: Tx, userId: number) {
   await tx.delete(siteMembers).where(eq(siteMembers.userId, userId))
   await tx.delete(pushSubscriptions).where(eq(pushSubscriptions.userId, userId))
   return newHousehold(tx, userId, { controlMode: 'manual' })
