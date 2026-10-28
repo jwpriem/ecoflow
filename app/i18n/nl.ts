@@ -453,6 +453,13 @@ export const nl: Messages = {
     newPassword: 'Nieuw wachtwoord (minstens 8 tekens)',
     savePassword: 'Wachtwoord opslaan',
     passwordChanged: 'Wachtwoord gewijzigd. Andere apparaten zijn uitgelogd.',
+    deleteAccount: 'Account verwijderen',
+    deleteOwner: (household: string) => `Dit verwijdert je account en het huishouden ${household}: de koppelingen, de batterijen, de plannen en alle metingen. WattsWise stuurt je batterijen niet meer aan; ze volgen weer hun eigen instellingen in de EcoFlow-app. Leden houden hun account, beginnen met een leeg huishouden en krijgen een e-mail. Dit kan niet ongedaan worden gemaakt.`,
+    deleteMember: 'Dit verwijdert je account. Het huishouden en de gegevens blijven bij de eigenaar. Dit kan niet ongedaan worden gemaakt.',
+    deleteConfirmOwner: 'Je account en het hele huishouden definitief verwijderen?',
+    deleteConfirmMember: 'Je account definitief verwijderen?',
+    deleteForever: 'Definitief verwijderen',
+    deleting: 'Verwijderen…',
   },
   push: {
     topics: {
@@ -494,6 +501,7 @@ export const nl: Messages = {
     'This address already has an account: log in to accept': 'Dit adres heeft al een account: log in om de uitnodiging aan te nemen',
     "The owner can't leave the household": 'De eigenaar kan het huishouden niet verlaten',
     'Member not found': 'Lid niet gevonden',
+    'The password is wrong': 'Het wachtwoord klopt niet',
     'Only the household owner can do this': 'Alleen de eigenaar van het huishouden kan dit doen',
     'Not logged in': 'Niet ingelogd',
     'Session expired': 'Sessie verlopen',

@@ -244,6 +244,18 @@
           </details>
           <div class="list-row"><button class="plain danger" @click="logout">{{ m.settings.logOut }}</button></div>
           <div class="list-row"><button class="plain danger" @click="logoutAll">{{ m.settings.logOutAll }}</button></div>
+          <details class="conn">
+            <summary class="list-row"><span class="title danger-text">{{ m.settings.deleteAccount }}</span><AppIcon name="chevron" class="chev" /></summary>
+            <form class="conn-body" @submit.prevent="deleteAccount">
+              <p class="small">{{ isOwner ? m.settings.deleteOwner(me?.site.name ?? '') : m.settings.deleteMember }}</p>
+              <input :value="me?.email" type="email" autocomplete="username" hidden readonly />
+              <label class="field"><span>{{ m.settings.currentPassword }}</span><input v-model="del.password" type="password" autocomplete="current-password" required /></label>
+              <div class="row">
+                <button class="primary danger-fill" type="submit" :disabled="busy === 'delete'">{{ busy === 'delete' ? m.settings.deleting : m.settings.deleteForever }}</button>
+                <span v-if="del.error" class="small error" role="status">{{ del.error }}</span>
+              </div>
+            </form>
+          </details>
         </div>
       </section>
       </div>
@@ -455,6 +467,23 @@ async function logoutAll() {
   await navigateTo('/login')
 }
 
+const del = reactive({ password: '', error: '' })
+async function deleteAccount() {
+  if (!confirm(isOwner.value ? m.value.settings.deleteConfirmOwner : m.value.settings.deleteConfirmMember)) return
+  busy.value = 'delete'
+  del.error = ''
+  try {
+    await push.disable().catch(() => undefined)
+    await api('/api/account', { method: 'DELETE', body: { password: del.password } })
+    setToken(null)
+    await navigateTo('/login')
+  } catch (e: any) {
+    del.error = serverText(e?.data?.statusMessage) || e?.message
+  } finally {
+    busy.value = ''
+  }
+}
+
 async function logout() {
   await push.disable().catch(() => undefined)
   await api('/api/auth/logout', { method: 'POST' }).catch(() => undefined)
@@ -519,6 +548,8 @@ function onVisible() {
 .stack-text + .unit-in input { width: 7ch; }
 .list-row > .stack-text { flex: 1 1 auto; }
 .row-btn:disabled { opacity: 0.6; }
+.danger-text { color: var(--alert); }
+.danger-fill { background: var(--alert); border-color: var(--alert); color: #fff; }
 .copy { user-select: all; word-break: break-all; }
 .foot { font-size: 13px; color: var(--text-2); margin: -4px 2px 0; max-width: 60ch; }
 .wide { width: 100%; margin-top: 4px; padding: 13px; }
