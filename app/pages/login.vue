@@ -1,6 +1,6 @@
 <template>
   <div class="login">
-    <img class="mark" src="/favicon.svg" alt="WattWise" width="64" height="64" />
+    <img class="mark" src="/favicon.svg" alt="WattsWise" width="64" height="64" />
     <h1>{{ needsSetup ? m.login.welcome : m.login.welcomeBack }}</h1>
     <p class="muted lede">{{ needsSetup ? m.login.firstRun : m.login.logInToSee }}</p>
     <form @submit.prevent="submit">

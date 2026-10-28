@@ -11,7 +11,7 @@ self.addEventListener('push', (event) => {
     data = { body: event.data ? event.data.text() : '' }
   }
   event.waitUntil(
-    self.registration.showNotification(data.title || 'WattWise', {
+    self.registration.showNotification(data.title || 'WattsWise', {
       body: data.body || '',
       tag: data.tag,
       icon: '/icon-192.png',

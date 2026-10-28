@@ -3,7 +3,7 @@
     <header class="page-head"><h1>{{ m.settings.title }}</h1></header>
     <LoadError v-if="loadError" :error="loadError" :what="m.load.what.settings" :busy="busy === 'load'" @retry="retryLoad" />
 
-    <!-- On a large screen: how WattWise runs on the left, what it connects to (accounts, batteries, this device) on the right.
+    <!-- On a large screen: how WattsWise runs on the left, what it connects to (accounts, batteries, this device) on the right.
          On a phone the groups keep one column, in the order set by --o -->
     <div class="groups">
       <div class="col">

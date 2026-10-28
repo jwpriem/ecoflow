@@ -21,7 +21,7 @@ export default defineEventHandler(async (event) => {
     model: v.model,
     capacityKwh: v.capacityKwh,
     tibberVehicleId: map[v.id] ?? null,
-    /** The departure last set from WattWise */
+    /** The departure last set from WattsWise */
     departure: meta.departures?.[v.id] ?? null,
     state: (v.state ?? {}) as Partial<VehicleState>,
   }))

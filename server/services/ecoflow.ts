@@ -122,7 +122,7 @@ export async function readEcoFlow(db: Db, site: Site, key: string, now = new Dat
   return out
 }
 
-/** Who steers the STREAM: EcoFlow's own AI mode, or WattWise through the backup reserve (Self-Powered mode) */
+/** Who steers the STREAM: EcoFlow's own AI mode, or WattsWise through the backup reserve (Self-Powered mode) */
 export type EcoFlowSteering = 'ecoflow_ai' | 'wattwise'
 
 export function steeringOf(meta: Record<string, unknown> | undefined): EcoFlowSteering {
@@ -146,7 +146,7 @@ async function mainUnit(db: Db, site: Site) {
 const operateMode = (steering: EcoFlowSteering) =>
   steering === 'wattwise' ? { operateSelfPoweredOpen: true } : { operateIntelligentScheduleModeOpen: true }
 
-/** Switch the system between EcoFlow AI and WattWise. Returns an error message, or nothing when it worked. */
+/** Switch the system between EcoFlow AI and WattsWise. Returns an error message, or nothing when it worked. */
 export async function setEcoFlowSteering(db: Db, site: Site, key: string, steering: EcoFlowSteering): Promise<string | undefined> {
   const integ = await credentials(db, site, key)
   if (!integ) return 'EcoFlow developer API is not connected'
@@ -162,7 +162,7 @@ export async function setEcoFlowSteering(db: Db, site: Site, key: string, steeri
 }
 
 /**
- * Apply one plan mode to the STREAM system. Only when WattWise steers; with EcoFlow AI nothing is sent.
+ * Apply one plan mode to the STREAM system. Only when WattsWise steers; with EcoFlow AI nothing is sent.
  * Returns what to put in the command log.
  */
 export async function controlEcoFlow(db: Db, site: Site, key: string, mode: BatteryMode): Promise<string> {
@@ -181,7 +181,7 @@ export async function controlEcoFlow(db: Db, site: Site, key: string, mode: Batt
     maxChgPct: n('cmsMaxChgSoc', 100),
   })
   try {
-    // The app (or a reset) may have switched AI mode back on; WattWise only works in Self-Powered mode
+    // The app (or a reset) may have switched AI mode back on; WattsWise only works in Self-Powered mode
     const switchMode = q['energyStrategyOperateMode.operateSelfPoweredOpen'] === false
     if (switchMode) await setStreamConfig(integ.creds, main.serial, { cfgEnergyStrategyOperateMode: operateMode('wattwise') }, integ.opts)
     await setStreamConfig(integ.creds, main.serial, { cfgBackupReverseSoc: reserve }, integ.opts)

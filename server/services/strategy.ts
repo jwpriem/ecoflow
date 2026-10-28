@@ -127,7 +127,7 @@ async function applyCommand(db: Db, site: Site, cmd: Command, now: Date, send?: 
 
 /**
  * Once a minute, from the collector: switch a hold or self-use slot to charging while the Pulse sees a
- * solar surplus, and back. Only when WattWise steers in auto mode without an override.
+ * solar surplus, and back. Only when WattsWise steers in auto mode without an override.
  */
 export async function runSurplus(
   db: Db,

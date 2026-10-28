@@ -99,4 +99,4 @@ export function dailyMessage(t: { savingNaive: number; dischargedKwh: number; ch
 
 /** Sent from Settings to check that notifications reach this device */
 export const testMessage: LocalizedPush = (l) =>
-  l === 'nl' ? { title: 'WattWise', body: 'Meldingen werken 🎉', url: '/settings', tag: 'test' } : { title: 'WattWise', body: 'Notifications work 🎉', url: '/settings', tag: 'test' }
+  l === 'nl' ? { title: 'WattsWise', body: 'Meldingen werken 🎉', url: '/settings', tag: 'test' } : { title: 'WattsWise', body: 'Notifications work 🎉', url: '/settings', tag: 'test' }
