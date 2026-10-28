@@ -27,9 +27,6 @@ services:
       - key: NUXT_ENCRYPTION_KEY
         scope: RUN_TIME
         type: SECRET
-      - key: NUXT_SETUP_CODE # needed once, to create the account on first visit
-        scope: RUN_TIME
-        type: SECRET
       - key: NUXT_JOBS_ENABLED
         scope: RUN_TIME
         value: "true"

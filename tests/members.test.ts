@@ -59,8 +59,8 @@ describe('households', () => {
   })
 
   it('never resolves another user\'s household', async () => {
-    const a = await createAccount(db, 'a@example.com', 'password-a', 'A')
-    const b = await createAccount(db, 'B@Example.com ', 'password-b', 'B')
+    const a = await createAccount(db, 'a@example.com', 'password-a', { siteName: 'A' })
+    const b = await createAccount(db, 'B@Example.com ', 'password-b', { siteName: 'B' })
     await session(db, a.user.id, 'token-a')
     await session(db, b.user.id, 'token-b')
     expect((await sessionSite(db, sha256('token-a')))?.site?.id).toBe(a.site.id)
