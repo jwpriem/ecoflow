@@ -11,6 +11,7 @@ export default defineEventHandler(async (event) => {
   if (!user || !(await verifyPassword(body?.password ?? '', user.passwordHash))) {
     throw createError({ statusCode: 401, statusMessage: 'Wrong email or password' })
   }
+  if (user.disabledAt) throw createError({ statusCode: 403, statusMessage: 'This account is disabled' })
   LIMITS.loginEmail.reset(email)
   return createSession(user.id, getHeader(event, 'user-agent'))
 })

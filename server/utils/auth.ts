@@ -1,7 +1,7 @@
 import type { H3Event } from 'h3'
-import { and, eq, gt } from 'drizzle-orm'
+import { and, eq, gt, isNull } from 'drizzle-orm'
 import { sessions, users } from '../db/schema'
-import { assertAdmin, assertOwner, experimentalEnabled, sessionSite } from '../services/members'
+import { assertAdmin, assertOwner, experimentalEnabled, sessionSite, touchSession } from '../services/members'
 import { newToken, sha256 } from './crypto'
 
 const SESSION_DAYS = 60
@@ -23,11 +23,12 @@ function bearerHash(event: H3Event) {
 
 export async function requireUser(event: H3Event) {
   const [row] = await useDb()
-    .select({ user: users, sessionId: sessions.id })
+    .select({ user: users, sessionId: sessions.id, lastUsedAt: sessions.lastUsedAt })
     .from(sessions)
     .innerJoin(users, eq(users.id, sessions.userId))
-    .where(and(eq(sessions.tokenHash, bearerHash(event)), gt(sessions.expiresAt, new Date())))
+    .where(and(eq(sessions.tokenHash, bearerHash(event)), gt(sessions.expiresAt, new Date()), isNull(users.disabledAt)))
   if (!row) throw createError({ statusCode: 401, statusMessage: 'Session expired' })
+  touchSession(useDb(), row.sessionId, row.lastUsedAt)
   return { ...row.user, sessionId: row.sessionId }
 }
 
@@ -38,6 +39,7 @@ export async function requireUser(event: H3Event) {
 export async function requireSite(event: H3Event) {
   const row = await sessionSite(useDb(), bearerHash(event))
   if (!row) throw createError({ statusCode: 401, statusMessage: 'Session expired' })
+  touchSession(useDb(), row.sessionId, row.sessionLastUsedAt)
   if (!row.site || !row.role) throw createError({ statusCode: 404, statusMessage: 'No site configured' })
   return { user: { ...row.user, sessionId: row.sessionId }, site: row.site, role: row.role, experimental: experimentalEnabled(row.owner) }
 }

@@ -2,6 +2,7 @@
 export default defineEventHandler(async (event) => {
   const { user, site, role, experimental } = await requireSite(event)
   return {
+    id: user.id,
     email: user.email,
     role: user.role,
     /** Until true, the app shows a "check your email" banner and connecting integrations is refused */

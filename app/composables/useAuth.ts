@@ -11,6 +11,7 @@ function readToken(): string | null {
 }
 
 export interface Me {
+  id: number
   email: string
   role: 'user' | 'admin'
   member: 'owner' | 'member'

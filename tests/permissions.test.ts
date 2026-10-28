@@ -9,8 +9,9 @@ import { assertOwner } from '../server/services/members'
  * - household: anyone in it, owner or member
  * - account: about the logged-in user only, not the household
  * - public: no login (signing in and first-run setup)
+ * - admin: admins only; every route under admin/ is checked below, reads included
  */
-const ACCESS: Record<string, 'owner' | 'household' | 'account' | 'public'> = {
+const ACCESS: Record<string, 'owner' | 'household' | 'account' | 'public' | 'admin'> = {
   'auth/login.post.ts': 'public',
   'auth/signup.post.ts': 'public',
   // The owner's household goes with it: deciding that is the account holder's own, checked with the password
@@ -31,6 +32,9 @@ const ACCESS: Record<string, 'owner' | 'household' | 'account' | 'public'> = {
   'invite/details.post.ts': 'public',
   'invite/signup.post.ts': 'public',
   'invite/accept.post.ts': 'account',
+  'admin/users/[id].put.ts': 'admin',
+  'admin/users/[id].delete.ts': 'admin',
+  'admin/users/[id]/verification.post.ts': 'admin',
   'integrations/[provider].put.ts': 'owner',
   'integrations/[provider].delete.ts': 'owner',
   // A GET, but it starts the SolarEdge sign-in and stores its state
@@ -70,6 +74,10 @@ describe('route permissions', () => {
   it.each(Object.entries(ACCESS).filter(([, a]) => a === 'household'))('%s is open to the whole household', (f) => {
     expect(source(f)).toMatch(/requireSite\(event\)/)
     expect(source(f)).not.toMatch(/requireOwner\(event\)/)
+  })
+
+  it.each(files(API).filter((f) => f.startsWith('admin/')))('%s is for admins only', (f) => {
+    expect(source(f)).toMatch(/requireAdmin\(event\)/)
   })
 
   it('lets only the owner switch steering on or off through an override', () => {
