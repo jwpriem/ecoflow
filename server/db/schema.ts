@@ -30,6 +30,25 @@ export const users = pgTable('users', {
   createdAt: ts('created_at').notNull().defaultNow(),
 })
 
+/**
+ * Single-use links sent by email: a password reset, and later the email check and invites.
+ * Only the SHA-256 of the token is stored; the token itself exists only in the email.
+ */
+export const authTokens = pgTable(
+  'auth_tokens',
+  {
+    id: serial('id').primaryKey(),
+    userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    kind: text('kind').$type<AuthTokenKind>().notNull(),
+    tokenHash: text('token_hash').notNull().unique(),
+    expiresAt: ts('expires_at').notNull(),
+    usedAt: ts('used_at'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [index('auth_tokens_user').on(t.userId)],
+)
+export type AuthTokenKind = 'reset' | 'verify'
+
 /** What a user accepted and which version of it: the terms at sign-up, the steering disclaimer later. */
 export const consents = pgTable(
   'consents',

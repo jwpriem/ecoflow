@@ -225,7 +225,24 @@
           <div class="list-row indent">
             <div class="lead"><span class="icon-tile"><AppIcon name="person" /></span><span class="title">{{ me?.email }}</span></div>
           </div>
+          <details class="conn">
+            <summary class="list-row indent">
+              <div class="lead"><span class="icon-tile"><AppIcon name="key" /></span><span class="title">{{ m.settings.changePassword }}</span></div>
+              <AppIcon name="chevron" class="chev" />
+            </summary>
+            <form class="conn-body" @submit.prevent="savePassword">
+              <!-- The email is there for password managers, which save the new password under it -->
+              <input :value="me?.email" type="email" autocomplete="username" hidden readonly />
+              <label class="field"><span>{{ m.settings.currentPassword }}</span><input v-model="pw.current" type="password" autocomplete="current-password" required /></label>
+              <label class="field"><span>{{ m.settings.newPassword }}</span><input v-model="pw.next" type="password" autocomplete="new-password" required minlength="8" /></label>
+              <div class="row">
+                <button class="primary" type="submit" :disabled="busy === 'password'">{{ m.settings.savePassword }}</button>
+                <span v-if="pwMsg" class="small" :class="pwMsg.ok ? 'pos' : 'error'" role="status">{{ pwMsg.text }}</span>
+              </div>
+            </form>
+          </details>
           <div class="list-row"><button class="plain danger" @click="logout">{{ m.settings.logOut }}</button></div>
+          <div class="list-row"><button class="plain danger" @click="logoutAll">{{ m.settings.logOutAll }}</button></div>
         </div>
       </section>
       </div>
@@ -412,6 +429,29 @@ async function saveStrategy() {
   } catch (e: any) {
     strategyMsg.value = { ok: false, text: whyNot(e) }
   }
+}
+
+const pw = reactive({ current: '', next: '' })
+const pwMsg = ref<Msg>(null)
+async function savePassword() {
+  busy.value = 'password'
+  pwMsg.value = null
+  try {
+    await api('/api/auth/password', { method: 'PUT', body: { current: pw.current, password: pw.next } })
+    pw.current = pw.next = ''
+    pwMsg.value = { ok: true, text: m.value.settings.passwordChanged }
+  } catch (e: any) {
+    pwMsg.value = { ok: false, text: serverText(e?.data?.statusMessage) || e?.message }
+  } finally {
+    busy.value = ''
+  }
+}
+
+async function logoutAll() {
+  await push.disable().catch(() => undefined)
+  await api('/api/auth/logout-all', { method: 'POST' }).catch(() => undefined)
+  setToken(null)
+  await navigateTo('/login')
 }
 
 async function logout() {

@@ -14,6 +14,10 @@ const ACCESS: Record<string, 'owner' | 'household' | 'account' | 'public'> = {
   'auth/login.post.ts': 'public',
   'auth/signup.post.ts': 'public',
   'auth/logout.post.ts': 'account',
+  'auth/logout-all.post.ts': 'account',
+  'auth/password.put.ts': 'account',
+  'auth/reset/request.post.ts': 'public',
+  'auth/reset/confirm.post.ts': 'public',
   'integrations/[provider].put.ts': 'owner',
   'integrations/[provider].delete.ts': 'owner',
   // A GET, but it starts the SolarEdge sign-in and stores its state

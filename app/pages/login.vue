@@ -18,6 +18,7 @@
       <p v-if="notice" class="notice" role="status">{{ notice }}</p>
       <button class="primary" type="submit" :disabled="busy">{{ busy ? (signingUp ? m.login.creating : m.login.loggingIn) : signingUp ? m.login.create : m.login.logIn }}</button>
     </form>
+    <p v-if="!signingUp" class="other small"><NuxtLink to="/reset">{{ m.login.forgot }}</NuxtLink></p>
     <p v-if="signupOpen" class="other small muted">
       {{ signingUp ? m.login.haveAccount : m.login.noAccount }}
       <button type="button" class="plain" @click="toggle">{{ signingUp ? m.login.logIn : m.login.create }}</button>
