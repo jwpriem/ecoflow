@@ -10,6 +10,9 @@
       <p v-if="data.steering === 'ecoflow_ai'" class="note">{{ m.plan.aiSteers }} <NuxtLink to="/settings">{{ m.plan.changeInSettings }}</NuxtLink></p>
       <p v-else-if="data.controlMode === 'manual'" class="note">{{ m.plan.monitorOnly }} <NuxtLink to="/settings">{{ m.plan.changeInSettings }}</NuxtLink></p>
 
+      <!-- On a large screen the chart takes the width; what's coming up and the override sit beside it -->
+      <div class="cols">
+      <div class="main">
       <!-- No prices: nothing to plan with -->
       <section v-if="!data.slots.length" class="no-prices">
         <h2>{{ m.plan.noPrices }}</h2>
@@ -38,8 +41,11 @@
       </ul>
       <p v-if="!hasTomorrow" class="hint">{{ m.plan.tomorrowAt13 }}</p>
       <p v-if="solarDays.length" class="hint">{{ m.plan.expectedSolar(solarDays.map((d) => `${d.label.toLowerCase()} ${kwh(d.kwh, 1)}`).join(', ')) }}</p>
+      </template>
+      </div>
 
-      <section class="block">
+      <div class="side">
+      <section v-if="data.slots.length" class="block">
         <div class="block-head"><h2>{{ m.plan.comingUp }}</h2></div>
         <template v-for="g in shownGroups" :key="g.day">
           <h3 class="block-sub">{{ g.day }}</h3>
@@ -57,7 +63,6 @@
         </template>
         <button v-if="hiddenRuns > 0" class="plain more" @click="allRuns = true">{{ m.plan.showMore(hiddenRuns) }}</button>
       </section>
-      </template>
 
       <section class="block">
         <div class="block-head"><h2>{{ m.plan.overrideTitle }}</h2></div>
@@ -74,8 +79,9 @@
           <button class="primary" :disabled="busy || !overrideMode" @click="startOverride">{{ overrideMode ? m.plan.overrideFor(actionLabel(overrideMode), durationLabel) : m.plan.chooseMode }}</button>
         </div>
       </section>
+      </div>
 
-      <details class="block disclosure">
+      <details class="block disclosure commands">
         <summary>{{ m.plan.commandsSent }} <AppIcon name="chevron" class="chev" style="width: 18px; height: 18px" /></summary>
         <div class="table-wrap">
           <table>
@@ -93,6 +99,7 @@
           <p v-if="!data.commands?.length" class="hint">{{ m.plan.nothingSent }}</p>
         </div>
       </details>
+      </div>
 
       <Transition name="toast"><p v-if="message" class="toast" role="status">{{ message }}</p></Transition>
     </template>
@@ -281,7 +288,8 @@ onBeforeUnmount(() => clearInterval(tick))
 .legend { list-style: none; display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 10px 0 0; padding: 0; font-size: 13px; color: var(--text-2); }
 .legend li { display: inline-flex; align-items: center; gap: 6px; }
 .legend + .hint { margin-top: 6px; }
-.legend ~ .block { margin-top: 32px; }
+/* The runs and the override follow the chart on a phone, with the same gap the blocks had before */
+.side { margin-top: 32px; }
 
 .runs { list-style: none; margin: 0; padding: 0; }
 .runs li + li { border-top: 1px solid var(--rule); }
@@ -293,7 +301,7 @@ onBeforeUnmount(() => clearInterval(tick))
 .run:hover .run-act { text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--muted); }
 .run .sw { align-self: center; }
 .run-time, .run-price { font-variant-numeric: tabular-nums; font-stretch: 85%; color: var(--text-2); }
-.run-price { font-size: 14px; }
+.run-price { font-size: 14px; white-space: nowrap; }
 .run-act em { font-style: normal; font-size: 12px; font-weight: 600; margin-left: 8px; padding: 1px 6px; border-radius: 3px; background: var(--text); color: var(--bg); vertical-align: 2px; }
 .current .run-act { font-weight: 600; }
 .run-reason { grid-column: 3 / -1; font-size: 13px; color: var(--text-2); margin-top: 2px; }
@@ -327,6 +335,19 @@ onBeforeUnmount(() => clearInterval(tick))
 }
 .toast-enter-active, .toast-leave-active { transition: opacity 0.2s, transform 0.25s var(--ease-out); }
 .toast-enter-from, .toast-leave-to { opacity: 0; transform: translate(-50%, 6px); }
+
+/* The chart gets the width; the readout sits above it like a caption and the side column starts level with it */
+@media (min-width: 1024px) {
+  .readout { min-height: 104px; }
+  .r-act { font-size: 36px; }
+  .side { margin-top: 0; padding-top: 6px; grid-column: 2; grid-row: 1 / span 2; }
+  /* The command log sits under the chart instead of below both columns */
+  .cols { grid-template-rows: auto 1fr; }
+  .commands { grid-column: 1; grid-row: 2; align-self: start; margin-top: 12px; }
+  .o-foot { flex-direction: column; align-items: stretch; }
+  .o-foot .primary { width: 100%; }
+  .toast { left: calc(50% + var(--rail) / 2); bottom: 32px; }
+}
 
 @media (max-width: 380px) {
   .run { grid-template-columns: 10px 84px 1fr auto; }

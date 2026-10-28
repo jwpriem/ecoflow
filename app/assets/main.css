@@ -319,3 +319,51 @@ nav.tabs a.router-link-exact-active::before { transform: scaleX(1); }
   main { max-width: 680px; padding-top: calc(40px + env(safe-area-inset-top)); }
   nav.tabs { padding-left: calc((100% - 680px) / 2); padding-right: calc((100% - 680px) / 2); }
 }
+
+/* Only the rail has a logo and a live readout; the tab bar stays five tabs */
+nav.tabs .rail-only { display: none; }
+
+/*
+ * Large screens: the tab bar stands up as a rail on the left, on the same canvas as the page.
+ * The ink bar that sits on top of the active tab moves to the window edge. Pages get the width
+ * and lay out in columns (see each page's own min-width: 1024px rules).
+ */
+@media (min-width: 1024px) {
+  :root { --rail: 228px; --page: 1160px; --gutter: clamp(32px, 4vw, 64px); }
+  nav.tabs {
+    top: 0; right: auto; width: var(--rail);
+    display: flex; flex-direction: column; gap: 2px;
+    padding: calc(28px + env(safe-area-inset-top)) 16px 24px;
+    border-top: 0; border-right: 1px solid var(--rule);
+  }
+  nav.tabs .rail-logo, nav.tabs .rail-gap { display: block; }
+  nav.tabs a {
+    flex-direction: row; gap: 12px; padding: 9px 12px; border-radius: var(--radius-sm);
+    font-size: 15px; transition: background 0.15s, color 0.15s;
+  }
+  nav.tabs a:hover { background: var(--fill-2); color: var(--text); }
+  nav.tabs a::before { top: 8px; bottom: 8px; left: -16px; right: auto; width: 2px; height: auto; transform: scaleY(0); }
+  nav.tabs a.router-link-exact-active::before { transform: scaleY(1); }
+  nav.tabs a svg { width: 20px; height: 20px; }
+  nav.tabs a.rail-logo { padding: 2px 12px 0; margin-bottom: 28px; }
+  nav.tabs a.rail-logo::before { display: none; }
+  nav.tabs a.rail-logo:hover { background: none; }
+  .rail-logo img { height: 24px; width: auto; display: block; }
+  .rail-gap { flex: 1; }
+
+  .shell.authed main {
+    max-width: none; margin: 0 0 0 var(--rail);
+    padding: calc(44px + env(safe-area-inset-top)) var(--gutter) 72px;
+  }
+  .shell.authed main > * { max-width: var(--page); margin-inline: auto; }
+
+  .page-head { margin-bottom: 32px; }
+  .page-head h1 { font-size: 36px; }
+
+  /* Two columns that start at the same line: the wide one for charts, the side one for lists and actions */
+  .cols { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 0 56px; align-items: start; }
+}
+/* A smaller laptop gives the side column a larger share, so its rows don't wrap */
+@media (min-width: 1024px) and (max-width: 1279px) {
+  .cols { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 0 40px; }
+}

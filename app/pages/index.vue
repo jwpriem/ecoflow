@@ -9,6 +9,9 @@
     <LoadError v-else-if="error" :error="error" :what="m.load.what.batteries" :busy="loading" auto @retry="load" />
 
     <template v-if="d">
+      <!-- One column on a phone; on a large screen the charge and the day on the left, the flow and cars beside them -->
+      <div class="cols">
+      <div class="main">
       <!-- No batteries yet: say what to do instead of showing a 0% pack -->
       <section v-if="!d.devices.length" class="status">
         <h1 class="headline">{{ m.home.connectTitle }}</h1>
@@ -82,7 +85,9 @@
           <span v-else class="f-note">{{ m.home.noPriceNow }}</span>
         </div>
       </section>
+      </div>
 
+      <div class="side">
       <!-- The cars at a glance; the Cars tab has the details -->
       <section v-if="cars.length" class="block">
         <div class="block-head">
@@ -100,7 +105,7 @@
         </NuxtLink>
       </section>
 
-      <section v-if="d.devices.length || d.live" class="block">
+      <section v-if="d.devices.length || d.live" class="block flow-block">
         <div class="block-head">
           <h2>{{ m.home.energyFlow }}</h2>
           <Segmented v-model="view" :options="viewOptions" />
@@ -112,11 +117,14 @@
       </section>
 
       <footer class="sources">
+        <span class="sources-clock"><span class="dot live" /> {{ time(d.now) }}</span>
         <span><span class="dot" :class="d.sources.pulse.connected ? 'ok' : ''" /> Tibber Pulse</span>
         <span v-for="i in d.sources.integrations" :key="i.provider">
           <span class="dot" :class="i.status === 'ok' ? 'ok' : i.status === 'error' ? 'err' : ''" /> {{ PROVIDER[i.provider] ?? i.provider }}
         </span>
       </footer>
+      </div>
+      </div>
     </template>
     <template v-else-if="!error">
       <div class="skeleton" style="height: 120px; margin-bottom: 24px" />
@@ -127,7 +135,8 @@
 
 <script setup lang="ts">
 const api = useApi()
-const d = ref<any>(null)
+// Shared with the rail, which shows the batteries on the other pages
+const d = useState<any>('dashboard', () => null)
 const soc = ref<any>(null)
 const plan = ref<any>(null)
 // Empty when no cars are connected: the block then stays hidden
@@ -301,9 +310,24 @@ onBeforeUnmount(() => clearInterval(timer))
 
 .sources { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; color: var(--text-2); }
 .sources > span { display: inline-flex; align-items: center; gap: 6px; }
+.sources > .sources-clock { display: none; }
 
 @media (min-width: 720px) {
   .top { margin-bottom: 48px; }
   .status { margin-bottom: 36px; }
+}
+@media (hover: hover) {
+  .car-row:hover .cr-name { text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--muted); }
+}
+/* The rail carries the logo; the flow sits beside the headline, where the eye lands first */
+@media (min-width: 1024px) {
+  .top { display: none; }
+  .sources > .sources-clock { display: inline-flex; color: var(--text); font-variant-numeric: tabular-nums; }
+  .headline { font-size: 60px; max-width: 13ch; }
+  .detail { font-size: 19px; max-width: 40ch; }
+  .status { margin: 24px 0 44px; }
+  .side { display: flex; flex-direction: column; padding-top: 10px; }
+  .flow-block { order: -1; }
+  .block :deep(.flow) { max-width: none; }
 }
 </style>

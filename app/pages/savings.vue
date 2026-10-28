@@ -2,8 +2,10 @@
   <div>
     <header class="page-head"><h1>{{ m.savings.title }}</h1></header>
 
-    <Segmented v-model="period" :options="periods" full :aria-label="m.savings.periodAria" />
-    <div class="source"><Segmented v-model="source" :options="sources" full :aria-label="m.savings.sourceAria" /></div>
+    <div class="controls">
+      <Segmented v-model="period" :options="periods" full :aria-label="m.savings.periodAria" />
+      <div class="source"><Segmented v-model="source" :options="sources" full :aria-label="m.savings.sourceAria" /></div>
+    </div>
 
     <template v-if="data && !hasRows">
       <section class="nothing">
@@ -14,6 +16,7 @@
       </section>
     </template>
     <template v-else-if="data">
+      <div class="summary">
       <section class="total">
         <p class="t-value" :class="{ neg: headline < 0 }">{{ eur(headlineT) }}</p>
         <p class="t-line">{{ source === 'solar' ? solarLine : source === 'battery' ? m.savings.byBatteries : m.savings.inTotal }} {{ rangeLabel }}</p>
@@ -23,11 +26,13 @@
         <Segmented v-model="basis" :options="bases" :aria-label="m.savings.basisAria" />
         <p class="hint">{{ basisHint }}</p>
       </div>
+      </div>
 
       <!-- Batteries -->
       <template v-if="source === 'battery'">
         <div class="chart saved"><BarChart :key="`s-${period}-${basis}`" :labels="labels" :series="[{ label: m.savings.saved, data: savings, color: '--c-battery-1', colors: savings.map((v: number) => (v < 0 ? '--alert' : '--text')) }]" :legend="false" :format="(v) => eur(v)" /></div>
 
+        <div class="pair">
         <section class="figures">
           <div>
             <span class="f-label">{{ m.savings.discharged }}</span>
@@ -53,6 +58,7 @@
             <span><i class="sw" style="background: var(--cheap)" /> {{ m.savings.grid }} <b>{{ 100 - solarShare }}%</b> {{ kwh(data.totals.chargedGridKwh, 1) }}</span>
           </div>
         </section>
+        </div>
 
         <section class="block">
           <div class="block-head"><h2>{{ m.savings.inOut[period] }}</h2></div>
@@ -110,6 +116,7 @@
           />
         </div>
 
+        <div class="pair">
         <section class="figures">
           <div>
             <span class="f-label">{{ m.savings.produced }}</span>
@@ -136,6 +143,7 @@
             <span><i class="sw" style="background: var(--text)" /> {{ m.savings.batteries }} <b>{{ share('toBatteryKwh') }}%</b> {{ kwh(data.solar.totals.toBatteryKwh, 1) }}</span>
           </div>
         </section>
+        </div>
 
         <details class="block disclosure">
           <summary>{{ m.savings.every[period] }} <AppIcon name="chevron" class="chev" style="width: 18px; height: 18px" /></summary>
@@ -314,4 +322,22 @@ function fmtBucket(b: string) {
 .split-legend { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 12px; margin-top: 10px; font-size: 14px; color: var(--text-2); font-variant-numeric: tabular-nums; }
 .split-legend span { display: inline-flex; align-items: center; gap: 6px; }
 .split-legend b { color: var(--text); font-weight: 600; }
+
+/*
+ * Large screens: the two pickers side by side at their own width, the total with its basis beside it,
+ * taller charts, and the figures next to the split they explain.
+ */
+@media (min-width: 1024px) {
+  .controls { display: flex; flex-wrap: wrap; gap: 12px; }
+  .controls :deep(.segmented.full) { display: inline-grid; width: auto; }
+  .source { margin-top: 0; }
+  .summary { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 360px); gap: 0 56px; align-items: end; margin: 36px 0 32px; }
+  .summary .total { margin: 0; }
+  .summary .basis { margin: 0; }
+  .t-value { font-size: 104px; }
+  .chart { height: 300px; }
+  .chart.saved { margin-bottom: 44px; }
+  .pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 56px; align-items: start; }
+  .pair > * { margin-bottom: 44px; }
+}
 </style>
