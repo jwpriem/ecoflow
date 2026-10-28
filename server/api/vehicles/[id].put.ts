@@ -1,5 +1,6 @@
 import { and, eq } from 'drizzle-orm'
 import { vehicles } from '../../db/schema'
+import { assertExperimental } from '../../services/experimental'
 import { getIntegration, updateIntegration } from '../../services/integrations'
 import type { TibberAppMeta } from '../../services/tibberEv'
 
@@ -8,7 +9,8 @@ import type { TibberAppMeta } from '../../services/tibberEv'
  * which car in the Tibber app it is (tibberVehicleId, null to stop sending its level to Tibber).
  */
 export default defineEventHandler(async (event) => {
-  const { site } = await requireSite(event)
+  const { site, experimental } = await requireSite(event)
+  assertExperimental(experimental)
   const id = Number(getRouterParam(event, 'id'))
   const b = await readBody<{ name?: string; capacityKwh?: number | null; tibberVehicleId?: string | null }>(event)
   const update: Partial<typeof vehicles.$inferInsert> = {}

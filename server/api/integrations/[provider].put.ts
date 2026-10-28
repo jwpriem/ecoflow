@@ -3,6 +3,7 @@ import { type Provider, vehicles } from '../../db/schema'
 import { tibberHomes, type TibberCredentials } from '../../providers/tibber'
 import { forgetTibberApp } from '../../providers/tibberApp'
 import { getIntegration, markIntegration, saveIntegration } from '../../services/integrations'
+import { assertExperimental } from '../../services/experimental'
 import { refreshPrices } from '../../services/prices'
 import { syncEcoFlowDevices } from '../../services/ecoflow'
 import { syncPulse } from '../../services/pulse'
@@ -24,9 +25,10 @@ const FIELDS: Record<Provider, string[]> = {
  * Leave credentials out to only change settings (e.g. pick another Tibber home).
  */
 export default defineEventHandler(async (event) => {
-  const { site } = await requireSite(event)
+  const { site, experimental } = await requireSite(event)
   const provider = getRouterParam(event, 'provider') as Provider
   if (!FIELDS[provider]) throw createError({ statusCode: 404, statusMessage: 'Unknown provider' })
+  assertExperimental(experimental, provider)
   const body = await readBody<{ credentials?: Record<string, string>; meta?: Record<string, unknown> }>(event)
   const db = useDb()
   const key = encryptionKey()

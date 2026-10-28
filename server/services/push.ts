@@ -3,6 +3,7 @@ import webpush from 'web-push'
 import type { Db } from '../db/client'
 import { appConfig, pushSubscriptions, type PushTopic } from '../db/schema'
 import type { LocalizedPush } from '../lib/notifications'
+import { experimentalSite } from './experimental'
 import { ownerEmail } from './members'
 import { decryptJson, encryptJson } from '../utils/crypto'
 
@@ -56,6 +57,8 @@ async function vapidSubject(db: Db, siteId: number): Promise<string> {
  */
 export async function notify(db: Db, siteId: number, topic: PushTopic | null, msg: PushMessage | LocalizedPush, only?: string) {
   try {
+    // Car notifications come from the experimental integrations: never for a household without them
+    if (topic === 'car' && !(await experimentalSite(db, siteId))) return { sent: 0, failed: 0, error: 'Not available for this household' }
     const subs = await db
       .select()
       .from(pushSubscriptions)

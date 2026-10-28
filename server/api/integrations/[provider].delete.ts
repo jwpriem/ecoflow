@@ -4,11 +4,13 @@ import { stopEcoFlowMqtt } from '../../providers/ecoflow/mqtt'
 import { forgetTibberApp } from '../../providers/tibberApp'
 import { stopPulse } from '../../providers/tibberPulse'
 import { forgetSolarEdge } from '../../services/solaredge'
+import { assertExperimental } from '../../services/experimental'
 import { stopZeekr } from '../../services/zeekr'
 
 export default defineEventHandler(async (event) => {
-  const { site } = await requireSite(event)
+  const { site, experimental } = await requireSite(event)
   const provider = getRouterParam(event, 'provider') as Provider
+  assertExperimental(experimental, provider)
   const db = useDb()
   await db.delete(integrations).where(and(eq(integrations.siteId, site.id), eq(integrations.provider, provider)))
   if (provider === 'tibber') stopPulse(site.id)

@@ -1,7 +1,5 @@
-import { readFileSync } from 'node:fs'
 import { PGlite } from '@electric-sql/pglite'
 import { eq } from 'drizzle-orm'
-import { drizzle } from 'drizzle-orm/pglite'
 import { beforeAll, describe, expect, it } from 'vitest'
 import type { Db } from '../server/db/client'
 import * as schema from '../server/db/schema'
@@ -9,18 +7,7 @@ import { assertAdmin, experimentalEnabled, ownerEmail, sessionSite } from '../se
 import { createAccount } from '../server/services/setup'
 import { defaultStrategy } from '../server/lib/types'
 import { sha256 } from '../server/utils/crypto'
-
-const dir = 'server/db/migrations'
-const journal = JSON.parse(readFileSync(`${dir}/meta/_journal.json`, 'utf8')) as { entries: { tag: string }[] }
-
-/** Apply the real migration files in order. PGlite has no pg_stat_statements, so extensions are skipped. */
-async function migrate(pg: PGlite, tags: string[]) {
-  for (const tag of tags) {
-    for (const stmt of readFileSync(`${dir}/${tag}.sql`, 'utf8').split('--> statement-breakpoint')) {
-      if (stmt.trim() && !/CREATE EXTENSION/i.test(stmt)) await pg.exec(stmt)
-    }
-  }
-}
+import { migrate, migrationTags, pgliteDb } from './support/pglite'
 
 async function session(db: Db, userId: number, token: string, expiresAt = new Date(Date.now() + 86_400_000)) {
   await db.insert(schema.sessions).values({ userId, tokenHash: sha256(token), expiresAt })
@@ -32,16 +19,15 @@ describe('households', () => {
 
   beforeAll(async () => {
     const pg = new PGlite()
-    const tags = journal.entries.map((e) => e.tag)
-    const at = tags.indexOf('0009_site_members')
+    const at = migrationTags.indexOf('0009_site_members')
     // A household from before site_members, to check the backfill.
-    await migrate(pg, tags.slice(0, at))
+    await migrate(pg, migrationTags.slice(0, at))
     // Raw SQL: the schema in code already has columns these older tables don't.
     const user = await pg.query<{ id: number }>(`INSERT INTO users (email, password_hash) VALUES ('owner@example.com', 'x') RETURNING id`)
     const site = await pg.query<{ id: number }>(`INSERT INTO sites (user_id, name, strategy) VALUES ($1, 'Home', $2) RETURNING id`, [user.rows[0]!.id, JSON.stringify(defaultStrategy)])
     legacy = { userId: user.rows[0]!.id, siteId: site.rows[0]!.id }
-    await migrate(pg, tags.slice(at))
-    db = drizzle(pg, { schema }) as unknown as Db
+    await migrate(pg, migrationTags.slice(at))
+    db = pgliteDb(pg)
   })
 
   it('makes the first account the admin', async () => {

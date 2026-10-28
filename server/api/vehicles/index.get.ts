@@ -1,11 +1,13 @@
 import { and, asc, eq } from 'drizzle-orm'
 import { integrations, vehicles } from '../../db/schema'
+import { assertExperimental } from '../../services/experimental'
 import type { TibberAppMeta } from '../../services/tibberEv'
 import type { VehicleState } from '../../services/zeekr'
 
 /** The cars and their last known reading (vehicles.state is refreshed on every poll). */
 export default defineEventHandler(async (event) => {
-  const { site } = await requireSite(event)
+  const { site, experimental } = await requireSite(event)
+  assertExperimental(experimental)
   const db = useDb()
   const rows = await db.select().from(vehicles).where(eq(vehicles.siteId, site.id)).orderBy(asc(vehicles.id))
   const [tibber] = await db

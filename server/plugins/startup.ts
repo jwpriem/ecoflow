@@ -5,6 +5,7 @@ import { syncEcoFlowDevices } from '../services/ecoflow'
 import { refreshPrices } from '../services/prices'
 import { refreshIrradiance } from '../services/solarForecast'
 import { syncPulse } from '../services/pulse'
+import { experimentalSite } from '../services/experimental'
 import { runStrategy } from '../services/strategy'
 import { readZeekrVehicles } from '../services/zeekr'
 
@@ -33,7 +34,9 @@ export default defineNitroPlugin(() => {
         await syncPulse(db, site, key)
         await refreshPrices(db, site, key)
         await refreshIrradiance(db, site).catch((err: Error) => console.warn(`[startup] site ${site.id}: solar forecast: ${err.message}`))
-        await readZeekrVehicles(db, site, key).catch((err: Error) => console.warn(`[startup] site ${site.id}: Zeekr: ${err.message}`))
+        if (await experimentalSite(db, site.id)) {
+          await readZeekrVehicles(db, site, key).catch((err: Error) => console.warn(`[startup] site ${site.id}: Zeekr: ${err.message}`))
+        }
         await runStrategy(db, site)
       } catch (err) {
         console.error(`[startup] site ${site.id}:`, (err as Error).message)
