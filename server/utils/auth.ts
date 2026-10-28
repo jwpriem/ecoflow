@@ -1,6 +1,7 @@
 import type { H3Event } from 'h3'
-import { and, asc, eq, gt } from 'drizzle-orm'
-import { sessions, sites, users } from '../db/schema'
+import { and, eq, gt } from 'drizzle-orm'
+import { sessions, users } from '../db/schema'
+import { sessionSite } from '../services/members'
 import { newToken, sha256 } from './crypto'
 
 const SESSION_DAYS = 60
@@ -31,21 +32,21 @@ export async function requireUser(event: H3Event) {
 }
 
 /**
- * The user's site. Single site per user for now; the data model already allows more.
+ * The user's household and their role in it. One household per user for now (site_members.user_id is unique).
  * Session, user and site come in one query: every API call starts here.
  */
 export async function requireSite(event: H3Event) {
-  const [row] = await useDb()
-    .select({ user: users, sessionId: sessions.id, site: sites })
-    .from(sessions)
-    .innerJoin(users, eq(users.id, sessions.userId))
-    .leftJoin(sites, eq(sites.userId, users.id))
-    .where(and(eq(sessions.tokenHash, bearerHash(event)), gt(sessions.expiresAt, new Date())))
-    .orderBy(asc(sites.id))
-    .limit(1)
+  const row = await sessionSite(useDb(), bearerHash(event))
   if (!row) throw createError({ statusCode: 401, statusMessage: 'Session expired' })
-  if (!row.site) throw createError({ statusCode: 404, statusMessage: 'No site configured' })
-  return { user: { ...row.user, sessionId: row.sessionId }, site: row.site }
+  if (!row.site || !row.role) throw createError({ statusCode: 404, statusMessage: 'No site configured' })
+  return { user: { ...row.user, sessionId: row.sessionId }, site: row.site, role: row.role }
+}
+
+/** As requireSite, but only for the household's owner: steering, connections, members and deleting the household. */
+export async function requireOwner(event: H3Event) {
+  const ctx = await requireSite(event)
+  if (ctx.role !== 'owner') throw createError({ statusCode: 403, statusMessage: 'Only the owner of the household can do this' })
+  return ctx
 }
 
 export function encryptionKey(): string {
