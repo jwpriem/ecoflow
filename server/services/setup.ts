@@ -13,19 +13,27 @@ export interface AccountOptions {
   controlMode?: 'auto' | 'manual'
 }
 
-/** Create a user with one site, which they own. The batteries are added from the EcoFlow account once its developer keys are saved. */
+/** The database, or a transaction on it */
+export type Tx = Db | Parameters<Parameters<Db['transaction']>[0]>[0]
+
+/** A household of the user's own, which they own. The batteries are added from the EcoFlow account once its developer keys are saved. */
+export async function newHousehold(tx: Tx, userId: number, opts: AccountOptions = {}) {
+  const [site] = await tx
+    .insert(sites)
+    .values({ userId, name: opts.siteName ?? 'Home', strategy: defaultStrategy, controlMode: opts.controlMode ?? 'auto' })
+    .returning()
+  await tx.insert(siteMembers).values({ siteId: site!.id, userId, role: 'owner' })
+  return site!
+}
+
+/** Create a user with one site, which they own. */
 export async function createAccount(db: Db, email: string, password: string, opts: AccountOptions = {}) {
   return db.transaction(async (tx) => {
     const [user] = await tx
       .insert(users)
       .values({ email: normalizeEmail(email), passwordHash: await hashPassword(password), locale: opts.locale ?? 'nl' })
       .returning()
-    const [site] = await tx
-      .insert(sites)
-      .values({ userId: user!.id, name: opts.siteName ?? 'Home', strategy: defaultStrategy, controlMode: opts.controlMode ?? 'auto' })
-      .returning()
-    await tx.insert(siteMembers).values({ siteId: site!.id, userId: user!.id, role: 'owner' })
-    return { user: user!, site: site! }
+    return { user: user!, site: await newHousehold(tx, user!.id, opts) }
   })
 }
 
@@ -51,7 +59,7 @@ export interface SignupInput {
   acceptTerms?: unknown
 }
 
-const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+export const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 /**
  * A new account with its own household (monitor only) and the accepted terms.

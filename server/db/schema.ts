@@ -103,6 +103,25 @@ export const siteMembers = pgTable(
   (t) => [primaryKey({ columns: [t.siteId, t.userId] }), uniqueIndex('site_members_user').on(t.userId)],
 )
 
+/**
+ * An owner's invitation to join their household, sent by email. Single use and valid for 7 days; revoking deletes it.
+ * Only the SHA-256 of the token is stored.
+ */
+export const householdInvites = pgTable(
+  'household_invites',
+  {
+    id: serial('id').primaryKey(),
+    siteId: integer('site_id').notNull().references(() => sites.id, { onDelete: 'cascade' }),
+    email: text('email').notNull(),
+    tokenHash: text('token_hash').notNull().unique(),
+    invitedBy: integer('invited_by').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    expiresAt: ts('expires_at').notNull(),
+    acceptedAt: ts('accepted_at'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [index('household_invites_site').on(t.siteId)],
+)
+
 export type Provider = 'tibber' | 'solaredge' | 'ecoflow_official' | 'zeekr' | 'tibber_app'
 
 export const integrations = pgTable(
@@ -324,6 +343,8 @@ export const pushSubscriptions = pgTable(
   {
     id: serial('id').primaryKey(),
     siteId: integer('site_id').notNull().references(() => sites.id, { onDelete: 'cascade' }),
+    /** Who subscribed this device: leaving the household takes their devices out of its notifications */
+    userId: integer('user_id').references(() => users.id, { onDelete: 'cascade' }),
     endpoint: text('endpoint').notNull().unique(),
     p256dh: text('p256dh').notNull(),
     auth: text('auth').notNull(),

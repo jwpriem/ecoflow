@@ -20,6 +20,15 @@ const ACCESS: Record<string, 'owner' | 'household' | 'account' | 'public'> = {
   'auth/reset/confirm.post.ts': 'public',
   'auth/verify/index.post.ts': 'public',
   'auth/verify/resend.post.ts': 'account',
+  'household/invites/index.post.ts': 'owner',
+  'household/invites/[id].delete.ts': 'owner',
+  'household/members/[id].delete.ts': 'owner',
+  // A member leaves; the owner is refused inside
+  'household/leave.post.ts': 'household',
+  // The invitation link: reading it and signing up need no login, accepting is for the logged-in invitee
+  'invite/details.post.ts': 'public',
+  'invite/signup.post.ts': 'public',
+  'invite/accept.post.ts': 'account',
   'integrations/[provider].put.ts': 'owner',
   'integrations/[provider].delete.ts': 'owner',
   // A GET, but it starts the SolarEdge sign-in and stores its state
