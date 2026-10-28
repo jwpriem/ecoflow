@@ -11,6 +11,7 @@
         <NuxtLink to="/settings" class="go">{{ m.common.openSettings }}</NuxtLink>
       </section>
 
+      <div class="cars">
       <template v-for="c in cars" :key="c.id">
         <section class="car">
           <header class="car-head">
@@ -22,11 +23,13 @@
             <span v-if="c.model" class="sub">{{ c.model }}</span>
           </header>
 
+          <div class="car-body">
           <CarFigure
             :soc="c.state.soc" :charging="c.state.charging" :target="c.state.targetSoc" :model="c.model" :name="c.name"
             :label="m.cars.figureAria(c.name, c.state.soc == null ? m.cars.levelUnknown : m.cars.pctCharged(Math.round(c.state.soc * 100)), carStatus(c).text)"
           />
 
+          <div class="car-info">
           <div class="readout">
             <div>
               <span class="pct">{{ c.state.soc == null ? '–' : Math.round(c.state.soc * 100) }}<small>%</small></span>
@@ -67,8 +70,11 @@
               <div class="list-row"><button class="plain" @click="saveCar(c)">{{ m.cars.save }}</button><span v-if="savedId === c.id" class="small pos">{{ m.cars.saved }}</span></div>
             </div>
           </details>
+          </div>
+          </div>
         </section>
       </template>
+      </div>
 
       <p v-if="cars.length" class="foot">{{ m.cars.foot }}</p>
       <DepartureSheet :car="asking" @close="closeSheet" @saved="safeLoad" />
@@ -191,4 +197,14 @@ onBeforeUnmount(() => clearInterval(timer))
 .unit-in { display: inline-flex; align-items: center; justify-content: flex-end; gap: 4px; color: var(--text-2); width: 55%; }
 .unit-in input { width: 100%; }
 .foot { font-size: 13px; color: var(--text-2); margin: 4px 2px 0; max-width: 60ch; }
+
+/* Large screens: cars side by side. A car with room for it puts the photo beside its numbers */
+@media (min-width: 1024px) {
+  .cars { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 0 56px; }
+  .car { container-type: inline-size; }
+}
+@container (min-width: 760px) {
+  .car-body { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 0 56px; align-items: center; }
+  .car-info .readout { margin-top: 0; }
+}
 </style>
