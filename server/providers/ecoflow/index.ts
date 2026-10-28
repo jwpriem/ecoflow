@@ -1,6 +1,7 @@
 import { createHmac, randomInt } from 'node:crypto'
 import type { BatteryMode } from '../../lib/types'
 import type { devices } from '../../db/schema'
+import { providerCall } from '../http'
 
 export type DeviceRow = typeof devices.$inferSelect
 
@@ -99,15 +100,18 @@ export async function ecoflowRequest<T>(
   params: Record<string, unknown> = {},
   opts: RequestOptions = {},
 ): Promise<T> {
-  const nonce = opts.nonce?.() ?? String(randomInt(100000, 1000000))
-  const timestamp = String(opts.now?.() ?? Date.now())
-  const headers: Record<string, string> = {
-    accessKey: creds.accessKey,
-    nonce,
-    timestamp,
-    sign: sign(creds.secretKey, signString(params, creds.accessKey, nonce, timestamp)),
-    'User-Agent': UA,
+  const signed = () => {
+    const nonce = opts.nonce?.() ?? String(randomInt(100000, 1000000))
+    const timestamp = String(opts.now?.() ?? Date.now())
+    return {
+      accessKey: creds.accessKey,
+      nonce,
+      timestamp,
+      sign: sign(creds.secretKey, signString(params, creds.accessKey, nonce, timestamp)),
+      'User-Agent': UA,
+    } as Record<string, string>
   }
+  const headers: Record<string, string> = {}
   let url = `${opts.host ?? ECOFLOW_HOST}${path}`
   let body: string | undefined
   if (method === 'GET') {
@@ -119,7 +123,8 @@ export async function ecoflowRequest<T>(
     headers['Content-Type'] = 'application/json;charset=UTF-8'
     body = JSON.stringify(params)
   }
-  const res = await (opts.fetch ?? fetch)(url, { method, headers, body })
+  // Signed again for every attempt: a nonce is only good once
+  const res = await providerCall('ecoflow', (signal) => (opts.fetch ?? fetch)(url, { method, headers: { ...signed(), ...headers }, body, signal }))
   if (!res.ok) throw new Error(`EcoFlow HTTP ${res.status}`)
   const json = (await res.json()) as { code?: string | number; message?: string; data?: T }
   if (String(json.code) !== '0') throw new Error(`EcoFlow: ${json.message || 'error'} (code ${json.code})`)

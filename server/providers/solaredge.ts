@@ -1,3 +1,5 @@
+import { providerCall } from './http'
+
 /**
  * SolarEdge Monitoring API v2 (SolarEdge ONE) with Site Access: OAuth 2.0 with a client ID and secret
  * from developer.solaredge.com. The site owner grants access once on SolarEdge Connect; we keep the
@@ -46,12 +48,21 @@ export function solarEdgeAuthorizeUrl(clientId: string, redirectUri: string, sta
   return `${AUTHORIZE_URL}?${qs}`
 }
 
+/** A 429 here is the household's own credit budget or per-minute limit: retrying only spends more of it */
+const SOLAREDGE_RETRY = { retryable: (res: Response) => res.status >= 500 }
+
 async function tokenRequest(body: Record<string, string>, previousRefresh?: string): Promise<SolarEdgeTokens> {
-  const res = await fetch(`${API}/oauth2/token`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify(body),
-  })
+  const res = await providerCall(
+    'solaredge',
+    (signal) =>
+      fetch(`${API}/oauth2/token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify(body),
+        signal,
+      }),
+    SOLAREDGE_RETRY,
+  )
   const data = (await res.json().catch(() => ({}))) as Record<string, unknown>
   if (!res.ok) {
     const reason = String(data.error_description ?? data.error ?? data.detail ?? `HTTP ${res.status}`)
@@ -84,9 +95,11 @@ export function solarEdgeRefresh(creds: SolarEdgeCredentials) {
 
 async function get<T>(accessToken: string, path: string, params: Record<string, string> = {}): Promise<T> {
   const qs = new URLSearchParams(params)
-  const res = await fetch(`${API}${path}${qs.size ? `?${qs}` : ''}`, {
-    headers: { Accept: 'application/json', Authorization: `Bearer ${accessToken}` },
-  })
+  const res = await providerCall(
+    'solaredge',
+    (signal) => fetch(`${API}${path}${qs.size ? `?${qs}` : ''}`, { headers: { Accept: 'application/json', Authorization: `Bearer ${accessToken}` }, signal }),
+    SOLAREDGE_RETRY,
+  )
   if (res.ok) return (await res.json()) as T
   const body = (await res.json().catch(() => ({}))) as { detail?: string; title?: string }
   const detail = body.detail || body.title || `HTTP ${res.status}`
