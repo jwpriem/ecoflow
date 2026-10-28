@@ -180,7 +180,7 @@
           </div>
           <div v-else-if="push.state.value === 'off'" class="list-row"><button class="plain" :disabled="push.busy.value" @click="push.enable()">{{ push.busy.value ? m.settings.turningOn : m.settings.turnOn }}</button></div>
           <template v-else>
-            <label v-for="t in PUSH_TOPICS" :key="t" class="list-row">
+            <label v-for="t in pushTopics" :key="t" class="list-row">
               <span class="stack-text"><span class="title">{{ m.push.topics[t].label }}</span><span class="small muted">{{ m.push.topics[t].help }}</span></span>
               <span class="switch"><input type="checkbox" :checked="push.topics.value.includes(t)" @change="push.toggleTopic(t, ($event.target as HTMLInputElement).checked)" /><span /></span>
             </label>
@@ -236,8 +236,10 @@ const flow = useFlowView()
 const solar = useSolarCount()
 const { m, locale, setLocale, serverText } = useLocale()
 const api = useApi()
-const { setToken, me, loadMe } = useAuth()
+const { setToken, me, loadMe, experimental } = useAuth()
 const push = usePush()
+// Car notifications only exist with the experimental integrations
+const pushTopics = computed(() => PUSH_TOPICS.filter((t) => t !== 'car' || experimental.value))
 
 function pickLocale(l: Locale) {
   setLocale(l)
