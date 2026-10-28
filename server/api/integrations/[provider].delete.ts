@@ -8,7 +8,7 @@ import { assertExperimental } from '../../services/experimental'
 import { stopZeekr } from '../../services/zeekr'
 
 export default defineEventHandler(async (event) => {
-  const { site, experimental } = await requireSite(event)
+  const { site, experimental } = await requireOwner(event)
   const provider = getRouterParam(event, 'provider') as Provider
   assertExperimental(experimental, provider)
   const db = useDb()

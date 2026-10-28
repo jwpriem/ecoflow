@@ -4,9 +4,9 @@ import type { DeviceState } from '../../providers/ecoflow'
 import { type EcoFlowSteering, setEcoFlowSteering } from '../../services/ecoflow'
 import { runStrategy } from '../../services/strategy'
 
-/** Body: { steering: 'ecoflow_ai' | 'wattwise' }. Switches the STREAM's operating mode right away. */
+/** Body: { steering: 'ecoflow_ai' | 'wattwise' }. Switches the STREAM's operating mode right away. Owner only. */
 export default defineEventHandler(async (event) => {
-  const { site } = await requireSite(event)
+  const { site } = await requireOwner(event)
   const { steering } = await readBody<{ steering?: EcoFlowSteering }>(event)
   if (steering !== 'ecoflow_ai' && steering !== 'wattwise') throw createError({ statusCode: 400, statusMessage: 'steering must be ecoflow_ai or wattwise' })
   const db = useDb()

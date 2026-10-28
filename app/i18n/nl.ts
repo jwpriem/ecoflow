@@ -276,6 +276,7 @@ export const nl: Messages = {
     solarAria: 'Wat de besparing door zon meetelt',
     solarFoot: 'Wat Besparing en Thuis als opbrengst van zon tellen, op dit apparaat. Je kunt ook wisselen op de pagina Besparing.',
     connections: 'Koppelingen',
+    ownerOnly: 'Alleen de eigenaar van het huishouden kan dit wijzigen.',
     status: { ok: 'Verbonden', error: 'Vraagt aandacht', unknown: 'Nog niet getest', off: 'Niet ingesteld' },
     pulse: (s) => `Pulse realtime: ${s}`,
     pulseConnected: 'verbonden',

@@ -1,14 +1,19 @@
 import { eq } from 'drizzle-orm'
 import { sites } from '../../db/schema'
 import type { BatteryMode } from '../../lib/types'
+import { assertOwner } from '../../services/members'
 import { runStrategy } from '../../services/strategy'
 
 const MODES: BatteryMode[] = ['self_use', 'solar_only', 'charge_grid', 'discharge']
 
-/** Body: { mode, minutes, powerW? } to override, or { clear: true } */
+/**
+ * Body: { mode, minutes, powerW? } to override, or { clear: true }: anyone in the household.
+ * { controlMode } switches steering on or off: only the owner.
+ */
 export default defineEventHandler(async (event) => {
-  const { site } = await requireSite(event)
+  const { site, role } = await requireSite(event)
   const body = await readBody<{ mode?: BatteryMode; minutes?: number; powerW?: number; clear?: boolean; controlMode?: 'auto' | 'manual' }>(event)
+  if (body.controlMode !== undefined) assertOwner(role)
   const update: Partial<typeof sites.$inferInsert> = {}
   if (body.controlMode === 'auto' || body.controlMode === 'manual') update.controlMode = body.controlMode
   if (body.clear) update.override = null

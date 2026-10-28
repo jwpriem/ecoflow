@@ -278,6 +278,7 @@ export const en = {
     solarAria: 'What solar savings count',
     solarFoot: 'What Savings and Home count as earned by solar, on this device. You can also switch on the Savings page.',
     connections: 'Connections',
+    ownerOnly: 'Only the household owner can change this.',
     status: { ok: 'Connected', error: 'Needs attention', unknown: 'Not tested yet', off: 'Not set up' } as Record<string, string>,
     pulse: (s: string) => `Pulse realtime: ${s}`,
     pulseConnected: 'connected',

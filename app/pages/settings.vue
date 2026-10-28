@@ -13,13 +13,13 @@
         <div class="list" role="radiogroup" :aria-label="m.settings.whoSteers">
           <button
             v-for="o in controlOptions" :key="o" type="button" role="radio" class="list-row row-btn"
-            :aria-checked="controlChoice === o" :disabled="busy === 'control'" @click="setControl(o)"
+            :aria-checked="controlChoice === o" :disabled="busy === 'control' || !isOwner" @click="setControl(o)"
           >
             <span class="stack-text"><span class="title">{{ m.settings.control[o].label }}</span><span class="small muted">{{ m.settings.control[o].help }}</span></span>
             <AppIcon v-if="controlChoice === o" name="check" class="check" />
           </button>
         </div>
-        <p class="foot" :class="{ error: controlMsg && !controlMsg.ok }" role="status">{{ busy === 'control' ? m.settings.switching : controlMsg?.text ?? m.settings.controlFoot }}</p>
+        <p class="foot" :class="{ error: controlMsg && !controlMsg.ok }" role="status">{{ busy === 'control' ? m.settings.switching : controlMsg?.text ?? (isOwner ? m.settings.controlFoot : m.settings.ownerOnly) }}</p>
       </section>
       <section v-if="strategy" class="group" style="--o: 3">
         <h3 class="section-title">{{ m.settings.strategy }}</h3>
@@ -113,6 +113,7 @@
             </summary>
             <form class="conn-body" @submit.prevent="save(i.provider)">
               <p class="small muted">{{ m.settings.info[i.provider]!.help }}</p>
+              <p v-if="!isOwner" class="small muted">{{ m.settings.ownerOnly }}</p>
               <p v-if="i.lastError" class="error">{{ i.lastError }}</p>
               <p v-if="i.provider === 'tibber' && i.configured" class="small muted">
                 {{ m.settings.pulse(i.meta.realtime ? (i.pulse?.connected ? m.settings.pulseConnected : m.settings.pulseConnecting) : m.settings.pulseNone) }}
@@ -129,24 +130,26 @@
               <p v-if="i.provider === 'tibber_app' && i.configured" class="small muted">
                 {{ m.settings.tibberApp((i.meta.vehicles as any[])?.length ?? 0, (i.meta.chargers as any[])?.length ?? 0) }}
               </p>
-              <label v-for="f in INFO[i.provider]!.fields" :key="f.key" class="field">
-                <span>{{ m.settings.fields[f.key] ?? f.key }}</span>
-                <input v-model="forms[i.provider]![f.key]" :type="f.secret ? 'password' : 'text'" :placeholder="i.configured ? m.settings.keepSaved : ''" autocomplete="off" />
-              </label>
-              <label v-if="i.provider === 'tibber' && (i.meta.homes as any[])?.length > 1" class="field">
-                <span>{{ m.settings.home }}</span>
-                <select v-model="homeId">
-                  <option v-for="h in i.meta.homes as any[]" :key="h.id" :value="h.id">{{ h.name }}</option>
-                </select>
-              </label>
-              <div class="row">
-                <button class="primary" type="submit" :disabled="busy === i.provider">{{ busy === i.provider ? m.settings.testing : m.settings.saveTest }}</button>
-                <button v-if="i.provider === 'solaredge' && i.configured" type="button" :disabled="busy === 'se-auth'" @click="signInSolarEdge">
-                  {{ i.meta.authorized ? m.settings.signInAgain : m.settings.signIn }}
-                </button>
-                <button v-if="i.configured" type="button" class="danger" @click="remove(i.provider)">{{ m.settings.disconnect }}</button>
-                <span v-if="results[i.provider]" class="small" :class="results[i.provider]!.ok ? 'pos' : 'error'">{{ results[i.provider]!.text }}</span>
-              </div>
+              <template v-if="isOwner">
+                <label v-for="f in INFO[i.provider]!.fields" :key="f.key" class="field">
+                  <span>{{ m.settings.fields[f.key] ?? f.key }}</span>
+                  <input v-model="forms[i.provider]![f.key]" :type="f.secret ? 'password' : 'text'" :placeholder="i.configured ? m.settings.keepSaved : ''" autocomplete="off" />
+                </label>
+                <label v-if="i.provider === 'tibber' && (i.meta.homes as any[])?.length > 1" class="field">
+                  <span>{{ m.settings.home }}</span>
+                  <select v-model="homeId">
+                    <option v-for="h in i.meta.homes as any[]" :key="h.id" :value="h.id">{{ h.name }}</option>
+                  </select>
+                </label>
+                <div class="row">
+                  <button class="primary" type="submit" :disabled="busy === i.provider">{{ busy === i.provider ? m.settings.testing : m.settings.saveTest }}</button>
+                  <button v-if="i.provider === 'solaredge' && i.configured" type="button" :disabled="busy === 'se-auth'" @click="signInSolarEdge">
+                    {{ i.meta.authorized ? m.settings.signInAgain : m.settings.signIn }}
+                  </button>
+                  <button v-if="i.configured" type="button" class="danger" @click="remove(i.provider)">{{ m.settings.disconnect }}</button>
+                  <span v-if="results[i.provider]" class="small" :class="results[i.provider]!.ok ? 'pos' : 'error'">{{ results[i.provider]!.text }}</span>
+                </div>
+              </template>
             </form>
           </details>
         </div>
@@ -238,6 +241,8 @@ const { m, locale, setLocale, serverText } = useLocale()
 const api = useApi()
 const { setToken, me, loadMe, experimental } = useAuth()
 const push = usePush()
+// Steering and the connections are the owner's; a member sees them but can't change them
+const isOwner = computed(() => me.value?.member === 'owner')
 // Car notifications only exist with the experimental integrations
 const pushTopics = computed(() => PUSH_TOPICS.filter((t) => t !== 'car' || experimental.value))
 
