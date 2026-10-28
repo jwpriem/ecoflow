@@ -1,7 +1,7 @@
 import type { H3Event } from 'h3'
 import { and, eq, gt } from 'drizzle-orm'
 import { sessions, users } from '../db/schema'
-import { sessionSite } from '../services/members'
+import { assertAdmin, experimentalEnabled, sessionSite } from '../services/members'
 import { newToken, sha256 } from './crypto'
 
 const SESSION_DAYS = 60
@@ -39,7 +39,7 @@ export async function requireSite(event: H3Event) {
   const row = await sessionSite(useDb(), bearerHash(event))
   if (!row) throw createError({ statusCode: 401, statusMessage: 'Session expired' })
   if (!row.site || !row.role) throw createError({ statusCode: 404, statusMessage: 'No site configured' })
-  return { user: { ...row.user, sessionId: row.sessionId }, site: row.site, role: row.role }
+  return { user: { ...row.user, sessionId: row.sessionId }, site: row.site, role: row.role, experimental: experimentalEnabled(row.owner) }
 }
 
 /** As requireSite, but only for the household's owner: steering, connections, members and deleting the household. */
@@ -47,6 +47,13 @@ export async function requireOwner(event: H3Event) {
   const ctx = await requireSite(event)
   if (ctx.role !== 'owner') throw createError({ statusCode: 403, statusMessage: 'Only the owner of the household can do this' })
   return ctx
+}
+
+/** Only for admins (users.role), wherever their own household is. */
+export async function requireAdmin(event: H3Event) {
+  const user = await requireUser(event)
+  assertAdmin(user)
+  return user
 }
 
 export function encryptionKey(): string {

@@ -1,22 +1,51 @@
 import { and, eq, gt } from 'drizzle-orm'
+import { alias } from 'drizzle-orm/pg-core'
+import { createError } from 'h3'
 import type { Db } from '../db/client'
-import { sessions, siteMembers, sites, users } from '../db/schema'
+import { sessions, siteMembers, sites, users, type UserRole } from '../db/schema'
+
+const ownerMember = alias(siteMembers, 'owner_member')
+const owner = alias(users, 'owner')
+
+/** What decides the household-wide flags: the owner's role and experimental setting. */
+export interface HouseholdOwner {
+  role: UserRole
+  experimental: boolean
+}
+
+/** Experimental integrations are per household: on when its owner has them switched on or is an admin. */
+export function experimentalEnabled(owner: HouseholdOwner | null): boolean {
+  return !!owner && (owner.experimental || owner.role === 'admin')
+}
 
 /**
- * Session, user, household and role for a token hash, in one query: every API call starts here.
+ * Session, user, household, role and the household's owner for a token hash, in one query: every API call starts here.
  * The household comes only from the user's own membership, so one user can never resolve another's site.
- * Null when the session is unknown or expired; `site` and `role` are null for a user without a household.
+ * Null when the session is unknown or expired; `site`, `role` and `owner` are null for a user without a household.
  */
 export async function sessionSite(db: Db, tokenHash: string) {
   const [row] = await db
-    .select({ user: users, sessionId: sessions.id, site: sites, role: siteMembers.role })
+    .select({
+      user: users,
+      sessionId: sessions.id,
+      site: sites,
+      role: siteMembers.role,
+      owner: { role: owner.role, experimental: owner.experimental },
+    })
     .from(sessions)
     .innerJoin(users, eq(users.id, sessions.userId))
     .leftJoin(siteMembers, eq(siteMembers.userId, users.id))
     .leftJoin(sites, eq(sites.id, siteMembers.siteId))
+    .leftJoin(ownerMember, and(eq(ownerMember.siteId, sites.id), eq(ownerMember.role, 'owner')))
+    .leftJoin(owner, eq(owner.id, ownerMember.userId))
     .where(and(eq(sessions.tokenHash, tokenHash), gt(sessions.expiresAt, new Date())))
     .limit(1)
   return row ?? null
+}
+
+/** Throws a 403 unless the user is an admin. Kept apart from requireAdmin() so it can be tested without a request. */
+export function assertAdmin(user: { role: UserRole }) {
+  if (user.role !== 'admin') throw createError({ statusCode: 403, statusMessage: 'Admins only' })
 }
 
 /** The owner's email, the contact of last resort for a household. */

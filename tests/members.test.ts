@@ -1,10 +1,11 @@
 import { readFileSync } from 'node:fs'
 import { PGlite } from '@electric-sql/pglite'
+import { eq } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/pglite'
 import { beforeAll, describe, expect, it } from 'vitest'
 import type { Db } from '../server/db/client'
 import * as schema from '../server/db/schema'
-import { ownerEmail, sessionSite } from '../server/services/members'
+import { assertAdmin, experimentalEnabled, ownerEmail, sessionSite } from '../server/services/members'
 import { createAccount } from '../server/services/setup'
 import { defaultStrategy } from '../server/lib/types'
 import { sha256 } from '../server/utils/crypto'
@@ -35,11 +36,32 @@ describe('households', () => {
     const at = tags.indexOf('0009_site_members')
     // A household from before site_members, to check the backfill.
     await migrate(pg, tags.slice(0, at))
-    db = drizzle(pg, { schema }) as unknown as Db
-    const [user] = await db.insert(schema.users).values({ email: 'owner@example.com', passwordHash: 'x' }).returning()
-    const [site] = await db.insert(schema.sites).values({ userId: user!.id, name: 'Home', strategy: defaultStrategy }).returning()
-    legacy = { userId: user!.id, siteId: site!.id }
+    // Raw SQL: the schema in code already has columns these older tables don't.
+    const user = await pg.query<{ id: number }>(`INSERT INTO users (email, password_hash) VALUES ('owner@example.com', 'x') RETURNING id`)
+    const site = await pg.query<{ id: number }>(`INSERT INTO sites (user_id, name, strategy) VALUES ($1, 'Home', $2) RETURNING id`, [user.rows[0]!.id, JSON.stringify(defaultStrategy)])
+    legacy = { userId: user.rows[0]!.id, siteId: site.rows[0]!.id }
     await migrate(pg, tags.slice(at))
+    db = drizzle(pg, { schema }) as unknown as Db
+  })
+
+  it('makes the first account the admin', async () => {
+    const [user] = await db.select().from(schema.users).where(eq(schema.users.id, legacy.userId))
+    expect(user?.role).toBe('admin')
+    await session(db, legacy.userId, 'token-admin')
+    expect(experimentalEnabled((await sessionSite(db, sha256('token-admin')))!.owner)).toBe(true)
+  })
+
+  it('gives a member the experimental setting of the household owner', async () => {
+    const owner = await createAccount(db, 'tester@example.com', 'password-t')
+    expect(owner.user.role).toBe('user')
+    expect(owner.user.experimental).toBe(false)
+    const [member] = await db.insert(schema.users).values({ email: 'tester-partner@example.com', passwordHash: 'x', experimental: true }).returning()
+    await db.insert(schema.siteMembers).values({ siteId: owner.site.id, userId: member!.id, role: 'member' })
+    await session(db, member!.id, 'token-tester-partner')
+    // The member's own flag doesn't count, only the owner's.
+    expect(experimentalEnabled((await sessionSite(db, sha256('token-tester-partner')))!.owner)).toBe(false)
+    await db.update(schema.users).set({ experimental: true }).where(eq(schema.users.id, owner.user.id))
+    expect(experimentalEnabled((await sessionSite(db, sha256('token-tester-partner')))!.owner)).toBe(true)
   })
 
   it('makes the creator of an existing site its owner', async () => {
@@ -90,5 +112,21 @@ describe('households', () => {
     await session(db, legacy.userId, 'expired', new Date(Date.now() - 1000))
     expect(await sessionSite(db, sha256('expired'))).toBeNull()
     expect(await sessionSite(db, sha256('nope'))).toBeNull()
+  })
+})
+
+describe('experimentalEnabled', () => {
+  it('is on for an owner who switched it on or is an admin, and off otherwise', () => {
+    expect(experimentalEnabled({ role: 'user', experimental: false })).toBe(false)
+    expect(experimentalEnabled({ role: 'user', experimental: true })).toBe(true)
+    expect(experimentalEnabled({ role: 'admin', experimental: false })).toBe(true)
+    expect(experimentalEnabled(null)).toBe(false)
+  })
+})
+
+describe('assertAdmin', () => {
+  it('lets an admin through and refuses anyone else with a 403', () => {
+    expect(() => assertAdmin({ role: 'admin' })).not.toThrow()
+    expect(() => assertAdmin({ role: 'user' })).toThrow(expect.objectContaining({ statusCode: 403 }))
   })
 })

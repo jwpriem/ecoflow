@@ -236,7 +236,7 @@ const flow = useFlowView()
 const solar = useSolarCount()
 const { m, locale, setLocale, serverText } = useLocale()
 const api = useApi()
-const { setToken } = useAuth()
+const { setToken, me, loadMe } = useAuth()
 const push = usePush()
 
 function pickLocale(l: Locale) {
@@ -277,7 +277,6 @@ const devs = ref<any[]>([])
 const strategy = ref<any>(null)
 type Msg = { ok: boolean; text: string } | null
 const strategyMsg = ref<Msg>(null)
-const me = ref<any>(null)
 const deviceMsg = ref<{ id: number; ok: boolean; text: string } | null>(null)
 
 const pct = reactive({ reserveSoc: 10, maxSoc: 100, roundTripEfficiency: 85 })
@@ -329,7 +328,7 @@ async function load() {
   const plan: any = await api('/api/plan')
   control.value = { steering: plan.steering, controlMode: plan.controlMode }
   setStrategy(plan.strategy)
-  me.value = await api('/api/auth/me')
+  await loadMe(true)
 }
 
 async function save(provider: string) {

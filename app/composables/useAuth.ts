@@ -10,19 +10,39 @@ function readToken(): string | null {
   }
 }
 
+export interface Me {
+  email: string
+  role: 'user' | 'admin'
+  member: 'owner' | 'member'
+  experimental: boolean
+  site: { id: number; name: string; timezone: string }
+}
+
 export function useAuth() {
   const token = useState<string | null>('token', () => (import.meta.client ? readToken() : null))
   const loggedIn = computed(() => !!token.value)
+  const me = useState<Me | null>('me', () => null)
+  const isAdmin = computed(() => me.value?.role === 'admin')
+  /** Zeekr, the Tibber app and the cars: shown only when the household has experimental integrations on */
+  const experimental = computed(() => !!me.value?.experimental)
+
+  /** Fetch who is logged in (once, unless forced). */
+  async function loadMe(force = false) {
+    if (!token.value || (me.value && !force)) return me.value
+    me.value = await useApi()<Me>('/api/auth/me')
+    return me.value
+  }
 
   function setToken(value: string | null) {
     token.value = value
+    me.value = null
     try {
       if (value) localStorage.setItem(KEY, value)
       else localStorage.removeItem(KEY)
     } catch {}
   }
 
-  return { token, loggedIn, setToken }
+  return { token, loggedIn, setToken, me, isAdmin, experimental, loadMe }
 }
 
 export function useApi() {
