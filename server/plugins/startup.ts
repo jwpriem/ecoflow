@@ -1,11 +1,11 @@
 import { resolve } from 'node:path'
 import { migrate } from 'drizzle-orm/postgres-js/migrator'
-import { sites } from '../db/schema'
 import { syncEcoFlowDevices } from '../services/ecoflow'
 import { refreshPrices } from '../services/prices'
 import { refreshIrradiance } from '../services/solarForecast'
 import { syncPulse } from '../services/pulse'
 import { experimentalSite } from '../services/experimental'
+import { forEachSite, jobSites } from '../services/jobs'
 import { runStrategy } from '../services/strategy'
 import { readZeekrVehicles } from '../services/zeekr'
 
@@ -27,8 +27,11 @@ export default defineNitroPlugin(() => {
     }
     if (String(cfg.jobsEnabled) === 'false') return
     const key = cfg.encryptionKey || process.env.NUXT_ENCRYPTION_KEY || ''
-    for (const site of await db.select().from(sites)) {
-      try {
+    // Every instance starts its own Pulse streams, so no lock here. A household that hangs only holds up itself.
+    const list = await jobSites(db, true)
+    await forEachSite(
+      list,
+      async (site) => {
         const ef = await syncEcoFlowDevices(db, site, key)
         if (ef.error) console.error(`[startup] site ${site.id}: EcoFlow: ${ef.error}`)
         await syncPulse(db, site, key)
@@ -38,9 +41,10 @@ export default defineNitroPlugin(() => {
           await readZeekrVehicles(db, site, key).catch((err: Error) => console.warn(`[startup] site ${site.id}: Zeekr: ${err.message}`))
         }
         await runStrategy(db, site)
-      } catch (err) {
-        console.error(`[startup] site ${site.id}:`, (err as Error).message)
-      }
-    }
+      },
+      { timeoutMs: 120_000, concurrency: Number(cfg.jobsConcurrency) || undefined },
+      (site, err) => console.error(`[startup] site ${site.id}:`, err.message),
+    )
+    console.info(`[startup] ${list.length} households started`)
   })()
 })

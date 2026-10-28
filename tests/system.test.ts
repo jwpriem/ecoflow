@@ -32,8 +32,8 @@ describe('job health', () => {
     expect(jobs.retention).toMatchObject({ lastRunAt: null, late: true })
   })
 
-  it('keeps two days of runs', async () => {
-    await recordRun(db, 'digest', ago(3 * 24 * 60 * MIN), {}, ago(3 * 24 * 60 * MIN))
+  it('keeps a week of runs', async () => {
+    await recordRun(db, 'digest', ago(8 * 24 * 60 * MIN), {}, ago(8 * 24 * 60 * MIN))
     await recordRun(db, 'digest', ago(10 * MIN), {}, now)
     expect((await db.select().from(schema.jobRuns)).filter((r) => r.job === 'digest')).toHaveLength(1)
   })

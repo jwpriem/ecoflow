@@ -362,7 +362,7 @@ export const pushSubscriptions = pgTable(
   (t) => [index('push_subscriptions_site').on(t.siteId)],
 )
 
-/** One row per background job run that did its work (not skipped), for the admin's job health. Kept for two days. */
+/** One row per background job run that did its work (not skipped), for the admin's job health. Kept for 7 days. */
 export const jobRuns = pgTable(
   'job_runs',
   {
@@ -372,9 +372,22 @@ export const jobRuns = pgTable(
     durationMs: integer('duration_ms').notNull(),
     sitesOk: integer('sites_ok').notNull(),
     sitesFailed: integer('sites_failed').notNull(),
+    sitesTimedOut: integer('sites_timed_out').notNull().default(0),
+    /** The first sites that failed or timed out, with the error */
+    errors: jsonb('errors').$type<{ siteId: number; error: string }[]>().notNull().default([]),
   },
   (t) => [index('job_runs_job_started').on(t.job, t.startedAt)],
 )
+
+/**
+ * Who runs a job right now. A runner takes the row when the lease has run out and gives it back when done;
+ * a crashed runner's lease simply expires. Keeps two instances from doing the same job at once.
+ */
+export const jobLocks = pgTable('job_locks', {
+  job: text('job').primaryKey(),
+  holder: text('holder').notNull(),
+  lockedUntil: ts('locked_until').notNull(),
+})
 
 /** What admins did to whom: one row per action. The target is kept as a number, so the row outlives the user. */
 export const adminAudit = pgTable(

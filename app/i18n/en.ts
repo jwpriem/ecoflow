@@ -225,7 +225,8 @@ export const en = {
     jobs: 'Jobs',
     jobsOff: 'Background jobs are switched off on this server (NUXT_JOBS_ENABLED=false).',
     every: (min: number) => (min >= 1440 ? 'daily' : min >= 60 ? 'hourly' : `every ${min} min`),
-    lastRun: (t: string, ms: number, ok: number, failed: number) => `${t} · ${(ms / 1000).toFixed(1)} s · ${ok} ok${failed ? `, ${failed} failed` : ''}`,
+    lastRun: (t: string, ms: number, ok: number, failed: number, timedOut: number) =>
+      `${t} · ${(ms / 1000).toFixed(1)} s · ${ok} ok${failed ? `, ${failed} failed` : ''}${timedOut ? `, ${timedOut} timed out` : ''}`,
     noRun: 'No run recorded yet',
     failures24h: (n: number) => `${n} ${n === 1 ? 'run' : 'runs'} with failures in 24 h`,
     late: 'Late',
