@@ -33,3 +33,18 @@ services:
       - key: NUXT_JOBS_ENABLED
         scope: RUN_TIME
         value: "true"
+      - key: NUXT_EMAIL_SMTP_HOST # SMTP2GO, EU region
+        scope: RUN_TIME
+        value: mail-eu.smtp2go.com
+      - key: NUXT_EMAIL_SMTP_PORT
+        scope: RUN_TIME
+        value: "587"
+      - key: NUXT_EMAIL_SMTP_USER
+        scope: RUN_TIME
+        type: SECRET
+      - key: NUXT_EMAIL_SMTP_PASSWORD
+        scope: RUN_TIME
+        type: SECRET
+      - key: NUXT_EMAIL_FROM
+        scope: RUN_TIME
+        value: WattsWise <hello@wattswise.eu>
