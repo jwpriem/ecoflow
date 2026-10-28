@@ -1,6 +1,6 @@
 /**
  * English texts. nl.ts has the same shape (the type checks that every text is there).
- * Texts with values are functions; WattWise, Tibber, SolarEdge and EcoFlow are names and stay as they are.
+ * Texts with values are functions; WattsWise, Tibber, SolarEdge and EcoFlow are names and stay as they are.
  */
 export const en = {
   tabs: { home: 'Home', savings: 'Savings', plan: 'Plan', cars: 'Cars', settings: 'Settings', main: 'Main' },
@@ -51,7 +51,7 @@ export const en = {
       saving: 'Saving…',
       failed: 'Could not set the departure time in Tibber',
     },
-    foot: 'Read through the Zeekr app API every 5 minutes. Read-only: WattWise never sends commands to the car.',
+    foot: 'Read through the Zeekr app API every 5 minutes. Read-only: WattsWise never sends commands to the car.',
   },
   mode: { self_use: 'Self-use', solar_only: 'Hold', charge_grid: 'Charge from grid', discharge: 'Discharge' } as Record<string, string>,
   modeHelp: {
@@ -71,8 +71,8 @@ export const en = {
     failed: 'Failed',
   },
   load: {
-    autoRetry: ' WattWise tries again every 30 seconds.',
-    unreachable: 'Can’t reach WattWise',
+    autoRetry: ' WattsWise tries again every 30 seconds.',
+    unreachable: 'Can’t reach WattsWise',
     checkConnection: (again: string) => `Check your internet connection.${again}`,
     serverDown: 'The server isn’t answering',
     serverDownDetail: (status: number, msg: string, what: string, again: string) => `It replied ${status}${msg ? ` (${msg})` : ''} while loading ${what}.${again}`,
@@ -99,7 +99,7 @@ export const en = {
     sunDown: 'sun down',
   },
   home: {
-    stale: (t: string) => `Not updated since ${t}: the server isn't answering. WattWise tries again every 30 seconds.`,
+    stale: (t: string) => `Not updated since ${t}: the server isn't answering. WattsWise tries again every 30 seconds.`,
     connectTitle: 'Connect your batteries',
     connectText: 'Save your EcoFlow developer keys in Settings. Every STREAM unit on the account then shows up here, with its charge level and what the plan does next.',
     override: (mode: string, t: string) => `Your override holds ${mode} until ${t}.`,
@@ -138,7 +138,7 @@ export const en = {
     costsNow: (c: string) => `Power costs ${c} per kWh right now.`,
   },
   login: {
-    welcome: 'Welcome to WattWise',
+    welcome: 'Welcome to WattsWise',
     welcomeBack: 'Welcome back',
     firstRun: 'First run: this creates the only account. Add your EcoFlow developer keys in Settings to bring in the batteries.',
     logInToSee: 'Log in to see your batteries.',
@@ -170,7 +170,7 @@ export const en = {
     aiSteers: 'EcoFlow AI steers the batteries. This plan is only shown.',
     monitorOnly: 'Monitoring only: this plan isn’t sent to the batteries.',
     noPrices: 'No prices yet',
-    noPricesText: 'WattWise plans from Tibber’s 15-minute prices. Add your Tibber token in Settings: today’s prices and the plan appear within a minute, tomorrow’s around 13:00.',
+    noPricesText: 'WattsWise plans from Tibber’s 15-minute prices. Add your Tibber token in Settings: today’s prices and the plan appear within a minute, tomorrow’s around 13:00.',
     noPlan: 'No plan',
     solarExpected: (w: number) => `${w} W solar expected`,
     backToNow: 'Back to now',
@@ -209,8 +209,8 @@ export const en = {
     bases: { naive: 'Solar free', opportunity: 'Solar at feed-in' },
     basisAria: 'How solar is counted',
     nothing: 'Nothing booked yet',
-    nothingBattery: 'Every 15 minutes WattWise books what went into and out of the batteries, with the price at that moment. Savings show up here after the first charge and discharge.',
-    nothingSolar: 'Every 15 minutes WattWise books where your solar went: straight into the house, to the grid or into the batteries, with the price at that moment. SolarEdge reports with a delay, so a quarter shows up here within about half an hour. This needs SolarEdge and the Tibber Pulse in Settings.',
+    nothingBattery: 'Every 15 minutes WattsWise books what went into and out of the batteries, with the price at that moment. Savings show up here after the first charge and discharge.',
+    nothingSolar: 'Every 15 minutes WattsWise books where your solar went: straight into the house, to the grid or into the batteries, with the price at that moment. SolarEdge reports with a delay, so a quarter shows up here within about half an hour. This needs SolarEdge and the Tibber Pulse in Settings.',
     nothingTotal: 'Battery and solar savings add up here once either of them has booked a quarter.',
     byBatteries: 'saved by the batteries',
     inTotal: 'saved in total',
@@ -256,20 +256,20 @@ export const en = {
   settings: {
     title: 'Settings',
     language: 'Language',
-    languageFoot: 'The language of WattWise on this device, including its notifications.',
+    languageFoot: 'The language of WattsWise on this device, including its notifications.',
     display: 'Display',
     animate: 'Animate energy flow',
     displayFoot: 'On this device. Flow lines stay still when Reduce Motion is on.',
     whoSteers: 'Who steers the batteries',
     control: {
-      ecoflow_ai: { label: 'EcoFlow AI', help: 'EcoFlow’s AI mode decides when to charge. WattWise only shows its plan.' },
-      wattwise: { label: 'WattWise', help: 'WattWise sends each plan step to the batteries, every 15 minutes, in Self-Powered mode.' },
-      monitor: { label: 'Monitor only', help: 'The batteries run in Self-Powered mode on their own. WattWise shows the plan and sends nothing.' },
+      ecoflow_ai: { label: 'EcoFlow AI', help: 'EcoFlow’s AI mode decides when to charge. WattsWise only shows its plan.' },
+      wattwise: { label: 'WattsWise', help: 'WattsWise sends each plan step to the batteries, every 15 minutes, in Self-Powered mode.' },
+      monitor: { label: 'Monitor only', help: 'The batteries run in Self-Powered mode on their own. WattsWise shows the plan and sends nothing.' },
     },
     controlDone: {
       ecoflow_ai: 'EcoFlow AI now steers the batteries.',
-      wattwise: 'WattWise now steers the batteries.',
-      monitor: 'Monitoring only. WattWise no longer sends the plan.',
+      wattwise: 'WattsWise now steers the batteries.',
+      monitor: 'Monitoring only. WattsWise no longer sends the plan.',
     },
     switching: 'Switching…',
     switchFailed: 'Switching failed. Try again in a minute.',
@@ -315,7 +315,7 @@ export const en = {
       },
       tibber_app: {
         title: 'Tibber app (charging)',
-        help: 'Your Tibber email and password. When a car is plugged in at home, WattWise sets which car is on the charger and its battery level in the Tibber app, which you would otherwise do by hand. Tibber keeps planning the charge. Uses the unofficial app API.',
+        help: 'Your Tibber email and password. When a car is plugged in at home, WattsWise sets which car is on the charger and its battery level in the Tibber app, which you would otherwise do by hand. Tibber keeps planning the charge. Uses the unofficial app API.',
       },
     } as Record<string, { title: string; help: string }>,
     fields: {
@@ -374,11 +374,11 @@ export const en = {
     strategyFoot: 'Changes save as you make them. The plan is rebuilt right away.',
     notifications: 'Notifications',
     checking: 'Checking…',
-    installTitle: 'Add WattWise to your Home Screen',
-    installText: 'On iPhone, notifications only work from the Home Screen app (iOS 16.4 or later). In Safari tap Share, then Add to Home Screen, open WattWise from there and come back to this page.',
+    installTitle: 'Add WattsWise to your Home Screen',
+    installText: 'On iPhone, notifications only work from the Home Screen app (iOS 16.4 or later). In Safari tap Share, then Add to Home Screen, open WattsWise from there and come back to this page.',
     unsupported: 'This browser can’t receive notifications.',
     blocked: 'Notifications are blocked',
-    blockedIos: 'Allow them in the iPhone Settings app → Notifications → WattWise, then reopen the app.',
+    blockedIos: 'Allow them in the iPhone Settings app → Notifications → WattsWise, then reopen the app.',
     blockedWeb: 'Allow notifications for this site in your browser settings, then reload.',
     turningOn: 'Turning on…',
     turnOn: 'Turn on notifications',

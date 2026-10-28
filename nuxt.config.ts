@@ -15,13 +15,13 @@ export default defineNuxtConfig({
   css: ['~/assets/main.css'],
   app: {
     head: {
-      title: 'WattWise',
+      title: 'WattsWise',
       meta: [
         { name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover' },
         // Installable as a PWA (Add to Home Screen); iOS needs that for Web Push
         { name: 'mobile-web-app-capable', content: 'yes' },
         { name: 'apple-mobile-web-app-capable', content: 'yes' },
-        { name: 'apple-mobile-web-app-title', content: 'WattWise' },
+        { name: 'apple-mobile-web-app-title', content: 'WattsWise' },
         // apple-mobile-web-app-status-bar-style and theme-color are written by SKY_BOOT, from the sun
       ],
       script: [{ innerHTML: SKY_BOOT, tagPosition: 'head' }],

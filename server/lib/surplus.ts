@@ -39,7 +39,7 @@ export function surplusStep(
     chargeCapW: number
     socPct: number
     maxPct: number
-    /** The plan holds or self-uses, WattWise steers and nothing overrides it */
+    /** The plan holds or self-uses, WattsWise steers and nothing overrides it */
     eligible: boolean
   },
 ): SurplusState {

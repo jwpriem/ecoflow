@@ -1,7 +1,7 @@
 <template>
   <div class="home">
     <header class="top">
-      <img class="logo" :src="`/brand/wattwise-logo-${sky === 'night' ? 'dark' : 'light'}.svg`" alt="WattWise" />
+      <img class="logo" :src="`/brand/wattswise-logo-${sky === 'night' ? 'dark' : 'light'}.svg`" alt="WattsWise" />
       <span v-if="d" class="clock"><span class="dot live" /> {{ time(d.now) }}</span>
     </header>
     <!-- A failed refresh keeps the last data on screen and says how old it is -->

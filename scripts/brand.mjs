@@ -1,4 +1,4 @@
-// Writes the WattWise mark (a house with a charged battery under the sun) into every icon and logo SVG.
+// Writes the WattsWise mark (a house with a charged battery under the sun) into every icon and logo SVG.
 // Run with `node scripts/brand.mjs`, then render the PNGs from scripts/icon.svg and scripts/icon-maskable.svg
 // (see README). The house and bolt are cut out of the sun and battery with masks, so the mark works on any background.
 import { readFileSync, writeFileSync } from 'node:fs'
@@ -33,7 +33,7 @@ function mark(c, id) {
 function icon(rx, scale) {
   const cx = BOX.x + BOX.w / 2, cy = BOX.y + BOX.h / 2
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <title>WattWise</title>
+  <title>WattsWise</title>
   <rect width="512" height="512" rx="${rx}" fill="${BG}"/>
   <g transform="translate(256 256) scale(${scale}) translate(${-cx} ${-cy})">
   ${mark(NIGHT, 'ww')}
@@ -47,8 +47,8 @@ writeFileSync('scripts/icon-maskable.svg', icon(0, 0.8))
 // iOS rounds the Home Screen icon's corners hard, so the apple-touch-icon gets extra room around the mark
 writeFileSync('scripts/icon-apple.svg', icon(0, 0.78))
 writeFileSync('public/favicon.svg', icon(112, 1))
-writeFileSync('public/brand/wattwise-mark.svg', `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${BOX.x} ${BOX.y} ${BOX.w} ${BOX.h}">
-  <title>WattWise</title>
+writeFileSync('public/brand/wattswise-mark.svg', `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${BOX.x} ${BOX.y} ${BOX.w} ${BOX.h}">
+  <title>WattsWise</title>
   ${mark(NIGHT, 'ww')}
 </svg>
 `)
@@ -56,7 +56,7 @@ writeFileSync('public/brand/wattwise-mark.svg', `<svg xmlns="http://www.w3.org/2
 // Logos: same height as the old W (85.85 units), the wordmark 30 units to its right
 const H = 85.85, k = H / BOX.h, W = BOX.w * k, GAP = 30
 for (const [file, c] of [['logo-light', DAY], ['logo-dark', NIGHT], ['lockup-light', DAY], ['lockup-dark', NIGHT]]) {
-  const path = `public/brand/wattwise-${file}.svg`
+  const path = `public/brand/wattswise-${file}.svg`
   const src = readFileSync(path, 'utf8')
   const vb = src.match(/viewBox="-2 -2 ([\d.]+) ([\d.]+)"/)
   const top = file.startsWith('lockup') ? -6.55 : 0

@@ -28,7 +28,7 @@ export interface TibberAppMeta {
   /** our vehicles.id -> Tibber vehicle id */
   map?: Record<string, string>
   lastPush?: { vehicleId: number; pct: number; at: string }
-  /** our vehicles.id -> the departure last set from WattWise */
+  /** our vehicles.id -> the departure last set from WattsWise */
   departures?: Record<string, { day: Weekday; time: string; at: string }>
   debug?: TibberAppDiscovery['debug']
   /** When the cars and charger were last looked up */

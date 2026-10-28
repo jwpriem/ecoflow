@@ -5,7 +5,7 @@
 //   NUXT_PUBLIC_API_BASE=https://<your-app>.ondigitalocean.app npm run generate:app && npx cap sync
 const config = {
   appId: 'nl.priem.battery',
-  appName: 'WattWise',
+  appName: 'WattsWise',
   webDir: '.output/public',
 }
 

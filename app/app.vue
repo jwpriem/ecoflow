@@ -4,7 +4,7 @@
     <nav v-if="loggedIn" class="tabs" :aria-label="m.tabs.main">
       <!-- On a large screen the tab bar is a rail: logo on top, the batteries at the foot -->
       <NuxtLink to="/" class="rail-only rail-logo" aria-hidden="true" tabindex="-1">
-        <img :src="`/brand/wattwise-logo-${sky === 'night' ? 'dark' : 'light'}.svg`" alt="WattWise" />
+        <img :src="`/brand/wattswise-logo-${sky === 'night' ? 'dark' : 'light'}.svg`" alt="WattsWise" />
       </NuxtLink>
       <NuxtLink v-for="t in tabs" :key="t.to" :to="t.to">
         <AppIcon :name="t.icon" />
