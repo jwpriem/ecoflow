@@ -14,7 +14,7 @@ const ACCESS: Record<string, 'owner' | 'household' | 'account' | 'public'> = {
   'auth/login.post.ts': 'public',
   'auth/signup.post.ts': 'public',
   // The owner's household goes with it: deciding that is the account holder's own, checked with the password
-  'account.delete.ts': 'account',
+  'account/index.delete.ts': 'account',
   'auth/logout.post.ts': 'account',
   'auth/logout-all.post.ts': 'account',
   'auth/password.put.ts': 'account',

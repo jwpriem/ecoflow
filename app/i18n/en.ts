@@ -455,6 +455,8 @@ export const en = {
     newPassword: 'New password (at least 8 characters)',
     savePassword: 'Save password',
     passwordChanged: 'Password changed. Other devices are logged out.',
+    downloadData: 'Download my data',
+    preparing: 'Preparing download…',
     deleteAccount: 'Delete account',
     deleteOwner: (household: string) => `This deletes your account and the household ${household}: the connections, the batteries, the plans and every reading. WattsWise stops steering your batteries; they follow their own settings in the EcoFlow app again. Members keep their account, start with an empty household and get an email. This can't be undone.`,
     deleteMember: "This deletes your account. The household and its data stay with the owner. This can't be undone.",

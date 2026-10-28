@@ -453,6 +453,8 @@ export const nl: Messages = {
     newPassword: 'Nieuw wachtwoord (minstens 8 tekens)',
     savePassword: 'Wachtwoord opslaan',
     passwordChanged: 'Wachtwoord gewijzigd. Andere apparaten zijn uitgelogd.',
+    downloadData: 'Mijn gegevens downloaden',
+    preparing: 'Download voorbereiden…',
     deleteAccount: 'Account verwijderen',
     deleteOwner: (household: string) => `Dit verwijdert je account en het huishouden ${household}: de koppelingen, de batterijen, de plannen en alle metingen. WattsWise stuurt je batterijen niet meer aan; ze volgen weer hun eigen instellingen in de EcoFlow-app. Leden houden hun account, beginnen met een leeg huishouden en krijgen een e-mail. Dit kan niet ongedaan worden gemaakt.`,
     deleteMember: 'Dit verwijdert je account. Het huishouden en de gegevens blijven bij de eigenaar. Dit kan niet ongedaan worden gemaakt.',
