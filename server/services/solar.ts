@@ -2,6 +2,7 @@ import { and, asc, desc, eq, gte, inArray, isNull, lt, sql } from 'drizzle-orm'
 import type { Db } from '../db/client'
 import { ledger, prices, samples, type sites, solarLedger, solarProduction } from '../db/schema'
 import { changed } from '../db/upsert'
+import { fallbackFeedIn } from '../lib/feedin'
 import { bookSolarSlot, type GridMinute, seBucketStart, slotKwh } from '../lib/solar'
 import { addMs, slotStartOf } from '../lib/time'
 import type { Period } from './ledger'
@@ -116,7 +117,7 @@ export async function runSolarLedger(db: Db, site: Site, upTo = new Date()): Pro
       if (!minutes?.length) continue
       const price = priceBySlot.get(t)
       const priceTotal = price?.total ?? site.strategy.fallbackPrice
-      const priceFeedIn = price?.feedIn ?? priceTotal
+      const priceFeedIn = price?.feedIn ?? fallbackFeedIn(p.slotStart, priceTotal, site.strategy.feedIn, site.timezone)
       const r = bookSolarSlot({
         producedKwh: slotKwh(p.avgW) + (pvKwh.get(t) ?? 0),
         grid: minutes,

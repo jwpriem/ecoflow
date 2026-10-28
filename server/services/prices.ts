@@ -54,7 +54,7 @@ export async function refreshPrices(db: Db, site: Site, key: string): Promise<{ 
             energy: p.energy,
             tax: p.tax,
             total: p.total,
-            feedIn: feedInPrice(slotStart, p.energy, p.total, site.strategy.feedIn),
+            feedIn: feedInPrice(slotStart, p.energy, p.total, site.strategy.feedIn, site.timezone),
             source: 'tibber' as const,
           }
         })
@@ -85,4 +85,20 @@ export async function getPrices(db: Db, siteId: number, from: Date, to: Date): P
     .where(and(eq(prices.siteId, siteId), gte(prices.slotStart, from), lt(prices.slotStart, to)))
     .orderBy(asc(prices.slotStart))
   return rows.map((r) => ({ slotStart: r.slotStart, total: r.total, energy: r.energy, feedIn: r.feedIn, source: r.source }))
+}
+
+/**
+ * Work the feed-in price out again for stored slots from `from` on, after the household changed its terms.
+ * Slots before it keep what they had: the ledger has booked them already.
+ */
+export async function recomputeFeedIn(db: Db, site: Site, from: Date): Promise<number> {
+  const rows = await db.select().from(prices).where(and(eq(prices.siteId, site.id), gte(prices.slotStart, from)))
+  let updated = 0
+  for (const r of rows) {
+    const feedIn = feedInPrice(r.slotStart, r.energy, r.total, site.strategy.feedIn, site.timezone)
+    if (feedIn === r.feedIn) continue
+    await db.update(prices).set({ feedIn }).where(and(eq(prices.siteId, site.id), eq(prices.slotStart, r.slotStart)))
+    updated++
+  }
+  return updated
 }

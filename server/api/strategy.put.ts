@@ -1,7 +1,9 @@
 import { eq } from 'drizzle-orm'
 import { devices, sites } from '../db/schema'
 import { defaultStrategy, type StrategyConfig } from '../lib/types'
+import { startOfLocalDay } from '../lib/time'
 import { refreshTypicalLoad } from '../services/load'
+import { recomputeFeedIn } from '../services/prices'
 import { effectiveStrategy, runStrategy } from '../services/strategy'
 
 function num(v: unknown, min: number, max: number, fallback: number) {
@@ -38,6 +40,8 @@ export default defineEventHandler(async (event) => {
     await refreshTypicalLoad(db, updated!)
     ;[updated] = await db.select().from(sites).where(eq(sites.id, site.id))
   }
+  // New feed-in terms: today's and future prices are worked out again, so the plan and today's booking use them
+  if (JSON.stringify(next.feedIn) !== JSON.stringify(cur.feedIn)) await recomputeFeedIn(db, updated!, startOfLocalDay(new Date(), updated!.timezone))
   await runStrategy(db, updated!)
   return effectiveStrategy(updated!, await db.select({ model: devices.model, maxDischargeW: devices.maxDischargeW }).from(devices).where(eq(devices.siteId, site.id)))
 })
