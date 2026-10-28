@@ -14,6 +14,8 @@ export const LIMITS = {
   // Guessing a 256-bit token is hopeless, but there is no reason to let anyone try fast
   resetConfirmIp: new RateLimiter(20, 60 * MIN),
   passwordUser: new RateLimiter(10, 60 * MIN),
+  verifyResendUser: new RateLimiter(3, 60 * MIN),
+  verifyIp: new RateLimiter(20, 60 * MIN),
 }
 
 /** The visitor's address. App Platform puts it in do-connecting-ip; elsewhere the first X-Forwarded-For entry. */

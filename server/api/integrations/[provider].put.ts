@@ -5,6 +5,7 @@ import { forgetTibberApp } from '../../providers/tibberApp'
 import { getIntegration, markIntegration, saveIntegration } from '../../services/integrations'
 import { assertExperimental } from '../../services/experimental'
 import { refreshPrices } from '../../services/prices'
+import { assertVerified } from '../../services/verify'
 import { syncEcoFlowDevices } from '../../services/ecoflow'
 import { syncPulse } from '../../services/pulse'
 import { forgetSolarEdge, testSolarEdge } from '../../services/solaredge'
@@ -25,7 +26,8 @@ const FIELDS: Record<Provider, string[]> = {
  * Leave credentials out to only change settings (e.g. pick another Tibber home).
  */
 export default defineEventHandler(async (event) => {
-  const { site, experimental } = await requireOwner(event)
+  const { user, site, experimental } = await requireOwner(event)
+  assertVerified(user)
   const provider = getRouterParam(event, 'provider') as Provider
   if (!FIELDS[provider]) throw createError({ statusCode: 404, statusMessage: 'Unknown provider' })
   assertExperimental(experimental, provider)
