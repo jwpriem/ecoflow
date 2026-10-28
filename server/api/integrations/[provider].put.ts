@@ -25,7 +25,7 @@ const FIELDS: Record<Provider, string[]> = {
  * Leave credentials out to only change settings (e.g. pick another Tibber home).
  */
 export default defineEventHandler(async (event) => {
-  const { site, experimental } = await requireSite(event)
+  const { site, experimental } = await requireOwner(event)
   const provider = getRouterParam(event, 'provider') as Provider
   if (!FIELDS[provider]) throw createError({ statusCode: 404, statusMessage: 'Unknown provider' })
   assertExperimental(experimental, provider)

@@ -7,7 +7,7 @@ import { signState } from '../../../utils/crypto'
 export default defineEventHandler(async (event) => {
   // Lives under [provider]/ because a static solaredge/ folder would shadow PUT/DELETE /api/integrations/solaredge
   if (getRouterParam(event, 'provider') !== 'solaredge') throw createError({ statusCode: 404, statusMessage: 'Not found' })
-  const { site } = await requireSite(event)
+  const { site } = await requireOwner(event)
   const key = encryptionKey()
   const db = useDb()
   const se = await getIntegration<SolarEdgeCredentials>(db, site.id, 'solaredge', key)

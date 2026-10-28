@@ -2,7 +2,7 @@ import { and, eq, gt } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
 import { createError } from 'h3'
 import type { Db } from '../db/client'
-import { sessions, siteMembers, sites, users, type UserRole } from '../db/schema'
+import { type MemberRole, sessions, siteMembers, sites, users, type UserRole } from '../db/schema'
 
 const ownerMember = alias(siteMembers, 'owner_member')
 const owner = alias(users, 'owner')
@@ -46,6 +46,14 @@ export async function sessionSite(db: Db, tokenHash: string) {
 /** Throws a 403 unless the user is an admin. Kept apart from requireAdmin() so it can be tested without a request. */
 export function assertAdmin(user: { role: UserRole }) {
   if (user.role !== 'admin') throw createError({ statusCode: 403, statusMessage: 'Admins only' })
+}
+
+/**
+ * Throws a 403 unless the user owns the household. Owner-only (JER-5): steering on or off, the connections,
+ * the members and deleting the household. Members change everything else.
+ */
+export function assertOwner(role: MemberRole) {
+  if (role !== 'owner') throw createError({ statusCode: 403, statusMessage: 'Only the household owner can do this' })
 }
 
 /** The owner's email, the contact of last resort for a household. */
