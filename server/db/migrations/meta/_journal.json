@@ -127,6 +127,13 @@
       "when": 1793217119784,
       "tag": "0017_job_locks",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1793217504992,
+      "tag": "0018_strategy_auto",
+      "breakpoints": true
     }
   ]
 }

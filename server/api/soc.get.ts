@@ -3,7 +3,7 @@ import { devices, plans, samples } from '../db/schema'
 import type { DeviceState } from '../providers/ecoflow'
 import { projectSoc } from '../lib/socForecast'
 import { SLOT_MS, slotStartOf } from '../lib/time'
-import { defaultStrategy } from '../lib/types'
+import { effectiveStrategy } from '../services/strategy'
 import { solarForecastW } from '../services/solarForecast'
 
 const PAST_H = 12
@@ -58,7 +58,7 @@ export default defineEventHandler(async (event) => {
 
   const states = devs.map((d) => d.state as DeviceState)
   const socNow = capacityWh ? devs.reduce((s, d, i) => s + (states[i]!.soc ?? 0) * d.capacityWh, 0) / capacityWh : 0
-  const cfg = { ...defaultStrategy, ...site.strategy }
+  const cfg = effectiveStrategy(site, devs)
   const forecast = projectSoc(socNow, planRows.map((p) => ({ ...p, solarW: solar.get(p.slotStart.getTime()) })), {
     capacityWh,
     maxChargeW: devs.reduce((s, d) => s + d.maxChargeW, 0),

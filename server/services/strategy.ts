@@ -5,7 +5,8 @@ import { planChangeMessage } from '../lib/notifications'
 import { idleSurplus, type SurplusState, surplusModes, surplusStep } from '../lib/surplus'
 import { buildPlan, type PlanSlot } from '../lib/strategy'
 import { addMs, SLOT_MS, slotStartOf, startOfLocalDay } from '../lib/time'
-import { defaultStrategy, type BatteryMode } from '../lib/types'
+import { derivedMaxOutputW } from '../lib/batteryModels'
+import { defaultStrategy, type BatteryMode, type StrategyConfig } from '../lib/types'
 import type { DeviceState } from '../providers/ecoflow'
 import { controlEcoFlow, steeringOf } from './ecoflow'
 import { getIntegration } from './integrations'
@@ -14,6 +15,12 @@ import { solarForecastW } from './solarForecast'
 import { notify } from './push'
 
 type Site = typeof sites.$inferSelect
+
+/** The strategy as the plan uses it: the site's settings, with the output limit taken from the devices when it is on auto. */
+export function effectiveStrategy(site: Pick<Site, 'strategy'>, devs: { model: string; maxDischargeW: number }[]): StrategyConfig {
+  const cfg = { ...defaultStrategy, ...site.strategy }
+  return cfg.maxOutputAuto ? { ...cfg, maxOutputW: derivedMaxOutputW(devs, defaultStrategy.maxOutputW) } : cfg
+}
 
 export async function computePlan(db: Db, site: Site, now = new Date()): Promise<PlanSlot[]> {
   const from = slotStartOf(now)
@@ -41,7 +48,7 @@ export async function computePlan(db: Db, site: Site, now = new Date()): Promise
     maxChargeW: devs.reduce((s, d) => s + d.maxChargeW, 0),
     maxDischargeW: devs.reduce((s, d) => s + d.maxDischargeW, 0),
     poolAvgCost: poolKwh > 0 ? poolCost / poolKwh : 0,
-    cfg: { ...defaultStrategy, ...site.strategy },
+    cfg: effectiveStrategy(site, devs),
     timeZone: site.timezone,
     dischargedTodayKwh: Number(today?.kwh ?? 0),
   })
