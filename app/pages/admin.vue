@@ -32,10 +32,11 @@
       <div class="list">
         <div v-for="j in system.jobs" :key="j.job" class="list-row">
           <span class="stack-text">
-            <span class="row"><span class="dot" :class="j.late ? 'err' : j.sitesFailed ? '' : 'ok'" />{{ j.job }} <span class="small muted">{{ m.admin.every(j.everyMinutes) }}</span></span>
+            <span class="row"><span class="dot" :class="j.late ? 'err' : j.sitesFailed || j.sitesTimedOut ? '' : 'ok'" />{{ j.job }} <span class="small muted">{{ m.admin.every(j.everyMinutes) }}</span></span>
             <span class="small muted">
-              {{ j.lastRunAt ? m.admin.lastRun(when(j.lastRunAt), j.durationMs ?? 0, j.sitesOk ?? 0, j.sitesFailed ?? 0) : m.admin.noRun }}<template v-if="j.runsWithFailures24h"> · {{ m.admin.failures24h(j.runsWithFailures24h) }}</template>
+              {{ j.lastRunAt ? m.admin.lastRun(when(j.lastRunAt), j.durationMs ?? 0, j.sitesOk ?? 0, j.sitesFailed ?? 0, j.sitesTimedOut ?? 0) : m.admin.noRun }}<template v-if="j.runsWithFailures24h"> · {{ m.admin.failures24h(j.runsWithFailures24h) }}</template>
             </span>
+            <span v-for="e in j.errors.slice(0, 5)" :key="e.siteId" class="small job-error">#{{ e.siteId }}: {{ e.error }}</span>
           </span>
           <span v-if="j.late" class="pill neg">{{ m.admin.late }}</span>
         </div>
@@ -170,7 +171,7 @@ interface SystemInfo {
   signupMode: 'open' | 'closed'
   jobsEnabled: boolean
   counts: { users: number; households: number; steering: number }
-  jobs: { job: string; everyMinutes: number; lastRunAt: string | null; durationMs: number | null; sitesOk: number | null; sitesFailed: number | null; runsWithFailures24h: number; late: boolean }[]
+  jobs: { job: string; everyMinutes: number; lastRunAt: string | null; durationMs: number | null; sitesOk: number | null; sitesFailed: number | null; sitesTimedOut: number | null; errors: { siteId: number; error: string }[]; runsWithFailures24h: number; late: boolean }[]
   providerErrors: { provider: string; count: number; households: { siteId: number; household: string; lastError: string | null; lastOkAt: string | null }[] }[]
 }
 interface AuditRow { id: number; admin: string | null; action: string; targetUserId: number | null; detail: Record<string, unknown>; createdAt: string }
@@ -275,5 +276,6 @@ onMounted(async () => {
 .figures > div { display: flex; flex-direction: column; gap: 2px; padding: 14px 0; }
 .figures { margin: 16px 0 0; }
 .detail { color: var(--text-2); }
+.job-error { color: var(--alert); overflow-wrap: anywhere; }
 .pager { justify-content: center; gap: 16px; }
 </style>

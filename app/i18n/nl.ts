@@ -224,7 +224,8 @@ export const nl: Messages = {
     jobs: 'Taken',
     jobsOff: 'Achtergrondtaken staan uit op deze server (NUXT_JOBS_ENABLED=false).',
     every: (min: number) => (min >= 1440 ? 'dagelijks' : min >= 60 ? 'elk uur' : `elke ${min} min`),
-    lastRun: (t: string, ms: number, ok: number, failed: number) => `${t} · ${(ms / 1000).toFixed(1)} s · ${ok} ok${failed ? `, ${failed} mislukt` : ''}`,
+    lastRun: (t: string, ms: number, ok: number, failed: number, timedOut: number) =>
+      `${t} · ${(ms / 1000).toFixed(1)} s · ${ok} ok${failed ? `, ${failed} mislukt` : ''}${timedOut ? `, ${timedOut} te traag` : ''}`,
     noRun: 'Nog geen run vastgelegd',
     failures24h: (n: number) => `${n} ${n === 1 ? 'run' : 'runs'} met fouten in 24 uur`,
     late: 'Te laat',
