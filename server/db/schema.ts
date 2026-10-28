@@ -25,8 +25,22 @@ export const users = pgTable('users', {
   role: text('role').$type<UserRole>().notNull().default('user'),
   /** Unlocks the experimental integrations (Zeekr, Tibber app) for the households this user owns */
   experimental: boolean('experimental').notNull().default(false),
+  /** Language of the emails to this user */
+  locale: text('locale').$type<Locale>().notNull().default('nl'),
   createdAt: ts('created_at').notNull().defaultNow(),
 })
+
+/** What a user accepted and which version of it: the terms at sign-up, the steering disclaimer later. */
+export const consents = pgTable(
+  'consents',
+  {
+    userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    kind: text('kind').$type<'terms' | 'steering'>().notNull(),
+    version: text('version').notNull(),
+    acceptedAt: ts('accepted_at').notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.kind, t.version] })],
+)
 
 export const sessions = pgTable('sessions', {
   id: serial('id').primaryKey(),

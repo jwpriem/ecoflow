@@ -6,6 +6,7 @@ import { emailConfig, scrubAddresses, sendEmail } from '../server/services/email
 const VARS: { [T in EmailTemplate]: EmailVars[T] } = {
   verify: { url: 'https://www.wattswise.eu/verify?token=secret-verify' },
   reset: { url: 'https://www.wattswise.eu/reset?token=secret-reset' },
+  accountExists: { loginUrl: 'https://www.wattswise.eu/login', resetUrl: 'https://www.wattswise.eu/reset' },
   invite: { url: 'https://www.wattswise.eu/invite?token=secret-invite', inviter: 'jeroen@example.com', household: 'Thuis' },
   householdDeleted: { household: 'Thuis' },
   adminNotice: { subject: 'New sign-up', body: 'Someone signed up.\n\nThe sign-up mode is open.' },

@@ -12,7 +12,7 @@ import { assertOwner } from '../server/services/members'
  */
 const ACCESS: Record<string, 'owner' | 'household' | 'account' | 'public'> = {
   'auth/login.post.ts': 'public',
-  'auth/setup.post.ts': 'public',
+  'auth/signup.post.ts': 'public',
   'auth/logout.post.ts': 'account',
   'integrations/[provider].put.ts': 'owner',
   'integrations/[provider].delete.ts': 'owner',

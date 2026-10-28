@@ -7,6 +7,8 @@ import type { Locale } from './types'
 export interface EmailVars {
   verify: { url: string }
   reset: { url: string }
+  /** Someone signed up with an address that already has an account */
+  accountExists: { loginUrl: string; resetUrl: string }
   invite: { url: string; inviter: string; household: string }
   householdDeleted: { household: string }
   adminNotice: { subject: string; body: string }
@@ -62,6 +64,28 @@ const CONTENT: { [T in EmailTemplate]: (v: EmailVars[T], locale: Locale) => Cont
           paragraphs: ['Someone asked for a new password for your WattsWise account.'],
           button: { label: 'Choose a new password', url },
           note: `The link works for ${HOURS.reset} hour. Didn't ask for this? Then your password stays as it is.`,
+        },
+  accountExists: ({ loginUrl, resetUrl }, l) =>
+    l === 'nl'
+      ? {
+          subject: 'Je hebt al een WattsWise-account',
+          heading: 'Je hebt al een account',
+          paragraphs: [
+            'Iemand probeerde een WattsWise-account aan te maken met dit e-mailadres. Dat account bestaat al, dus er is niets veranderd.',
+            `Wachtwoord vergeten? Kies een nieuw via ${resetUrl}`,
+          ],
+          button: { label: 'Inloggen', url: loginUrl },
+          note: 'Was jij dit niet? Dan kun je deze mail negeren.',
+        }
+      : {
+          subject: 'You already have a WattsWise account',
+          heading: 'You already have an account',
+          paragraphs: [
+            'Someone tried to create a WattsWise account with this email address. That account already exists, so nothing changed.',
+            `Forgot your password? Choose a new one at ${resetUrl}`,
+          ],
+          button: { label: 'Log in', url: loginUrl },
+          note: "Wasn't this you? Then you can ignore this email.",
         },
   invite: ({ url, inviter, household }, l) =>
     l === 'nl'
