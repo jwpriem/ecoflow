@@ -1,3 +1,4 @@
+import { assertExperimental } from '../../../services/experimental'
 import { isDepartureTime, setTibberDeparture, WEEKDAYS, type Weekday } from '../../../services/tibberEv'
 
 /**
@@ -5,7 +6,8 @@ import { isDepartureTime, setTibberDeparture, WEEKDAYS, type Weekday } from '../
  * "No specific departure time". Body: { day: 'monday'..'sunday', time: 'HH:MM' }.
  */
 export default defineEventHandler(async (event) => {
-  const { site } = await requireSite(event)
+  const { site, experimental } = await requireSite(event)
+  assertExperimental(experimental)
   const id = Number(getRouterParam(event, 'id'))
   const b = await readBody<{ day?: string; time?: string }>(event)
   if (!WEEKDAYS.includes(b.day as Weekday)) throw createError({ statusCode: 400, statusMessage: 'Bad day' })
