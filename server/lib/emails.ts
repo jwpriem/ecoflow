@@ -30,7 +30,7 @@ interface Content {
   note?: string
 }
 
-const HOURS = { verify: 48, reset: 1, invite: 7 * 24 }
+const HOURS = { verify: 24, reset: 1, invite: 7 * 24 }
 
 const CONTENT: { [T in EmailTemplate]: (v: EmailVars[T], locale: Locale) => Content } = {
   verify: ({ url }, l) =>

@@ -27,6 +27,8 @@ export const users = pgTable('users', {
   experimental: boolean('experimental').notNull().default(false),
   /** Language of the emails to this user */
   locale: text('locale').$type<Locale>().notNull().default('nl'),
+  /** Null until the user clicked the link in the verification email; connecting integrations needs it */
+  emailVerifiedAt: ts('email_verified_at'),
   createdAt: ts('created_at').notNull().defaultNow(),
 })
 

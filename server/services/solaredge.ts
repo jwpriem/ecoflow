@@ -1,5 +1,5 @@
 import { eq } from 'drizzle-orm'
-import { getRequestURL, type H3Event } from 'h3'
+import type { H3Event } from 'h3'
 import type { Db } from '../db/client'
 import { integrations, type sites } from '../db/schema'
 import {
@@ -31,8 +31,7 @@ const CALLBACK_PATH = '/api/integrations/solaredge/callback'
 
 /** Must be registered as the redirect URI of the Site Access app in the SolarEdge developer console */
 export function solarEdgeRedirectUri(event: H3Event): string {
-  const base = String(useRuntimeConfig().appUrl || '') || getRequestURL(event, { xForwardedHost: true, xForwardedProto: true }).origin
-  return `${base.replace(/\/$/, '')}${CALLBACK_PATH}`
+  return `${appBaseUrl(event)}${CALLBACK_PATH}`
 }
 
 /** Count one call against the credit ledger; failed calls count too, to stay on the safe side */

@@ -9,8 +9,7 @@ export default defineEventHandler(async (event) => {
   rateLimit([LIMITS.resetIp, clientIp(event)], [LIMITS.resetEmail, email])
   const reset = await requestReset(useDb(), email)
   if (reset) {
-    const base = String(useRuntimeConfig().appUrl || '') || getRequestURL(event, { xForwardedHost: true, xForwardedProto: true }).origin
-    await sendEmail(reset.user.email, 'reset', { url: `${base}/reset?token=${encodeURIComponent(reset.token)}` }, reset.user.locale)
+    await sendEmail(reset.user.email, 'reset', { url: `${appBaseUrl(event)}/reset?token=${encodeURIComponent(reset.token)}` }, reset.user.locale)
   }
   return { ok: true }
 })

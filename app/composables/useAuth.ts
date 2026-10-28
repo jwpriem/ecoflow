@@ -15,6 +15,7 @@ export interface Me {
   role: 'user' | 'admin'
   member: 'owner' | 'member'
   experimental: boolean
+  emailVerified: boolean
   site: { id: number; name: string; timezone: string }
 }
 
