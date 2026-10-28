@@ -85,6 +85,13 @@
       "when": 1793211617546,
       "tag": "0011_signup",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1793211930492,
+      "tag": "0012_auth_tokens",
+      "breakpoints": true
     }
   ]
 }
