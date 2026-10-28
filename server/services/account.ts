@@ -5,6 +5,7 @@ import { stopEcoFlowMqtt } from '../providers/ecoflow/mqtt'
 import { forgetTibberApp } from '../providers/tibberApp'
 import { stopPulse } from '../providers/tibberPulse'
 import { forgetLive } from './collector'
+import { sendEmail } from './email'
 import { moveOut } from './household'
 import { forgetSolarEdge } from './solaredge'
 import { stopZeekr } from './zeekr'
@@ -46,4 +47,11 @@ export async function deleteAccount(db: Db, userId: number) {
     await tx.delete(users).where(eq(users.id, userId))
   })
   return { household: { id: m.siteId, name: site!.name }, members }
+}
+
+/** deleteAccount, then the email that tells the former members their household is gone. */
+export async function deleteAccountAndTell(db: Db, userId: number) {
+  const r = await deleteAccount(db, userId)
+  if (r.household) for (const m of r.members) await sendEmail(m.email, 'householdDeleted', { household: r.household.name }, m.locale)
+  return r
 }

@@ -1,4 +1,4 @@
-import { and, eq, gt } from 'drizzle-orm'
+import { and, eq, gt, isNull } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
 import { createError } from 'h3'
 import type { Db } from '../db/client'
@@ -21,13 +21,14 @@ export function experimentalEnabled(owner: HouseholdOwner | null): boolean {
 /**
  * Session, user, household, role and the household's owner for a token hash, in one query: every API call starts here.
  * The household comes only from the user's own membership, so one user can never resolve another's site.
- * Null when the session is unknown or expired; `site`, `role` and `owner` are null for a user without a household.
+ * Null when the session is unknown or expired, or the user is disabled; `site`, `role` and `owner` are null for a user without a household.
  */
 export async function sessionSite(db: Db, tokenHash: string) {
   const [row] = await db
     .select({
       user: users,
       sessionId: sessions.id,
+      sessionLastUsedAt: sessions.lastUsedAt,
       site: sites,
       role: siteMembers.role,
       owner: { role: owner.role, experimental: owner.experimental },
@@ -38,7 +39,7 @@ export async function sessionSite(db: Db, tokenHash: string) {
     .leftJoin(sites, eq(sites.id, siteMembers.siteId))
     .leftJoin(ownerMember, and(eq(ownerMember.siteId, sites.id), eq(ownerMember.role, 'owner')))
     .leftJoin(owner, eq(owner.id, ownerMember.userId))
-    .where(and(eq(sessions.tokenHash, tokenHash), gt(sessions.expiresAt, new Date())))
+    .where(and(eq(sessions.tokenHash, tokenHash), gt(sessions.expiresAt, new Date()), isNull(users.disabledAt)))
     .limit(1)
   return row ?? null
 }
@@ -65,4 +66,15 @@ export async function ownerEmail(db: Db, siteId: number): Promise<string | null>
     .where(and(eq(siteMembers.siteId, siteId), eq(siteMembers.role, 'owner')))
     .limit(1)
   return row?.email ?? null
+}
+
+const TOUCH_MS = 5 * 60_000
+
+/** Records that the session was used, at most every few minutes, so "last seen" costs no write per request. */
+export function touchSession(db: Db, sessionId: number, lastUsedAt: Date | null, now = new Date()) {
+  if (lastUsedAt && now.getTime() - lastUsedAt.getTime() < TOUCH_MS) return
+  db.update(sessions)
+    .set({ lastUsedAt: now })
+    .where(eq(sessions.id, sessionId))
+    .catch((err: Error) => console.warn('[auth] session touch failed:', err.message))
 }

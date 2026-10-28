@@ -29,6 +29,8 @@ export const users = pgTable('users', {
   locale: text('locale').$type<Locale>().notNull().default('nl'),
   /** Null until the user clicked the link in the verification email; connecting integrations needs it */
   emailVerifiedAt: ts('email_verified_at'),
+  /** Set by an admin: the user can't log in, and their sessions were ended */
+  disabledAt: ts('disabled_at'),
   createdAt: ts('created_at').notNull().defaultNow(),
 })
 
@@ -69,6 +71,8 @@ export const sessions = pgTable('sessions', {
   tokenHash: text('token_hash').notNull().unique(),
   userAgent: text('user_agent'),
   expiresAt: ts('expires_at').notNull(),
+  /** Updated at most every few minutes: when the user was last seen, for the admin panel */
+  lastUsedAt: ts('last_used_at'),
   createdAt: ts('created_at').notNull().defaultNow(),
 })
 
@@ -356,6 +360,20 @@ export const pushSubscriptions = pgTable(
     lastOkAt: ts('last_ok_at'),
   },
   (t) => [index('push_subscriptions_site').on(t.siteId)],
+)
+
+/** What admins did to whom: one row per action. The target is kept as a number, so the row outlives the user. */
+export const adminAudit = pgTable(
+  'admin_audit',
+  {
+    id: serial('id').primaryKey(),
+    adminId: integer('admin_id').references(() => users.id, { onDelete: 'set null' }),
+    action: text('action').notNull(),
+    targetUserId: integer('target_user_id'),
+    detail: jsonb('detail').$type<Record<string, unknown>>().notNull().default({}),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [index('admin_audit_created').on(t.createdAt)],
 )
 
 /** Server-wide settings that are generated once, e.g. the Web Push (VAPID) key pair. */

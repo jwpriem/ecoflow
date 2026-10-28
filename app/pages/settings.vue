@@ -242,6 +242,10 @@
               </div>
             </form>
           </details>
+          <NuxtLink v-if="isAdmin" to="/admin" class="list-row indent admin-link">
+            <div class="lead"><span class="icon-tile"><AppIcon name="sliders" /></span><span class="title">{{ m.admin.title }}</span></div>
+            <AppIcon name="chevron" class="chev" />
+          </NuxtLink>
           <div class="list-row">
             <button class="plain" :disabled="busy === 'export'" @click="downloadData">{{ busy === 'export' ? m.settings.preparing : m.settings.downloadData }}</button>
             <span v-if="exportError" class="small error" role="status">{{ exportError }}</span>
@@ -273,7 +277,7 @@ const flow = useFlowView()
 const solar = useSolarCount()
 const { m, locale, setLocale, serverText } = useLocale()
 const api = useApi()
-const { setToken, me, loadMe, experimental } = useAuth()
+const { setToken, me, loadMe, experimental, isAdmin } = useAuth()
 const push = usePush()
 // Steering and the connections are the owner's; a member sees them but can't change them
 const isOwner = computed(() => me.value?.member === 'owner')
@@ -572,6 +576,7 @@ function onVisible() {
 .list-row > .stack-text { flex: 1 1 auto; }
 .row-btn:disabled { opacity: 0.6; }
 .danger-text { color: var(--alert); }
+.admin-link { color: var(--text); text-decoration: none; }
 .danger-fill { background: var(--alert); border-color: var(--alert); color: #fff; }
 .copy { user-select: all; word-break: break-all; }
 .foot { font-size: 13px; color: var(--text-2); margin: -4px 2px 0; max-width: 60ch; }
