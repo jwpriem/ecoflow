@@ -16,10 +16,15 @@ import type { Locale, Override, StrategyConfig } from '../lib/types'
 
 const ts = (name: string) => timestamp(name, { withTimezone: true, mode: 'date' })
 
+export type UserRole = 'user' | 'admin'
+
 export const users = pgTable('users', {
   id: serial('id').primaryKey(),
   email: text('email').notNull().unique(),
   passwordHash: text('password_hash').notNull(),
+  role: text('role').$type<UserRole>().notNull().default('user'),
+  /** Unlocks the experimental integrations (Zeekr, Tibber app) for the households this user owns */
+  experimental: boolean('experimental').notNull().default(false),
   createdAt: ts('created_at').notNull().defaultNow(),
 })
 

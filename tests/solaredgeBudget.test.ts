@@ -62,7 +62,7 @@ describe('SolarEdge credit budget', () => {
     expect(r.total).toBeLessThanOrEqual(1860)
     expect(r.total).toBeLessThanOrEqual(SE_MONTHLY_CREDITS)
     expect(r.refused).toBe(0) // the schedule fits without the cap kicking in
-  })
+  }, 30_000) // a month of minutes: slow when the database tests run alongside
 
   it('stops at the daily cap when extra calls (e.g. reconnecting) used credits', () => {
     const now = new Date('2026-06-21T10:00:00Z')
