@@ -32,9 +32,10 @@ export const sessions = pgTable('sessions', {
   createdAt: ts('created_at').notNull().defaultNow(),
 })
 
-/** A household. Everything below hangs off a site, so more users/sites can be added later. */
+/** A household. Everything below hangs off a site; its users are in site_members. */
 export const sites = pgTable('sites', {
   id: serial('id').primaryKey(),
+  /** The user who created it. Deprecated: read site_members instead. */
   userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   name: text('name').notNull(),
   timezone: text('timezone').notNull().default('Europe/Amsterdam'),
@@ -44,6 +45,23 @@ export const sites = pgTable('sites', {
   override: jsonb('override').$type<Override | null>(),
   createdAt: ts('created_at').notNull().defaultNow(),
 })
+
+export type MemberRole = 'owner' | 'member'
+
+/**
+ * Who belongs to a household. Access to a site always goes through here; `sites.user_id` is no longer read and
+ * will be dropped in a later release. One household per user for now (unique user_id).
+ */
+export const siteMembers = pgTable(
+  'site_members',
+  {
+    siteId: integer('site_id').notNull().references(() => sites.id, { onDelete: 'cascade' }),
+    userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    role: text('role').$type<MemberRole>().notNull().default('member'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.siteId, t.userId] }), uniqueIndex('site_members_user').on(t.userId)],
+)
 
 export type Provider = 'tibber' | 'solaredge' | 'ecoflow_official' | 'zeekr' | 'tibber_app'
 

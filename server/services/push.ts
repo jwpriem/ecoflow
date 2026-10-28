@@ -1,8 +1,9 @@
 import { and, eq, sql } from 'drizzle-orm'
 import webpush from 'web-push'
 import type { Db } from '../db/client'
-import { appConfig, pushSubscriptions, sites, users, type PushTopic } from '../db/schema'
+import { appConfig, pushSubscriptions, type PushTopic } from '../db/schema'
 import type { LocalizedPush } from '../lib/notifications'
+import { ownerEmail } from './members'
 import { decryptJson, encryptJson } from '../utils/crypto'
 
 export const PUSH_TOPICS: PushTopic[] = ['plan', 'prices', 'errors', 'daily', 'car']
@@ -45,8 +46,7 @@ export function vapidKeys(db: Db): Promise<Vapid> {
 /** Apple rejects pushes without a real contact: NUXT_VAPID_SUBJECT, else the site owner's email. */
 async function vapidSubject(db: Db, siteId: number): Promise<string> {
   if (process.env.NUXT_VAPID_SUBJECT) return process.env.NUXT_VAPID_SUBJECT
-  const [row] = await db.select({ email: users.email }).from(sites).innerJoin(users, eq(users.id, sites.userId)).where(eq(sites.id, siteId))
-  return `mailto:${row?.email ?? 'admin@example.com'}`
+  return `mailto:${(await ownerEmail(db, siteId)) ?? 'admin@example.com'}`
 }
 
 /**
