@@ -51,6 +51,22 @@ async function vapidSubject(db: Db, siteId: number): Promise<string> {
 }
 
 /**
+ * The Web Push options for one notification. The tag becomes the `Topic` header, so a device that was offline
+ * only gets the latest of a kind, except on Apple's push service: it refuses requests with a Topic
+ * (400 BadWebPushTopic, seen for `daily`), so there the `tag` in the payload alone replaces notifications.
+ */
+export function sendOptions(endpoint: string, topic: PushTopic | null, tag: string | undefined, vapidDetails: webpush.VapidKeys & { subject: string }) {
+  const apple = /(^|\.)push\.apple\.com$/.test(new URL(endpoint).hostname)
+  const header = tag?.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 32)
+  return {
+    vapidDetails,
+    TTL: 6 * 3600,
+    urgency: topic === 'errors' ? ('high' as const) : ('normal' as const),
+    ...(header && !apple ? { topic: header } : {}),
+  }
+}
+
+/**
  * Send a notification to every device of a site that subscribed to the topic.
  * Never throws: a failing notification must not break the job that triggered it.
  * Subscriptions the push service reports as gone (404/410) are removed.
@@ -78,12 +94,9 @@ export async function notify(db: Db, siteId: number, topic: PushTopic | null, ms
     for (const s of subs) {
       const m = typeof msg === 'function' ? msg(s.locale) : msg
       try {
-        await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, JSON.stringify({ ...m, url: m.url ?? '/' }), {
-          vapidDetails: { subject, publicKey: keys.publicKey, privateKey: keys.privateKey },
-          TTL: 6 * 3600,
-          urgency: topic === 'errors' ? 'high' : 'normal',
-          ...(m.tag ? { topic: m.tag.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 32) } : {}),
-        })
+        await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, JSON.stringify({ ...m, url: m.url ?? '/' }),
+          sendOptions(s.endpoint, topic, m.tag, { subject, publicKey: keys.publicKey, privateKey: keys.privateKey }),
+        )
         await db.update(pushSubscriptions).set({ lastOkAt: new Date() }).where(eq(pushSubscriptions.id, s.id))
         sent++
       } catch (err) {
