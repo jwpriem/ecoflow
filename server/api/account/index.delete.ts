@@ -1,6 +1,6 @@
-import { deleteAccount } from '../services/account'
-import { sendEmail } from '../services/email'
-import { verifyPassword } from '../utils/crypto'
+import { deleteAccount } from '../../services/account'
+import { sendEmail } from '../../services/email'
+import { verifyPassword } from '../../utils/crypto'
 
 /** Body: { password }. Deletes the account, and for the owner the whole household. Immediate, no grace period. */
 export default defineEventHandler(async (event) => {

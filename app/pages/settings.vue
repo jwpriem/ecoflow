@@ -242,6 +242,10 @@
               </div>
             </form>
           </details>
+          <div class="list-row">
+            <button class="plain" :disabled="busy === 'export'" @click="downloadData">{{ busy === 'export' ? m.settings.preparing : m.settings.downloadData }}</button>
+            <span v-if="exportError" class="small error" role="status">{{ exportError }}</span>
+          </div>
           <div class="list-row"><button class="plain danger" @click="logout">{{ m.settings.logOut }}</button></div>
           <div class="list-row"><button class="plain danger" @click="logoutAll">{{ m.settings.logOutAll }}</button></div>
           <details class="conn">
@@ -465,6 +469,25 @@ async function logoutAll() {
   await api('/api/auth/logout-all', { method: 'POST' }).catch(() => undefined)
   setToken(null)
   await navigateTo('/login')
+}
+
+const exportError = ref('')
+/** The export needs the login token, so it comes in through fetch and is handed to the browser as a file. */
+async function downloadData() {
+  busy.value = 'export'
+  exportError.value = ''
+  try {
+    const blob = await api<Blob>('/api/account/export', { responseType: 'blob' })
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = `wattswise-export-${new Date().toISOString().slice(0, 10)}.json`
+    a.click()
+    setTimeout(() => URL.revokeObjectURL(a.href), 10_000)
+  } catch (e: any) {
+    exportError.value = serverText(e?.data?.statusMessage) || m.value.settings.noAnswer
+  } finally {
+    busy.value = ''
+  }
 }
 
 const del = reactive({ password: '', error: '' })
