@@ -32,6 +32,14 @@ export async function writeNativeToken(value: string | null) {
   }
 }
 
+/** A tap on the hand when an action lands, the way iOS confirms success or failure. Nothing on the web. */
+export function haptic(kind: 'success' | 'error') {
+  if (!isNative()) return
+  import('@capacitor/haptics')
+    .then(({ Haptics, NotificationType }) => Haptics.notification({ type: kind === 'success' ? NotificationType.Success : NotificationType.Error }))
+    .catch(() => {})
+}
+
 /** Apple's sign-in sheet (ios/App/App/WebAuth.swift): opens `url`, closes on a `scheme://` URL and returns it; no url when cancelled */
 const WebAuth = registerPlugin<{ start(o: { url: string; scheme: string }): Promise<{ url?: string }> }>('WebAuth')
 export const webAuth = (url: string, scheme: string) => WebAuth.start({ url, scheme })

@@ -390,6 +390,7 @@ async function setControl(v: Control) {
   } catch (e: any) {
     controlMsg.value = { ok: false, text: serverText(e?.data?.statusMessage) || e?.message || m.value.settings.switchFailed }
   } finally {
+    haptic(controlMsg.value?.ok ? 'success' : 'error')
     const plan: any = await api('/api/plan').catch(() => null)
     if (plan) control.value = { steering: plan.steering, controlMode: plan.controlMode }
     busy.value = ''
@@ -426,6 +427,7 @@ async function save(provider: string) {
   } catch (e: any) {
     results[provider] = { ok: false, text: serverText(e?.data?.statusMessage) || e?.message || m.value.common.failed }
   } finally {
+    haptic(results[provider]?.ok ? 'success' : 'error')
     busy.value = ''
   }
 }
@@ -441,6 +443,7 @@ async function signInSolarEdge() {
   } catch (e: any) {
     results.solaredge = { ok: false, text: serverText(e?.data?.statusMessage) || m.value.common.failed }
   }
+  if (results.solaredge) haptic(results.solaredge.ok ? 'success' : 'error')
   busy.value = ''
 }
 const seResult = (se: string) => (se === 'ok' ? { ok: true, text: m.value.settings.connected } : { ok: false, text: se })

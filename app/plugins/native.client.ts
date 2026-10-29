@@ -10,6 +10,8 @@ export default defineNuxtPlugin({
     const [{ App }, { StatusBar, Style }] = await Promise.all([import('@capacitor/app'), import('@capacitor/status-bar')])
 
     useAuth().token.value = await readNativeToken()
+    // App-only styles in main.css (html.native): no text selection on the interface, no rubber-band, the tab bar out of the keyboard's way
+    document.documentElement.classList.add('native')
 
     // A verify, reset or invite link from an email opens here instead of in Safari, also when it launched the app
     const open = (url: string | undefined) => {

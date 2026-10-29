@@ -98,6 +98,8 @@ The App Store app is the same SPA, wrapped by Capacitor 8 in `ios/` (bundle id `
 - **Session token:** in the Keychain (`@aparajita/capacitor-secure-storage`, after first unlock, this device only, not in iCloud), read by `app/plugins/native.client.ts` before the app starts. The web keeps localStorage. Both sit behind `useAuth()`.
 - **Universal Links:** the verify, reset and invite links in emails open the app when it's installed. `ios/App/App/App.entitlements` claims `www.wattswise.eu` and `wattswise.eu`; the server serves `/.well-known/apple-app-site-association` once `NUXT_APPLE_TEAM_ID` is set (404 until then); `app/utils/appLinks.ts` routes the link inside the app.
 - **Status bar:** follows the sky, light text at night and dark text by day.
+- **Icon and launch screen:** `AppIcon.png` (1024 px) is `scripts/icon-apple.svg`; the launch screen is `scripts/splash-day.svg` and, for dark mode, `scripts/splash-night.svg` (all written by `node scripts/brand.mjs`). Render them with headless Chrome at their exact size as JPEG, then `sips -s format png`: the App Store refuses an icon with an alpha channel.
+- **App feel:** haptics when steering, an override or a connection succeeds or fails (`haptic()` in `app/utils/native.ts`); no text selection on the interface, no rubber-band, and the tab bar out of the keyboard's way (`html.native` in `main.css`). When the server can't be reached, `OfflineNotice` says so on any screen that doesn't show its own error.
 
 Build and run on an iPhone (Xcode 26 or later):
 

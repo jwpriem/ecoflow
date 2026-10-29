@@ -47,6 +47,19 @@ writeFileSync('scripts/icon-maskable.svg', icon(0, 0.8))
 // iOS rounds the Home Screen icon's corners hard, so the apple-touch-icon gets extra room around the mark
 writeFileSync('scripts/icon-apple.svg', icon(0, 0.78))
 writeFileSync('public/favicon.svg', icon(112, 1))
+// iOS app launch screen (ios/App/App/Assets.xcassets/Splash.imageset): the mark small in the middle of a square that the
+// launch screen crops to the phone, on the day canvas and, for dark mode, on the night canvas
+const CANVAS = { day: '#E6ECEE', night: BG }
+for (const [sky, c] of [['day', DAY], ['night', NIGHT]]) {
+  const cx = BOX.x + BOX.w / 2, cy = BOX.y + BOX.h / 2
+  writeFileSync(`scripts/splash-${sky}.svg`, `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2732 2732">
+  <rect width="2732" height="2732" fill="${CANVAS[sky]}"/>
+  <g transform="translate(1366 1366) scale(1.1) translate(${-cx} ${-cy})">
+  ${mark(c, 'ww')}
+  </g>
+</svg>
+`)
+}
 writeFileSync('public/brand/wattswise-mark.svg', `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${BOX.x} ${BOX.y} ${BOX.w} ${BOX.h}">
   <title>WattsWise</title>
   ${mark(NIGHT, 'ww')}

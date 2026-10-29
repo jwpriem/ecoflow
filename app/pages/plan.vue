@@ -235,8 +235,10 @@ async function send(body: Record<string, unknown>, done: string) {
     await api('/api/plan/override', { method: 'POST', body })
     await load()
     say(done)
+    haptic('success')
   } catch (e: any) {
     say(serverText(e?.data?.statusMessage) || m.value.plan.notTaken)
+    haptic('error')
   } finally {
     busy.value = false
   }

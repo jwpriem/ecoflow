@@ -56,14 +56,24 @@ export function useAuth() {
   return { token, loggedIn, setToken, me, isAdmin, experimental, loadMe }
 }
 
+/** True while the server can't be reached (no network, or no answer at all); components/OfflineNotice.vue shows it */
+export const useOffline = () => useState('offline', () => false)
+
 export function useApi() {
   const { token, setToken } = useAuth()
+  const offline = useOffline()
   const base = useRuntimeConfig().public.apiBase as string
   return <T>(path: string, opts: Parameters<typeof $fetch>[1] = {}) =>
     $fetch<T>(path, {
       baseURL: base || undefined,
       ...opts,
       headers: { ...(opts.headers as Record<string, string>), ...(token.value ? { Authorization: `Bearer ${token.value}` } : {}) },
+      onRequestError() {
+        offline.value = true
+      },
+      onResponse() {
+        offline.value = false
+      },
       onResponseError({ response }) {
         if (response.status === 401) {
           setToken(null)
