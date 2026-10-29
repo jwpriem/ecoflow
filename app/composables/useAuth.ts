@@ -17,6 +17,8 @@ export interface Me {
   member: 'owner' | 'member'
   experimental: boolean
   emailVerified: boolean
+  /** The steering disclaimer version the owner still has to accept, while WattsWise steers; null otherwise */
+  steeringConsentDue: string | null
   site: { id: number; name: string; timezone: string }
 }
 

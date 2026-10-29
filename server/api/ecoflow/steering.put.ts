@@ -1,15 +1,18 @@
 import { eq } from 'drizzle-orm'
 import { devices } from '../../db/schema'
 import type { DeviceState } from '../../providers/ecoflow'
+import { assertSteeringConsent } from '../../services/consent'
 import { type EcoFlowSteering, setEcoFlowSteering } from '../../services/ecoflow'
 import { runStrategy } from '../../services/strategy'
 
 /** Body: { steering: 'ecoflow_ai' | 'wattwise' }. Switches the STREAM's operating mode right away. Owner only. */
 export default defineEventHandler(async (event) => {
-  const { site } = await requireOwner(event)
+  const { site, user } = await requireOwner(event)
   const { steering } = await readBody<{ steering?: EcoFlowSteering }>(event)
   if (steering !== 'ecoflow_ai' && steering !== 'wattwise') throw createError({ statusCode: 400, statusMessage: 'steering must be ecoflow_ai or wattwise' })
   const db = useDb()
+  // Handing over from EcoFlow AI to WattsWise on a steered household starts steering: needs the disclaimer accepted
+  if (steering === 'wattwise' && site.controlMode === 'auto') await assertSteeringConsent(db, user.id)
   const error = await setEcoFlowSteering(db, site, encryptionKey(), steering)
   if (error) throw createError({ statusCode: 502, statusMessage: `EcoFlow: ${error}` })
   // Forget the last sent mode so the current plan slot goes out now instead of at the next change

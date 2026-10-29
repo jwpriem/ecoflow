@@ -211,6 +211,16 @@ export const nl: Messages = {
     failedTitle: 'Deze uitnodiging werkt niet',
     failedLede: 'Vraag de eigenaar van het huishouden om een nieuwe.',
   },
+  consent: {
+    title: 'Voordat WattsWise je batterijen aanstuurt',
+    lede: 'WattsWise gaat laad- en ontlaadinstellingen naar je batterijen sturen. Lees wat dat betekent en waar we wel en niet verantwoordelijk voor zijn.',
+    agree: 'Ik ga akkoord',
+    saving: 'Opslaan…',
+    cancel: 'Annuleren',
+    declined: 'WattsWise stuurt pas aan als je akkoord gaat met de stuurverklaring.',
+    banner: 'De stuurverklaring is gewijzigd. WattsWise blijft aansturen; lees en accepteer de nieuwe versie.',
+    read: 'Lezen',
+  },
   legal: {
     title: 'Juridisch',
     terms: 'gebruiksvoorwaarden',
@@ -596,5 +606,8 @@ export const nl: Messages = {
     'No subscription for this device': 'Geen meldingen-abonnement voor dit apparaat',
     "This device's subscription has expired, turn notifications on again": 'Het abonnement van dit apparaat is verlopen, zet de meldingen opnieuw aan',
     'The push service did not accept the notification': 'De pushdienst accepteerde de melding niet',
+    'Accept the steering terms first': 'Accepteer eerst de stuurverklaring',
+    'Turn on WattsWise steering first': 'Zet eerst aansturen door WattsWise aan',
+    'The steering terms changed: read them again': 'De stuurverklaring is gewijzigd: lees hem opnieuw',
   },
 }

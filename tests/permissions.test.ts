@@ -44,6 +44,8 @@ const ACCESS: Record<string, 'owner' | 'household' | 'account' | 'public' | 'adm
   'ecoflow/steering.put.ts': 'owner',
   // Overrides are for the household; its controlMode field (steering on or off) is checked for the owner inside
   'plan/override.post.ts': 'household',
+  // Accepting the steering disclaimer: anyone logged in, for themselves; turning steering on stays the owner's
+  'consents/steering.post.ts': 'household',
   'strategy.put.ts': 'household',
   'devices/[id].put.ts': 'household',
   'vehicles/[id].put.ts': 'household',

@@ -64,7 +64,8 @@
         <button v-if="hiddenRuns > 0" class="plain more" @click="allRuns = true">{{ m.plan.showMore(hiddenRuns) }}</button>
       </section>
 
-      <section class="block">
+      <!-- Monitor only sends nothing, so there is nothing to override -->
+      <section v-if="data.controlMode !== 'manual'" class="block">
         <div class="block-head"><h2>{{ m.plan.overrideTitle }}</h2></div>
         <div class="choices" role="radiogroup" :aria-label="m.plan.modeAria">
           <label v-for="a in actions" :key="a.value" class="choice">
