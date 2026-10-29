@@ -1,7 +1,7 @@
 <template>
   <div class="price-chart">
     <div
-      ref="scroller" class="scroller" tabindex="0" role="group" :aria-label="aria"
+      ref="scroller" class="scroller" tabindex="0" role="group" :aria-label="aria" @scroll.passive="scrollX = scroller!.scrollLeft"
       @keydown.left.prevent="step(-1)" @keydown.right.prevent="step(1)" @keydown.home.prevent="emit('update:modelValue', nowIndex)"
     >
       <svg v-if="cw" :width="width" :height="H" @click="pick">
@@ -19,7 +19,7 @@
         <!-- day boundaries -->
         <g v-for="md in midnights" :key="md.x" class="day">
           <line :x1="md.x" :x2="md.x" :y1="4" :y2="PB + 6" />
-          <text :x="md.x + 6" :y="15">{{ md.label }}</text>
+          <text :x="md.flip ? md.x - 6 : md.x + 6" :y="15" :text-anchor="md.flip ? 'end' : 'start'">{{ md.label }}</text>
         </g>
         <text v-if="showTodayLabel" x="2" y="15" class="day-t">{{ m.day.today }}</text>
 
@@ -67,6 +67,7 @@ const AXIS = 36
 
 const scroller = ref<HTMLElement>()
 const cw = ref(0)
+const scrollX = ref(0)
 let ro: ResizeObserver | undefined
 onMounted(() => {
   ro = new ResizeObserver(([e]) => (cw.value = Math.round(e!.contentRect.width)))
@@ -113,7 +114,13 @@ const midnights = computed(() =>
   props.slots
     .map((s, i) => ({ d: new Date(s.slotStart), i }))
     .filter(({ d, i }) => i > 0 && d.getHours() === 0 && d.getMinutes() === 0)
-    .map(({ d, i }) => ({ x: i * slotW.value, label: dayName(d) })),
+    .map(({ d, i }) => {
+      const x = i * slotW.value
+      const label = dayName(d)
+      // A label that would run under the price axis goes to the left of its line (about 7 px per character)
+      const flip = x + 6 + label.length * 7 > scrollX.value + cw.value - AXIS && x - 6 - label.length * 7 > scrollX.value
+      return { x, label, flip }
+    }),
 )
 // "Today" at the far left, unless the now tag sits on top of it
 const showTodayLabel = computed(() => xNow.value > 90 || nowIndex.value < 0)
