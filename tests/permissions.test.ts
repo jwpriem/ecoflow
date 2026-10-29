@@ -28,6 +28,8 @@ const ACCESS: Record<string, 'owner' | 'household' | 'account' | 'public' | 'adm
   'household/members/[id].delete.ts': 'owner',
   // A member leaves; the owner is refused inside
   'household/leave.post.ts': 'household',
+  'household/index.put.ts': 'owner',
+  'onboarding/index.put.ts': 'owner',
   // The invitation link: reading it and signing up need no login, accepting is for the logged-in invitee
   'invite/details.post.ts': 'public',
   'invite/signup.post.ts': 'public',

@@ -1,3 +1,5 @@
+import type { OnboardingStep } from '../../shared/onboarding'
+
 // Token storage is kept behind this composable so the Capacitor build can swap
 // localStorage for @capacitor/preferences / secure storage later.
 const KEY = 'battery.token'
@@ -20,6 +22,8 @@ export interface Me {
   /** The steering disclaimer version the owner still has to accept, while WattsWise steers; null otherwise */
   steeringConsentDue: string | null
   site: { id: number; name: string; timezone: string }
+  /** The onboarding step the owner is on; null once done, and always for a member */
+  onboarding: OnboardingStep | null
 }
 
 export function useAuth() {
