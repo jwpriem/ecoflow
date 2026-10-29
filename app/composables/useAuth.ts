@@ -1,4 +1,4 @@
-import type { OnboardingStep } from '../../shared/onboarding'
+import type { OnboardingStep } from '#shared/onboarding'
 
 // Token storage is kept behind this composable so the Capacitor build can swap
 // localStorage for @capacitor/preferences / secure storage later.

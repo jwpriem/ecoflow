@@ -28,6 +28,7 @@
 
 <script setup lang="ts">
 const api = useApi()
+const route = useRoute()
 const { setToken } = useAuth()
 const { m, locale, serverText } = useLocale()
 const email = ref('')
@@ -41,6 +42,8 @@ const signingUp = ref(false)
 
 onMounted(async () => {
   signupOpen.value = (await api<{ signupOpen: boolean }>('/api/auth/status').catch(() => ({ signupOpen: false }))).signupOpen
+  // "Start for free" on the website lands on the sign-up form
+  if (signupOpen.value && route.query.signup) signingUp.value = true
 })
 
 function toggle() {
@@ -69,7 +72,7 @@ async function submit() {
     } else {
       setToken((await logIn()).token)
     }
-    await navigateTo('/')
+    await navigateTo('/app')
   } catch (e: any) {
     error.value = serverText(e?.data?.statusMessage || e?.statusMessage) || m.value.login.failed
   } finally {

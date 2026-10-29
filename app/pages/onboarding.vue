@@ -132,7 +132,7 @@
 </template>
 
 <script setup lang="ts">
-import { ONBOARDING_STEPS, type OnboardingStep } from '../../shared/onboarding'
+import { ONBOARDING_STEPS, type OnboardingStep } from '#shared/onboarding'
 
 /**
  * A new household's owner: name, Tibber with a Pulse, the EcoFlow batteries, SolarEdge (optional), the battery
@@ -285,12 +285,12 @@ const finish = () =>
       await api('/api/plan/override', { method: 'POST', body: { controlMode: 'manual' } })
     }
     await go('done')
-    await navigateTo('/')
+    await navigateTo('/app')
   })
 
 onMounted(async () => {
   await loadMe(true).catch(() => undefined)
-  if (!me.value?.onboarding) return navigateTo('/')
+  if (!me.value?.onboarding) return navigateTo('/app')
   name.value = me.value.site.name
   await load().catch(fail)
   // Back from the SolarEdge sign-in

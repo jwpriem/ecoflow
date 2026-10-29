@@ -4,7 +4,7 @@
     <h1>{{ state === 'ok' ? m.verify.doneTitle : state === 'failed' ? m.verify.failedTitle : m.verify.checking }}</h1>
     <p v-if="state === 'ok'" class="muted lede">{{ m.verify.doneLede }}</p>
     <p v-else-if="state === 'failed'" class="muted lede">{{ error || m.verify.failedLede }}</p>
-    <NuxtLink v-if="state !== 'busy'" :to="loggedIn ? (state === 'ok' ? '/settings' : '/') : '/login'" class="button">
+    <NuxtLink v-if="state !== 'busy'" :to="loggedIn ? (state === 'ok' ? '/settings' : '/app') : '/login'" class="button">
       {{ loggedIn ? (state === 'ok' ? m.verify.toSettings : m.verify.toApp) : m.verify.toLogin }}
     </NuxtLink>
   </div>
