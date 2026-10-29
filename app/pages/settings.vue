@@ -121,7 +121,10 @@
               </span>
             </summary>
             <form class="conn-body" @submit.prevent="save(i.provider)">
-              <p class="small muted">{{ m.settings.info[i.provider]!.help }}</p>
+              <p class="small muted">
+                {{ m.settings.info[i.provider]!.help }}
+                <NuxtLink v-if="GUIDE_FOR[i.provider]" :to="`/guides/${GUIDE_FOR[i.provider]}?from=/settings`" class="guide-link">{{ m.guides.howTo }}</NuxtLink>
+              </p>
               <p v-if="!isOwner" class="small muted">{{ m.settings.ownerOnly }}</p>
               <p v-if="i.lastError" class="error">{{ i.lastError }}</p>
               <p v-if="i.provider === 'tibber' && i.configured" class="small muted">
@@ -563,6 +566,7 @@ function onVisible() {
 </script>
 
 <style scoped>
+.guide-link { white-space: nowrap; color: var(--sys-blue); }
 .row-btn { width: 100%; background: none; border-radius: 0; text-align: left; font: inherit; color: var(--text); }
 .row-btn:active { transform: none; background: var(--fill-2); }
 .lang-tile { font-size: 12px; font-weight: 700; letter-spacing: 0.02em; color: var(--text); }

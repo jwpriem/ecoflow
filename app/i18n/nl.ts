@@ -211,6 +211,12 @@ export const nl: Messages = {
     failedTitle: 'Deze uitnodiging werkt niet',
     failedLede: 'Vraag de eigenaar van het huishouden om een nieuwe.',
   },
+  guides: {
+    title: 'Uitleg',
+    back: 'Terug',
+    notFound: 'Deze uitleg bestaat niet.',
+    howTo: 'Stap voor stap',
+  },
   admin: {
     title: 'Beheer',
     system: 'Systeem',

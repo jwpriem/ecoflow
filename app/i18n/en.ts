@@ -212,6 +212,12 @@ export const en = {
     failedTitle: "This invitation doesn't work",
     failedLede: 'Ask the owner of the household to send a new one.',
   },
+  guides: {
+    title: 'How-to',
+    back: 'Back',
+    notFound: 'This guide doesn’t exist.',
+    howTo: 'Step-by-step guide',
+  },
   admin: {
     title: 'Admin',
     system: 'System',
