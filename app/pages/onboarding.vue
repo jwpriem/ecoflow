@@ -148,7 +148,10 @@ const index = computed(() => ONBOARDING_STEPS.indexOf(step.value))
 const t = computed(() => m.value.onboarding[step.value])
 const busy = ref(false)
 const msg = ref<{ ok: boolean; text: string } | null>(null)
-const fail = (e: any) => (msg.value = { ok: false, text: serverText(e?.data?.statusMessage) || e?.message || m.value.common.failed })
+const fail = (e: any) => {
+  msg.value = { ok: false, text: serverText(e?.data?.statusMessage) || e?.message || m.value.common.failed }
+  haptic('error')
+}
 
 const name = ref('')
 const integrations = ref<any[]>([])

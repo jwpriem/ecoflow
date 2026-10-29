@@ -390,6 +390,7 @@ async function setControl(v: Control) {
   } catch (e: any) {
     controlMsg.value = { ok: false, text: serverText(e?.data?.statusMessage) || e?.message || m.value.settings.switchFailed }
   } finally {
+    haptic(controlMsg.value?.ok ? 'success' : 'error')
     const plan: any = await api('/api/plan').catch(() => null)
     if (plan) control.value = { steering: plan.steering, controlMode: plan.controlMode }
     busy.value = ''
@@ -426,6 +427,7 @@ async function save(provider: string) {
   } catch (e: any) {
     results[provider] = { ok: false, text: serverText(e?.data?.statusMessage) || e?.message || m.value.common.failed }
   } finally {
+    haptic(results[provider]?.ok ? 'success' : 'error')
     busy.value = ''
   }
 }

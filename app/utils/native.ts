@@ -31,3 +31,11 @@ export async function writeNativeToken(value: string | null) {
     console.warn('[native] keychain', (err as Error).message)
   }
 }
+
+/** A tap on the hand when an action lands, the way iOS confirms success or failure. Nothing on the web. */
+export function haptic(kind: 'success' | 'error') {
+  if (!isNative()) return
+  import('@capacitor/haptics')
+    .then(({ Haptics, NotificationType }) => Haptics.notification({ type: kind === 'success' ? NotificationType.Success : NotificationType.Error }))
+    .catch(() => {})
+}

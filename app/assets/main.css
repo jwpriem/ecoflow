@@ -402,3 +402,16 @@ nav.tabs .rail-only { display: none; }
 /* Where a screenshot goes, until the real one is added */
 .md .shot { margin: 12px 0; padding: 28px 16px; border: 1px dashed var(--separator); border-radius: 12px; text-align: center; color: var(--text-2); font-size: 13px; }
 .md .shot::before { content: '📷'; display: block; font-size: 22px; margin-bottom: 6px; }
+
+/* No answer from the server (components/OfflineNotice.vue): a page that couldn't load says so itself, with its own retry */
+main:has(.load-error) .offline-notice { display: none; }
+
+/* The iOS app (plugins/native.client.ts): an app, not a page. Text is selectable only where it is content
+   (fields, legal texts and guides, codes to copy); the page doesn't bounce; and on a phone the tab bar steps
+   aside while the keyboard is up, instead of riding on top of it. */
+html.native { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+html.native :is(input, textarea, select, code, .md) { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
+html.native, html.native body { overscroll-behavior: none; }
+@media (max-width: 1023px) {
+  html.native:has(:is(input, textarea, select):focus) nav.tabs { display: none; }
+}

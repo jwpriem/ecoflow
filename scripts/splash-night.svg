@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2732 2732">
+  <rect width="2732" height="2732" fill="#16262E"/>
+  <g transform="translate(1366 1366) scale(1.1) translate(-262 -250)">
+  <defs>
+    <mask id="ww-sun" maskUnits="userSpaceOnUse" x="0" y="0" width="512" height="512"><rect width="512" height="512" fill="#fff"/><path d="M70 294L226 158L382 294 M122 258V426H330V258" fill="none" stroke="#000" stroke-width="66" stroke-linecap="round" stroke-linejoin="round"/></mask>
+    <mask id="ww-bolt" maskUnits="userSpaceOnUse" x="0" y="0" width="512" height="512"><rect width="512" height="512" fill="#fff"/><path d="M236 284L198 340H226L216 382L254 326H226Z" fill="#000" stroke="#000" stroke-width="6" stroke-linejoin="round"/></mask>
+  </defs>
+  <g stroke-linecap="round" stroke-linejoin="round">
+    <g mask="url(#ww-sun)">
+      <path d="M358 72V92 M427 101L413 115 M456 170H436 M289 101L303 115 M427 239L413 225" stroke="#F2BA30" stroke-width="22"/>
+      <circle cx="358" cy="170" r="50" fill="#F2BA30"/>
+    </g>
+    <path d="M70 294L226 158L382 294 M122 258V426H330V258" fill="none" stroke="#E9F0F1" stroke-width="26"/>
+    <g fill="#4DBFA9" mask="url(#ww-bolt)">
+      <rect x="208" y="254" width="36" height="24" rx="7"/>
+      <rect x="176" y="268" width="100" height="130" rx="18"/>
+    </g>
+  </g>
+  </g>
+</svg>
