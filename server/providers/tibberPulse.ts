@@ -1,4 +1,5 @@
 import WebSocket from 'ws'
+import { backoffDelay } from '../lib/backoff'
 import { tibberUserAgent, tibberWebsocketUrl, type TibberCredentials } from './tibber'
 
 /**
@@ -17,9 +18,25 @@ interface Conn {
   retry: number
   timer?: ReturnType<typeof setTimeout>
   lastMessageAt: number
+  ackAt: number
 }
 
 const conns = new Map<number, Conn>()
+
+/** Reconnects wait 5 s, 10 s, 20 s … up to 5 min, jittered so 200 households don't come back at the same moment */
+export const PULSE_BACKOFF = { baseMs: 5_000, maxMs: 300_000 }
+/** A connection counts as healthy, and the backoff starts over, after it stayed up this long */
+export const PULSE_STABLE_MS = 60_000
+/** First connects are spread out by at least this much, so a restart doesn't open every stream at once */
+export const PULSE_STAGGER_MS = 1_000
+let nextStartAt = 0
+
+/** When the next first connect may go: one slot every PULSE_STAGGER_MS */
+export function staggerDelay(now = Date.now()): number {
+  const at = Math.max(now, nextStartAt)
+  nextStartAt = at + PULSE_STAGGER_MS
+  return at - now
+}
 
 export function pulseStatus(siteId: number) {
   const c = conns.get(siteId)
@@ -46,9 +63,9 @@ export function stopPulse(siteId: number) {
   conns.delete(siteId)
 }
 
-export function startPulse(siteId: number, creds: TibberCredentials, homeId: string, log = console) {
+export function startPulse(siteId: number, creds: TibberCredentials, homeId: string, log = console, random = Math.random) {
   stopPulse(siteId)
-  const conn: Conn = { buffer: [], stopped: false, retry: 0, lastMessageAt: 0 }
+  const conn: Conn = { buffer: [], stopped: false, retry: 0, lastMessageAt: 0, ackAt: 0 }
   conns.set(siteId, conn)
 
   const connect = async () => {
@@ -61,7 +78,7 @@ export function startPulse(siteId: number, creds: TibberCredentials, homeId: str
       ws.on('message', (raw) => {
         const msg = JSON.parse(raw.toString()) as { type: string; payload?: any }
         if (msg.type === 'connection_ack') {
-          conn.retry = 0
+          conn.ackAt = Date.now()
           ws.send(JSON.stringify({
             id: '1',
             type: 'subscribe',
@@ -91,9 +108,11 @@ export function startPulse(siteId: number, creds: TibberCredentials, homeId: str
   const schedule = () => {
     if (conn.stopped) return
     clearTimeout(conn.timer)
-    const delay = Math.min(300_000, 5_000 * 2 ** conn.retry++)
-    conn.timer = setTimeout(connect, delay)
+    // Only a connection that stayed up starts the backoff over: one that Tibber drops right away keeps backing off
+    if (conn.ackAt && Date.now() - conn.ackAt >= PULSE_STABLE_MS) conn.retry = 0
+    conn.ackAt = 0
+    conn.timer = setTimeout(connect, backoffDelay(conn.retry++, { ...PULSE_BACKOFF, random }))
   }
 
-  void connect()
+  conn.timer = setTimeout(connect, staggerDelay())
 }

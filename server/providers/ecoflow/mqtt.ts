@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto'
 import mqtt, { type MqttClient } from 'mqtt'
+import { backoffDelay } from '../../lib/backoff'
 import { type EcoFlowCredentials, ecoflowRequest, PACK_KEYS, type RequestOptions } from './index'
 
 /**
@@ -60,12 +61,19 @@ interface Conn {
   /** Every message that came in, parsed or not, so a payload format we don't understand still shows up */
   raw?: { count: number; unparsed: number; at: number; topic: string; sample: string }
   pollTimer?: ReturnType<typeof setInterval>
+  reconnectTimer?: ReturnType<typeof setTimeout>
+  retry: number
+  connectedAt: number
   stopped: boolean
   error?: string
   subscribedAt?: number
 }
 
 const conns = new Map<number, Conn>()
+
+/** Reconnects wait 10 s, 20 s, 40 s … up to 5 min, jittered; a connection that stayed up 2 minutes starts over */
+export const MQTT_BACKOFF = { baseMs: 10_000, maxMs: 300_000 }
+export const MQTT_STABLE_MS = 120_000
 
 /** Latest values a unit pushed, or undefined when nothing came in within maxAgeMs */
 export function mqttQuota(siteId: number, sn: string, maxAgeMs = 20 * 60_000) {
@@ -94,17 +102,19 @@ export function stopEcoFlowMqtt(siteId: number) {
   if (!c) return
   c.stopped = true
   clearInterval(c.pollTimer)
+  clearTimeout(c.reconnectTimer)
   c.client?.end(true)
   conns.delete(siteId)
 }
 
 /**
  * Connect, subscribe to every unit and ask for the pack keys once a minute (in case pushes slow down
- * while the EcoFlow app is closed). The mqtt client reconnects by itself.
+ * while the EcoFlow app is closed). After a drop it reconnects with backoff (the mqtt client's own reconnect
+ * is off: it retries at a fixed pace).
  */
-export async function startEcoFlowMqtt(siteId: number, creds: EcoFlowCredentials, serials: string[], opts?: RequestOptions, log = console) {
+export async function startEcoFlowMqtt(siteId: number, creds: EcoFlowCredentials, serials: string[], opts?: RequestOptions, log = console, random = Math.random) {
   stopEcoFlowMqtt(siteId)
-  const conn: Conn = { units: new Map(), stopped: false }
+  const conn: Conn = { units: new Map(), stopped: false, retry: 0, connectedAt: 0 }
   conns.set(siteId, conn)
   const cert = await getCertification(creds, opts)
   if (conn.stopped) return
@@ -115,12 +125,20 @@ export async function startEcoFlowMqtt(siteId: number, creds: EcoFlowCredentials
     username: account,
     password: cert.certificatePassword,
     clientId: `ecoflow-energy-${randomBytes(6).toString('hex')}`,
-    reconnectPeriod: 30_000,
+    reconnectPeriod: 0,
     connectTimeout: 20_000,
   })
   conn.client = client
 
+  client.on('close', () => {
+    if (conn.stopped) return
+    if (conn.connectedAt && Date.now() - conn.connectedAt >= MQTT_STABLE_MS) conn.retry = 0
+    conn.connectedAt = 0
+    clearTimeout(conn.reconnectTimer)
+    conn.reconnectTimer = setTimeout(() => !conn.stopped && client.reconnect(), backoffDelay(conn.retry++, { ...MQTT_BACKOFF, random }))
+  })
   client.on('connect', () => {
+    conn.connectedAt = Date.now()
     conn.error = undefined
     // One topic per SUBSCRIBE: the broker refuses a whole packet with one error, which hides which topic it was
     const refused: string[] = []

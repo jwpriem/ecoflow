@@ -1,3 +1,5 @@
+import { providerCall } from './http'
+
 /**
  * Open-Meteo (open-meteo.com): free, no key, 15-minute data for Europe from the KNMI and DWD models.
  * We only need global horizontal irradiance; lib/solarForecast.ts turns it into expected production.
@@ -24,7 +26,7 @@ export async function openMeteoIrradiance(lat: number, lon: number, opts: { past
     forecast_days: String(opts.forecastDays),
     timezone: 'GMT',
   })
-  const res = await fetch(`${API}?${qs}`, { headers: { Accept: 'application/json' } })
+  const res = await providerCall('openmeteo', (signal) => fetch(`${API}?${qs}`, { headers: { Accept: 'application/json' }, signal }))
   const data = (await res.json().catch(() => ({}))) as { minutely_15?: { time?: string[]; shortwave_radiation?: (number | null)[] }; reason?: string }
   if (!res.ok) throw new Error(`Open-Meteo: ${data.reason ?? `HTTP ${res.status}`}`)
   const time = data.minutely_15?.time ?? []
