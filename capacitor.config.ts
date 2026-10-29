@@ -1,12 +1,17 @@
-// Capacitor wrapper (phase 5). Install when you get there:
-//   npm i @capacitor/core @capacitor/preferences && npm i -D @capacitor/cli
-//   npx cap add ios && npx cap add android
-// Build the static app against the deployed API, then sync:
-//   NUXT_PUBLIC_API_BASE=https://<your-app>.ondigitalocean.app npm run generate:app && npx cap sync
-const config = {
-  appId: 'nl.priem.battery',
+import type { CapacitorConfig } from '@capacitor/cli'
+
+// The iOS app (JER-45): the static app build (`npm run ios:build`, see the README) wrapped by Capacitor.
+// It talks to the production API (NUXT_PUBLIC_API_BASE); the session token lives in the Keychain (plugins/native.client.ts).
+const config: CapacitorConfig = {
+  appId: 'app.wattswise.ios',
   appName: 'WattsWise',
   webDir: '.output/public',
+  ios: {
+    // The page draws under the status bar and home indicator itself (env(safe-area-inset-*) in main.css)
+    contentInset: 'never',
+    // Before the page has painted: the day canvas, not white
+    backgroundColor: '#e6ecee',
+  },
 }
 
 export default config
