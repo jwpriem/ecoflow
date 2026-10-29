@@ -17,8 +17,11 @@ const SITE_ROUTES = Object.values(SITE_PAGES).flatMap((p) => Object.values(p))
 export default defineNuxtConfig({
   compatibilityDate: '2025-10-01',
   ssr: !APP_BUILD,
-  // Everything is a client-side app page unless it's a website page
-  routeRules: APP_BUILD ? {} : { '/**': { ssr: false }, ...Object.fromEntries(SITE_ROUTES.map((r) => [r, { ssr: true, prerender: true }])) },
+  // Everything is a client-side app page unless it's a website page. Those are plain HTML without the app's
+  // JavaScript (noScripts): nothing on them needs Vue, and a phone on a slow line gets them much sooner.
+  routeRules: APP_BUILD
+    ? {}
+    : { '/**': { ssr: false }, ...Object.fromEntries(SITE_ROUTES.map((r) => [r, { ssr: true, prerender: true, noScripts: true }])) },
   // The website's pages are small: their payload stays inline. (A separate _payload.json would fall under the '/**' app rule.)
   experimental: { payloadExtraction: false },
   hooks: {
@@ -64,6 +67,8 @@ export default defineNuxtConfig({
     },
   },
   nitro: {
+    // .gz and .br next to the static files, served to browsers that accept them
+    compressPublicAssets: true,
     experimental: { tasks: true, websocket: false },
     scheduledTasks: {
       '* * * * *': ['collect'],

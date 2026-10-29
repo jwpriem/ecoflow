@@ -12,6 +12,9 @@
         <a href="/login?signup=1" class="start">{{ t.nav.start }}</a>
       </nav>
     </header>
+    <nav class="site-pages" :aria-label="t.nav.pagesLabel">
+      <NuxtLink v-for="p in PAGES" :key="p" :to="sitePath(p, lang)" :aria-current="p === page ? 'page' : undefined">{{ t.nav.pages[p] }}</NuxtLink>
+    </nav>
     <!-- Links into the app (login, legal texts) are plain <a>: the app is a separate client-side bundle -->
     <main class="site-main"><slot /></main>
     <footer class="site-foot">
@@ -34,6 +37,7 @@ import { legalPath, SITE_PAGES, SITE_TEXT, SITE_URL, type SiteLang, type SitePag
 /** The website's frame: header with language switch and the way into the app, footer with the legal texts. */
 const props = defineProps<{ lang: SiteLang; page: SitePage; title: string; description: string }>()
 const t = computed(() => SITE_TEXT[props.lang])
+const PAGES = ['how', 'devices', 'faq'] as const
 const otherLang = computed<SiteLang>(() => (props.lang === 'nl' ? 'en' : 'nl'))
 const other = computed(() => sitePath(props.page, otherLang.value))
 const url = (lang: SiteLang) => `${SITE_URL}${SITE_PAGES[props.page][lang]}`
@@ -79,6 +83,10 @@ useSeoMeta({
 .site-nav a { color: var(--text); text-decoration: none; }
 .site-nav .lang { color: var(--text-2); }
 .site-nav .start { padding: 8px 14px; border-radius: 999px; background: var(--text); color: var(--bg); font-weight: 600; white-space: nowrap; }
+.site-pages { display: flex; flex-wrap: wrap; gap: 4px 20px; max-width: 1080px; width: 100%; margin: 0 auto; padding: 0 16px 8px; font-size: 15px; }
+.site-pages a { color: var(--text-2); text-decoration: none; padding: 6px 0; border-bottom: 2px solid transparent; }
+.site-pages a:hover { color: var(--text); }
+.site-pages a[aria-current='page'] { color: var(--text); border-bottom-color: var(--text); }
 .site-main { flex: 1; max-width: 1080px; width: 100%; margin: 0 auto; padding: 0 16px; }
 .site-foot { max-width: 1080px; width: 100%; margin: 64px auto 0; padding: 24px 16px calc(32px + env(safe-area-inset-bottom)); border-top: 1px solid var(--separator); }
 .tagline { margin: 0 0 4px; font-weight: 600; font-stretch: 112%; }

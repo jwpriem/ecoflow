@@ -2,7 +2,9 @@
 User-agent: *
 Allow: /
 Disallow: /api/
-Disallow: /app
+# /app$ and /app/: a plain /app would also match /apparaten
+Disallow: /app$
+Disallow: /app/
 Disallow: /login
 Disallow: /onboarding
 Disallow: /settings
