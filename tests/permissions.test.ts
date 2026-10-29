@@ -36,6 +36,7 @@ const ACCESS: Record<string, 'owner' | 'household' | 'account' | 'public' | 'adm
   'admin/users/[id].put.ts': 'admin',
   'admin/users/[id].delete.ts': 'admin',
   'admin/users/[id]/verification.post.ts': 'admin',
+  'admin/error-test.post.ts': 'admin',
   'integrations/[provider].put.ts': 'owner',
   'integrations/[provider].delete.ts': 'owner',
   // A GET, but it starts the SolarEdge sign-in and stores its state
