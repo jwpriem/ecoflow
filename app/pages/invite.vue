@@ -19,7 +19,7 @@
               :autocomplete="invite.account ? 'current-password' : 'new-password'" required minlength="8"
             />
           </label>
-          <label v-if="!invite.account" class="list-row terms"><input v-model="acceptTerms" type="checkbox" required /><span>{{ m.login.acceptTerms }}</span></label>
+          <label v-if="!invite.account" class="list-row terms"><input v-model="acceptTerms" type="checkbox" required /><TermsLabel :from="route.fullPath" /></label>
         </div>
         <p v-if="error" class="error">{{ error }}</p>
         <button class="primary" type="submit" :disabled="busy">

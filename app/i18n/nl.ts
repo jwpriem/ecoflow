@@ -144,7 +144,7 @@ export const nl: Messages = {
     email: 'E-mail',
     password: 'Wachtwoord',
     newPassword: 'Wachtwoord (minstens 8 tekens)',
-    acceptTerms: 'Ik ga akkoord met de gebruiksvoorwaarden en het privacybeleid',
+    acceptTerms: 'Ik ga akkoord met de',
     noAccount: 'Nog geen account?',
     haveAccount: 'Heb je al een account?',
     forgot: 'Wachtwoord vergeten?',
@@ -210,6 +210,13 @@ export const nl: Messages = {
     confirm: (why: string) => `${why}. Doorgaan?`,
     failedTitle: 'Deze uitnodiging werkt niet',
     failedLede: 'Vraag de eigenaar van het huishouden om een nieuwe.',
+  },
+  legal: {
+    title: 'Juridisch',
+    terms: 'gebruiksvoorwaarden',
+    and: 'en het',
+    privacy: 'privacybeleid',
+    docs: { privacy: 'Privacybeleid', terms: 'Gebruiksvoorwaarden', steering: 'Stuurverklaring' },
   },
   guides: {
     title: 'Uitleg',
