@@ -13,6 +13,7 @@ import {
   uniqueIndex,
 } from 'drizzle-orm/pg-core'
 import type { Locale, Override, StrategyConfig } from '../lib/types'
+import type { OnboardingStep } from '../../shared/onboarding'
 
 const ts = (name: string) => timestamp(name, { withTimezone: true, mode: 'date' })
 
@@ -87,6 +88,8 @@ export const sites = pgTable('sites', {
   /** auto = strategy steers the batteries, manual = only monitor */
   controlMode: text('control_mode').$type<'auto' | 'manual'>().notNull().default('auto'),
   override: jsonb('override').$type<Override | null>(),
+  /** The onboarding step the owner is on; null once done (and for every household from before onboarding) */
+  onboarding: text('onboarding').$type<OnboardingStep>(),
   createdAt: ts('created_at').notNull().defaultNow(),
 })
 

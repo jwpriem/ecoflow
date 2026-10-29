@@ -15,6 +15,8 @@ export default defineEventHandler(async (event) => {
     /** Effective for the whole household: the owner's setting, always on for an admin owner */
     experimental,
     site: { id: site.id, name: site.name, timezone: site.timezone },
+    /** The onboarding step the owner is on, or null once done; members never go through onboarding */
+    onboarding: role === 'owner' ? site.onboarding : null,
     /** The steering disclaimer changed since the owner accepted it: the app asks again (steering keeps running) */
     steeringConsentDue: (await steeringConsentDue(useDb(), site, user.id, role)) ? STEERING_VERSION : null,
   }

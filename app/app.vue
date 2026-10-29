@@ -1,7 +1,7 @@
 <template>
-  <div class="shell" :class="{ authed: loggedIn }">
+  <div class="shell" :class="{ authed: tabsOn }">
     <main><VerifyBanner v-if="loggedIn" /><ConsentBanner v-if="loggedIn" /><NuxtPage :transition="{ name: 'page', mode: 'out-in' }" /></main>
-    <nav v-if="loggedIn" class="tabs" :aria-label="m.tabs.main">
+    <nav v-if="tabsOn" class="tabs" :aria-label="m.tabs.main">
       <!-- On a large screen the tab bar is a rail: logo on top, the batteries at the foot -->
       <NuxtLink to="/" class="rail-only rail-logo" aria-hidden="true" tabindex="-1">
         <img :src="`/brand/wattswise-logo-${sky === 'night' ? 'dark' : 'light'}.svg`" alt="WattsWise" />
@@ -30,5 +30,8 @@ const ALL_TABS = [
 ] as const
 // The Cars tab only for a household with the experimental integrations on
 const tabs = computed(() => ALL_TABS.filter((t) => !('experimental' in t) || experimental.value))
+// No tab bar while a new household is set up
+const route = useRoute()
+const tabsOn = computed(() => loggedIn.value && route.path !== '/onboarding')
 watch(loggedIn, (on) => on && loadMe().catch(() => undefined), { immediate: true })
 </script>

@@ -16,11 +16,11 @@ export interface AccountOptions {
 /** The database, or a transaction on it */
 export type Tx = Db | Parameters<Parameters<Db['transaction']>[0]>[0]
 
-/** A household of the user's own, which they own. The batteries are added from the EcoFlow account once its developer keys are saved. */
+/** A household of the user's own, which they own, starting at the first onboarding step. The batteries are added from the EcoFlow account once its developer keys are saved. */
 export async function newHousehold(tx: Tx, userId: number, opts: AccountOptions = {}) {
   const [site] = await tx
     .insert(sites)
-    .values({ userId, name: opts.siteName ?? 'Home', strategy: defaultStrategy, controlMode: opts.controlMode ?? 'auto' })
+    .values({ userId, name: opts.siteName ?? 'Home', strategy: defaultStrategy, controlMode: opts.controlMode ?? 'auto', onboarding: 'household' })
     .returning()
   await tx.insert(siteMembers).values({ siteId: site!.id, userId, role: 'owner' })
   return site!

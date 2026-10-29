@@ -45,5 +45,7 @@ export default defineEventHandler(async (event) => {
   console.log(`[solaredge] callback params=${params.join(',')} state=${stateCheck} result=${error ?? 'ok'}`)
   const recordFor = site?.id ?? pending
   if (recordFor) await recordSolarEdgeCallback(db, recordFor, key, { params, state: stateCheck, error })
-  return sendRedirect(event, `/settings?solaredge=${encodeURIComponent(error ?? 'ok')}`)
+  // Back to where the sign-in started: onboarding while that's still going, otherwise Settings
+  const back = site?.onboarding ? '/onboarding' : '/settings'
+  return sendRedirect(event, `${back}?solaredge=${encodeURIComponent(error ?? 'ok')}`)
 })
