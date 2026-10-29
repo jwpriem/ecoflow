@@ -5,9 +5,9 @@
       <p class="lede">{{ t.lede }}</p>
     </header>
     <dl class="brands">
-      <div v-for="b in t.brands" :key="b.name" class="brand">
+      <div v-for="(b, i) in t.brands" :key="b.name" class="brand">
         <dt><span class="name">{{ b.name }}</span> <span class="need" :class="{ optional: b.need === t.brands[2].need }">{{ b.need }}</span></dt>
-        <dd>{{ b.text }}</dd>
+        <dd>{{ b.text }} <NuxtLink :to="sitePath(GUIDE_OF[i]!, lang)">{{ b.guide }}</NuxtLink></dd>
       </div>
     </dl>
     <section class="models" aria-labelledby="models">
@@ -24,11 +24,13 @@
 </template>
 
 <script setup lang="ts">
-import { SITE_TEXT, type SiteLang } from '~/utils/site'
+import { SITE_DOCS, SITE_TEXT, type SiteLang, sitePath } from '~/utils/site'
 
 /** Supported devices: what WattsWise needs, what is optional, and the STREAM models. */
 const props = defineProps<{ lang: SiteLang }>()
 const t = computed(() => SITE_TEXT[props.lang].devices)
+/** The brands are listed in the order of the guides */
+const GUIDE_OF = SITE_DOCS.guide
 </script>
 
 <style scoped>
@@ -42,6 +44,7 @@ h1 { font-size: clamp(32px, 6vw, 56px); line-height: 1.04; font-stretch: 125%; l
 .need { font-size: 13px; font-weight: 600; color: var(--cheap); }
 .need.optional { color: var(--text-2); }
 .brand dd { margin: 0; color: var(--text-2); line-height: 1.55; max-width: 58ch; }
+.brand dd a { color: var(--text); white-space: nowrap; }
 .models { margin-top: 32px; }
 h2 { font-size: 20px; font-stretch: 112%; margin: 0 0 12px; }
 .models ul { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; margin: 0; padding: 0; }

@@ -8,12 +8,12 @@
       </details>
     </div>
     <p class="still">{{ t.still }}</p>
-    <p class="small"><a :href="legalPath('privacy', lang)">{{ SITE_TEXT[lang].footer.privacy }}</a> · <a :href="legalPath('steering', lang)">{{ SITE_TEXT[lang].footer.steering }}</a></p>
+    <p class="small"><NuxtLink :to="sitePath('privacy', lang)">{{ SITE_TEXT[lang].footer.privacy }}</NuxtLink> · <NuxtLink :to="sitePath('steering', lang)">{{ SITE_TEXT[lang].footer.steering }}</NuxtLink></p>
   </SiteShell>
 </template>
 
 <script setup lang="ts">
-import { legalPath, SITE_TEXT, type SiteLang } from '~/utils/site'
+import { SITE_TEXT, type SiteLang, sitePath } from '~/utils/site'
 
 /** The questions people ask before they sign up. The answers are in the page, so search engines see them too. */
 const props = defineProps<{ lang: SiteLang }>()

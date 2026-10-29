@@ -13,3 +13,8 @@ export function legalHtml(doc: string, locale: 'en' | 'nl'): string | undefined 
   const src = pickContent(files, '../../content/legal', doc, locale)
   return src === undefined ? undefined : renderMarkdown(src)
 }
+
+/** A text's version from its first lines ("*Version 2026-10-29 · …"); the version is the day it last changed */
+export function legalVersion(doc: string, locale: 'en' | 'nl'): string | undefined {
+  return pickContent(files, '../../content/legal', doc, locale)?.match(/^\*(?:Version|Versie) (\d{4}-\d{2}-\d{2})\b/m)?.[1]
+}

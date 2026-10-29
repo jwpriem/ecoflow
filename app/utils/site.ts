@@ -12,13 +12,21 @@ export const SITE_PAGES = {
   how: { nl: '/zo-werkt-het', en: '/en/how-it-works' },
   devices: { nl: '/apparaten', en: '/en/devices' },
   faq: { nl: '/vragen', en: '/en/faq' },
+  // Stable: the privacy policy's address goes into App Store Connect
+  privacy: { nl: '/privacy', en: '/en/privacy' },
+  terms: { nl: '/voorwaarden', en: '/en/terms' },
+  steering: { nl: '/stuurverklaring', en: '/en/steering-disclaimer' },
+  tibber: { nl: '/hulp/tibber', en: '/en/guides/tibber' },
+  ecoflow: { nl: '/hulp/ecoflow', en: '/en/guides/ecoflow' },
+  solaredge: { nl: '/hulp/solaredge', en: '/en/guides/solaredge' },
 } as const
 export type SitePage = keyof typeof SITE_PAGES
 
 export const sitePath = (page: SitePage, lang: SiteLang) => SITE_PAGES[page][lang]
 
-/** The legal texts, in the visitor's language */
-export const legalPath = (doc: 'privacy' | 'terms' | 'steering', lang: SiteLang) => `/legal/${doc}?lang=${lang}`
+/** The website's pages made from content/legal and content/guides, the same Markdown the app shows */
+export const SITE_DOCS = { legal: ['privacy', 'terms', 'steering'], guide: ['tibber', 'ecoflow', 'solaredge'] } as const
+export type SiteDoc = (typeof SITE_DOCS)[keyof typeof SITE_DOCS][number]
 
 export const SITE_TEXT = {
   nl: {
@@ -35,10 +43,20 @@ export const SITE_TEXT = {
       privacy: 'Privacybeleid',
       terms: 'Gebruiksvoorwaarden',
       steering: 'Stuurverklaring',
+      guides: 'Koppelen',
       contact: 'Contact',
       made: 'Gemaakt in Nederland, voor thuisbatterijen en dynamische stroomprijzen.',
     },
     /** Marks a stand-in until the real screenshots from the demo household are in */
+    docs: {
+      updated: 'Laatst bijgewerkt',
+      privacy: { title: 'Privacybeleid · WattsWise', description: 'Welke gegevens WattsWise verwerkt, waarom, waar ze staan, hoe lang we ze bewaren en wat je rechten zijn.' },
+      terms: { title: 'Gebruiksvoorwaarden · WattsWise', description: 'De afspraken voor het gebruik van WattsWise.' },
+      steering: { title: 'Stuurverklaring · WattsWise', description: 'Wat er gebeurt als je WattsWise je thuisbatterij laat aansturen, en waar je zelf voor kiest.' },
+      tibber: { title: 'Tibber koppelen · WattsWise', description: 'Stap voor stap: zo koppel je Tibber en je Tibber Pulse aan WattsWise.' },
+      ecoflow: { title: 'EcoFlow koppelen · WattsWise', description: 'Stap voor stap: zo maak je EcoFlow-sleutels aan en koppel je je STREAM-batterijen aan WattsWise.' },
+      solaredge: { title: 'SolarEdge koppelen · WattsWise', description: 'Stap voor stap: zo koppel je je SolarEdge-omvormer aan WattsWise.' },
+    },
     shot: { mark: 'Voorbeeld', note: 'Hier komt een schermafbeelding uit de app.' },
     day: {
       label: 'Voorbeelddag: de stroomprijs per kwartier, met de kwartieren waarin de batterij laadt en ontlaadt.',
@@ -93,9 +111,9 @@ export const SITE_TEXT = {
       heading: 'Welke apparaten werken',
       lede: 'WattsWise praat met de cloud van je leverancier en je apparaten. Je hoeft thuis niets te installeren.',
       brands: [
-        { name: 'Tibber', need: 'Nodig', text: 'Je dynamische stroomprijs per kwartier en, via de Tibber Pulse op je slimme meter, wat je huis op elk moment verbruikt en teruglevert.' },
-        { name: 'EcoFlow STREAM', need: 'Nodig', text: 'WattsWise leest het laadniveau en vermogen van je batterijen, en kan ze aansturen. Meerdere STREAM-units in één systeem werken samen.' },
-        { name: 'SolarEdge', need: 'Optioneel', text: 'Heb je zonnepanelen met een SolarEdge-omvormer, dan telt WattsWise je opwek mee in het plan en in je besparing.' },
+        { name: 'Tibber', guide: 'Zo koppel je Tibber', need: 'Nodig', text: 'Je dynamische stroomprijs per kwartier en, via de Tibber Pulse op je slimme meter, wat je huis op elk moment verbruikt en teruglevert.' },
+        { name: 'EcoFlow STREAM', guide: 'Zo koppel je EcoFlow', need: 'Nodig', text: 'WattsWise leest het laadniveau en vermogen van je batterijen, en kan ze aansturen. Meerdere STREAM-units in één systeem werken samen.' },
+        { name: 'SolarEdge', guide: 'Zo koppel je SolarEdge', need: 'Optioneel', text: 'Heb je zonnepanelen met een SolarEdge-omvormer, dan telt WattsWise je opwek mee in het plan en in je besparing.' },
       ],
       modelsHeading: 'EcoFlow STREAM-modellen',
       models: ['STREAM Ultra', 'STREAM Ultra X', 'STREAM Pro', 'STREAM AC Pro', 'STREAM AC', 'STREAM Max'],
@@ -132,8 +150,18 @@ export const SITE_TEXT = {
       privacy: 'Privacy policy',
       terms: 'Terms of use',
       steering: 'Steering disclaimer',
+      guides: 'Connecting',
       contact: 'Contact',
       made: 'Made in the Netherlands, for home batteries and dynamic electricity prices.',
+    },
+    docs: {
+      updated: 'Last updated',
+      privacy: { title: 'Privacy policy · WattsWise', description: 'Which data WattsWise processes, why, where it is kept, for how long, and what your rights are.' },
+      terms: { title: 'Terms of use · WattsWise', description: 'The terms for using WattsWise.' },
+      steering: { title: 'Steering disclaimer · WattsWise', description: 'What happens when you let WattsWise steer your home battery, and what you remain responsible for.' },
+      tibber: { title: 'Connect Tibber · WattsWise', description: 'Step by step: how to connect Tibber and your Tibber Pulse to WattsWise.' },
+      ecoflow: { title: 'Connect EcoFlow · WattsWise', description: 'Step by step: how to create EcoFlow keys and connect your STREAM batteries to WattsWise.' },
+      solaredge: { title: 'Connect SolarEdge · WattsWise', description: 'Step by step: how to connect your SolarEdge inverter to WattsWise.' },
     },
     shot: { mark: 'Example', note: 'A screenshot from the app goes here.' },
     day: {
@@ -189,9 +217,9 @@ export const SITE_TEXT = {
       heading: 'Which devices work',
       lede: 'WattsWise talks to the cloud of your supplier and your devices. There is nothing to install at home.',
       brands: [
-        { name: 'Tibber', need: 'Required', text: 'Your dynamic electricity price per quarter hour and, through the Tibber Pulse on your smart meter, what your home uses and feeds back at any moment.' },
-        { name: 'EcoFlow STREAM', need: 'Required', text: 'WattsWise reads your batteries’ charge level and power, and can steer them. Several STREAM units in one system work together.' },
-        { name: 'SolarEdge', need: 'Optional', text: 'If your solar panels have a SolarEdge inverter, WattsWise counts your solar output in the plan and in your savings.' },
+        { name: 'Tibber', guide: 'How to connect Tibber', need: 'Required', text: 'Your dynamic electricity price per quarter hour and, through the Tibber Pulse on your smart meter, what your home uses and feeds back at any moment.' },
+        { name: 'EcoFlow STREAM', guide: 'How to connect EcoFlow', need: 'Required', text: 'WattsWise reads your batteries’ charge level and power, and can steer them. Several STREAM units in one system work together.' },
+        { name: 'SolarEdge', guide: 'How to connect SolarEdge', need: 'Optional', text: 'If your solar panels have a SolarEdge inverter, WattsWise counts your solar output in the plan and in your savings.' },
       ],
       modelsHeading: 'EcoFlow STREAM models',
       models: ['STREAM Ultra', 'STREAM Ultra X', 'STREAM Pro', 'STREAM AC Pro', 'STREAM AC', 'STREAM Max'],

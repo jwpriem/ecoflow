@@ -41,4 +41,64 @@
     <xhtml:link rel="alternate" hreflang="nl" href="https://www.wattswise.eu/vragen" />
     <xhtml:link rel="alternate" hreflang="en" href="https://www.wattswise.eu/en/faq" />
   </url>
+  <url>
+    <loc>https://www.wattswise.eu/privacy</loc>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://www.wattswise.eu/privacy" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://www.wattswise.eu/en/privacy" />
+  </url>
+  <url>
+    <loc>https://www.wattswise.eu/en/privacy</loc>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://www.wattswise.eu/privacy" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://www.wattswise.eu/en/privacy" />
+  </url>
+  <url>
+    <loc>https://www.wattswise.eu/voorwaarden</loc>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://www.wattswise.eu/voorwaarden" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://www.wattswise.eu/en/terms" />
+  </url>
+  <url>
+    <loc>https://www.wattswise.eu/en/terms</loc>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://www.wattswise.eu/voorwaarden" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://www.wattswise.eu/en/terms" />
+  </url>
+  <url>
+    <loc>https://www.wattswise.eu/stuurverklaring</loc>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://www.wattswise.eu/stuurverklaring" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://www.wattswise.eu/en/steering-disclaimer" />
+  </url>
+  <url>
+    <loc>https://www.wattswise.eu/en/steering-disclaimer</loc>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://www.wattswise.eu/stuurverklaring" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://www.wattswise.eu/en/steering-disclaimer" />
+  </url>
+  <url>
+    <loc>https://www.wattswise.eu/hulp/tibber</loc>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://www.wattswise.eu/hulp/tibber" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://www.wattswise.eu/en/guides/tibber" />
+  </url>
+  <url>
+    <loc>https://www.wattswise.eu/en/guides/tibber</loc>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://www.wattswise.eu/hulp/tibber" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://www.wattswise.eu/en/guides/tibber" />
+  </url>
+  <url>
+    <loc>https://www.wattswise.eu/hulp/ecoflow</loc>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://www.wattswise.eu/hulp/ecoflow" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://www.wattswise.eu/en/guides/ecoflow" />
+  </url>
+  <url>
+    <loc>https://www.wattswise.eu/en/guides/ecoflow</loc>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://www.wattswise.eu/hulp/ecoflow" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://www.wattswise.eu/en/guides/ecoflow" />
+  </url>
+  <url>
+    <loc>https://www.wattswise.eu/hulp/solaredge</loc>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://www.wattswise.eu/hulp/solaredge" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://www.wattswise.eu/en/guides/solaredge" />
+  </url>
+  <url>
+    <loc>https://www.wattswise.eu/en/guides/solaredge</loc>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://www.wattswise.eu/hulp/solaredge" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://www.wattswise.eu/en/guides/solaredge" />
+  </url>
 </urlset>
