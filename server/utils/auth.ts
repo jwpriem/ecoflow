@@ -41,6 +41,8 @@ export async function requireSite(event: H3Event) {
   if (!row) throw createError({ statusCode: 401, statusMessage: 'Session expired' })
   touchSession(useDb(), row.sessionId, row.sessionLastUsedAt)
   if (!row.site || !row.role) throw createError({ statusCode: 404, statusMessage: 'No site configured' })
+  // For error reports: the household's number, so a failure can be traced without any personal data
+  event.context.siteId = row.site.id
   return { user: { ...row.user, sessionId: row.sessionId }, site: row.site, role: row.role, experimental: experimentalEnabled(row.owner) }
 }
 

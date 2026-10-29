@@ -46,6 +46,7 @@ export default defineNuxtConfig({
     appUrl: '', // NUXT_APP_URL: public URL of the server, for the SolarEdge OAuth redirect. Empty = taken from the request
     public: {
       apiBase: '', // NUXT_PUBLIC_API_BASE, empty = same origin; set for the Capacitor build
+      sentryDsn: '', // NUXT_PUBLIC_SENTRY_DSN: error reports to Sentry (EU). Empty = off. The DSN only allows sending, so it may be public
     },
   },
   nitro: {

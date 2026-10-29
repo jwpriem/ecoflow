@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { and, eq, lt } from 'drizzle-orm'
 import type { Db } from '../db/client'
 import { integrations, jobLocks, sites } from '../db/schema'
+import { reportError } from './errors'
 import { type JobName, recordRun } from './system'
 
 type Site = typeof sites.$inferSelect
@@ -111,7 +112,10 @@ export async function runSites(db: Db, job: JobName, fn: (site: Site) => Promise
   const startedAt = new Date()
   try {
     const list = await jobSites(db, opts.skipEmpty)
-    const results = await forEachSite(list, fn, opts, (site, err) => console.error(`[job:${job}] site ${site.id}:`, err.message))
+    const results = await forEachSite(list, fn, opts, (site, err) => {
+      console.error(`[job:${job}] site ${site.id}:`, err.message)
+      reportError(err, { job, siteId: site.id })
+    })
     await recordRun(db, job, startedAt, results).catch((err: Error) => console.warn(`[job:${job}] run not recorded:`, err.message))
     return results
   } finally {

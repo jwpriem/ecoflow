@@ -53,6 +53,14 @@
         </details>
         <p v-if="!system.providerErrors.length" class="list-row muted">{{ m.admin.noErrors }}</p>
       </div>
+
+      <h3 class="section-title">{{ m.admin.errorReports }}</h3>
+      <div class="list">
+        <div class="list-row">
+          <span class="stack-text"><span>{{ system.errorReports ? m.admin.errorReportsOn : m.admin.errorReportsOff }}</span><span class="small muted">{{ testSent ? m.admin.testSent : m.admin.errorReportsHelp }}</span></span>
+          <button v-if="system.errorReports" type="button" class="plain" :disabled="busy !== ''" @click="sendTest">{{ m.admin.sendTest }}</button>
+        </div>
+      </div>
     </template>
 
     <!-- Users -->
@@ -168,6 +176,7 @@ interface AdminHousehold {
   connections: Connection[]
 }
 interface SystemInfo {
+  errorReports: boolean
   signupMode: 'open' | 'closed'
   jobsEnabled: boolean
   counts: { users: number; households: number; steering: number }
@@ -242,6 +251,13 @@ const setFlag = (u: AdminUser, f: Flag, on: boolean) => {
 function setSignup(open: boolean) {
   if (!confirm(open ? m.value.admin.confirmOpen : m.value.admin.confirmClose)) return load()
   act('signup', () => api('/api/admin/signup-mode', { method: 'PUT', body: { mode: open ? 'open' : 'closed' } }))
+}
+const testSent = ref(false)
+const { $reportTestError } = useNuxtApp()
+async function sendTest() {
+  await act('test', () => api('/api/admin/error-test', { method: 'POST' }))
+  ;($reportTestError as (() => void) | undefined)?.()
+  testSent.value = !error.value
 }
 const resend = (u: AdminUser) => act('resend', () => api(`/api/admin/users/${u.id}/verification`, { method: 'POST' }))
 function remove(u: AdminUser) {

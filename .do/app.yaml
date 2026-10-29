@@ -45,3 +45,6 @@ services:
       - key: NUXT_EMAIL_FROM
         scope: RUN_TIME
         value: WattsWise <hello@wattswise.eu>
+      - key: NUXT_PUBLIC_SENTRY_DSN # Sentry, EU region (…ingest.de.sentry.io). Empty = no error reports
+        scope: RUN_AND_BUILD_TIME
+        value: ''
