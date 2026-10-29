@@ -21,7 +21,7 @@
     <section class="shots" aria-labelledby="shots">
       <h2 id="shots">{{ t.shotsHeading }}</h2>
       <div class="shot-row">
-        <SiteShot v-for="s in t.shots" :key="s.title" :lang="lang" :title="s.title" :text="s.text" />
+        <SiteShot v-for="s in t.shots" :key="s.title" :lang="lang" :title="s.title" :text="s.text" :src="`/site/shot-${s.img}-${lang}.webp`" />
       </div>
     </section>
     <p class="more">
