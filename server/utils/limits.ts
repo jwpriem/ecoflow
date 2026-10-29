@@ -20,6 +20,8 @@ export const LIMITS = {
   inviteIp: new RateLimiter(30, 60 * MIN),
   // An export reads every row of the household
   exportUser: new RateLimiter(5, 60 * MIN),
+  // "Try the demo": a session without a password, so not too many from one machine
+  demoIp: new RateLimiter(10, 60 * MIN),
 }
 
 /** The visitor's address. App Platform puts it in do-connecting-ip; elsewhere the first X-Forwarded-For entry. */

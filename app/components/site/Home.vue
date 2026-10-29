@@ -6,6 +6,7 @@
         <p class="lede">{{ t.lede }}</p>
         <p class="actions">
           <a href="/login?signup=1" class="cta">{{ t.cta }}</a>
+        <a href="/login?demo=1" class="demo">{{ t.demo }}</a>
           <span class="works small">{{ t.works }}</span>
         </p>
       </div>
@@ -46,7 +47,8 @@ h1 { font-size: clamp(34px, 7vw, 64px); line-height: 1.02; font-stretch: 125%; l
 .lede { font-size: clamp(17px, 2.2vw, 20px); line-height: 1.5; color: var(--text-2); margin: 0 0 28px; max-width: 60ch; }
 .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; margin: 0; }
 .cta { padding: 14px 22px; border-radius: 999px; background: var(--text); color: var(--bg); font-weight: 600; font-size: 17px; text-decoration: none; }
-.works { color: var(--text-2); }
+.demo { padding: 12px 20px; border-radius: 999px; border: 2px solid var(--text); color: var(--text); font-weight: 600; font-size: 17px; text-decoration: none; }
+.works { color: var(--text-2); flex-basis: 100%; }
 .small { font-size: 14px; }
 .points { display: grid; gap: 28px 40px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); padding-top: 28px; border-top: 1px solid var(--rule); }
 .point h2 { font-size: 19px; font-stretch: 112%; margin: 0 0 6px; }

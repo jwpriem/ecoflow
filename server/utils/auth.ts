@@ -6,9 +6,9 @@ import { newToken, sha256 } from './crypto'
 const SESSION_DAYS = 60
 
 /** Bearer tokens (not cookies) so the same API works from the browser and from the Capacitor app. */
-export async function createSession(userId: number, userAgent?: string) {
+export async function createSession(userId: number, userAgent?: string, days = SESSION_DAYS) {
   const token = newToken()
-  const expiresAt = new Date(Date.now() + SESSION_DAYS * 86_400_000)
+  const expiresAt = new Date(Date.now() + days * 86_400_000)
   await useDb().insert(sessions).values({ userId, tokenHash: sha256(token), userAgent: userAgent?.slice(0, 200), expiresAt })
   return { token, expiresAt }
 }

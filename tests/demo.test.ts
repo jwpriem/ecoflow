@@ -4,12 +4,13 @@ import type { Db } from '../server/db/client'
 import * as schema from '../server/db/schema'
 import { STEERING_VERSION, TERMS_VERSION } from '../server/lib/legal'
 import { hasConsent } from '../server/services/consent'
-import { DEMO_EMAIL, seedDemo } from '../server/services/demo'
+import { DEMO_EMAIL, demoUser, seedDemo } from '../server/services/demo'
 import { JOB_OPTIONS, jobSites } from '../server/services/jobs'
 import { assertNotDemo } from '../server/services/members'
 import { createAccount } from '../server/services/setup'
 import { runStrategy } from '../server/services/strategy'
 import { verifyPassword } from '../server/utils/crypto'
+import { readFileSync } from 'node:fs'
 import { freshDb } from './support/pglite'
 
 const KEY = Buffer.alloc(32, 7).toString('base64')
@@ -48,6 +49,28 @@ describe('demo seed', () => {
     const [user] = await db.select().from(schema.users)
     expect(user).toMatchObject({ role: 'user', experimental: false })
     expect(await verifyPassword('second-password', user!.passwordHash)).toBe(true)
+  })
+})
+
+describe('try the demo', () => {
+  it('is offered only once the demo account exists and while it is enabled', async () => {
+    expect(await demoUser(db)).toBeNull()
+    const { userId } = await seedDemo(db, 'pw-demo-123', KEY)
+    expect(await demoUser(db)).toEqual({ id: userId })
+    await db.update(schema.users).set({ disabledAt: new Date() }).where(eq(schema.users.id, userId))
+    expect(await demoUser(db)).toBeNull()
+  })
+
+  it('never hands out a demo session for another account with the same address but a normal household', async () => {
+    await createAccount(db, DEMO_EMAIL, 'pw-someone-123')
+    expect(await demoUser(db)).toBeNull()
+  })
+
+  it('gives a rate-limited session of one day', () => {
+    const src = readFileSync('server/api/auth/demo.post.ts', 'utf8')
+    expect(src).toMatch(/rateLimit\(\[LIMITS\.demoIp, clientIp\(event\)\]\)/)
+    expect(src).toMatch(/DEMO_SESSION_DAYS = 1\b/)
+    expect(src).toMatch(/createSession\(user\.id, getHeader\(event, 'user-agent'\), DEMO_SESSION_DAYS\)/)
   })
 })
 
