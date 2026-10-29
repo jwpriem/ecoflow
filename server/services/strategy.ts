@@ -63,14 +63,15 @@ export const surplusCharging = (siteId: number) => surplus.get(siteId)?.charging
 const overridden = (site: Site, now: Date) => !!site.override && new Date(site.override.until) > now
 
 /**
- * What the batteries should do right now: manual override wins, then the plan, then plain self-use.
+ * What the batteries should do right now. Monitor only (manual) wins over everything: nothing is sent then,
+ * not even an override. Otherwise a manual override, then the plan, then plain self-use.
  * A hold or self-use slot turns into charging while the Pulse sees a solar surplus (see lib/surplus).
  */
 export function currentCommand(site: Site, plan: PlanSlot[], now: Date, surplusOn = surplusCharging(site.id)): Command {
+  if (site.controlMode === 'manual') return { mode: 'self_use', source: 'manual' }
   if (overridden(site, now)) {
     return { mode: site.override!.mode, powerW: site.override!.powerW, source: 'override' }
   }
-  if (site.controlMode === 'manual') return { mode: 'self_use', source: 'manual' }
   const slot = plan.find((p) => p.slotStart.getTime() === slotStartOf(now).getTime())
   if (!slot) return { mode: 'self_use', source: 'no-plan' }
   if (surplusOn && surplusModes.includes(slot.action)) return { mode: 'charge_grid', source: 'solar-surplus' }
@@ -110,11 +111,11 @@ async function applyCommand(db: Db, site: Site, cmd: Command, now: Date, send?: 
   const [last] = await recentCommands(db, [devs[0]!.id], 1)
   const prevMode = last?.command as BatteryMode | undefined
   // The STREAM units work as one system: one setting on the main unit steers them all.
-  // Monitor only (manual) sends nothing; a failed send is retried on the next run.
+  // Monitor only (manual) sends nothing, whatever the command says; a failed send is retried on the next run.
   const changed = devs.some((d) => (d.state as DeviceState).mode !== cmd.mode)
   const result = !changed
     ? null
-    : cmd.source === 'manual'
+    : cmd.source === 'manual' || site.controlMode === 'manual'
       ? 'skipped: monitor only'
       : await (send ?? ((m: BatteryMode) => controlEcoFlow(db, site, encryptionKey(), m)))(cmd.mode)
   if (result !== null) {

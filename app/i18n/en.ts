@@ -212,6 +212,16 @@ export const en = {
     failedTitle: "This invitation doesn't work",
     failedLede: 'Ask the owner of the household to send a new one.',
   },
+  consent: {
+    title: 'Before WattsWise steers your batteries',
+    lede: 'WattsWise will send charge and discharge settings to your batteries. Read what that means and what we are and aren’t responsible for.',
+    agree: 'I agree',
+    saving: 'Saving…',
+    cancel: 'Cancel',
+    declined: 'WattsWise only steers once you agree to the steering terms.',
+    banner: 'The steering terms have changed. WattsWise keeps steering; read and accept the new version.',
+    read: 'Read',
+  },
   legal: {
     title: 'Legal',
     terms: 'terms of use',

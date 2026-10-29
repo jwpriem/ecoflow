@@ -1,6 +1,6 @@
 <template>
   <div class="shell" :class="{ authed: loggedIn }">
-    <main><VerifyBanner v-if="loggedIn" /><NuxtPage :transition="{ name: 'page', mode: 'out-in' }" /></main>
+    <main><VerifyBanner v-if="loggedIn" /><ConsentBanner v-if="loggedIn" /><NuxtPage :transition="{ name: 'page', mode: 'out-in' }" /></main>
     <nav v-if="loggedIn" class="tabs" :aria-label="m.tabs.main">
       <!-- On a large screen the tab bar is a rail: logo on top, the batteries at the foot -->
       <NuxtLink to="/" class="rail-only rail-logo" aria-hidden="true" tabindex="-1">

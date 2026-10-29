@@ -1,3 +1,6 @@
+import { STEERING_VERSION } from '../../lib/legal'
+import { steeringConsentDue } from '../../services/consent'
+
 /** The logged-in user, their household and the flags the app hides or shows things by. */
 export default defineEventHandler(async (event) => {
   const { user, site, role, experimental } = await requireSite(event)
@@ -12,5 +15,7 @@ export default defineEventHandler(async (event) => {
     /** Effective for the whole household: the owner's setting, always on for an admin owner */
     experimental,
     site: { id: site.id, name: site.name, timezone: site.timezone },
+    /** The steering disclaimer changed since the owner accepted it: the app asks again (steering keeps running) */
+    steeringConsentDue: (await steeringConsentDue(useDb(), site, user.id, role)) ? STEERING_VERSION : null,
   }
 })

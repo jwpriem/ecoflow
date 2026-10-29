@@ -20,6 +20,7 @@
           </button>
         </div>
         <p class="foot" :class="{ error: controlMsg && !controlMsg.ok }" role="status">{{ busy === 'control' ? m.settings.switching : controlMsg?.text ?? (isOwner ? m.settings.controlFoot : m.settings.ownerOnly) }}</p>
+        <SteeringConsent ref="consent" />
       </section>
       <section v-if="strategy" class="group" style="--o: 3">
         <h3 class="section-title">{{ m.settings.strategy }}</h3>
@@ -346,6 +347,7 @@ const pct = reactive({ reserveSoc: 10, maxSoc: 100, roundTripEfficiency: 85 })
 type Control = 'ecoflow_ai' | 'wattwise' | 'monitor'
 const control = ref<{ steering: 'ecoflow_ai' | 'wattwise' | null; controlMode: 'auto' | 'manual' } | null>(null)
 const controlMsg = ref<Msg>(null)
+const consent = ref<{ ask: (version: string) => Promise<boolean> } | null>(null)
 const controlChoice = computed<Control | null>(() => {
   if (!control.value) return null
   if (control.value.steering === 'ecoflow_ai') return 'ecoflow_ai'
@@ -361,6 +363,17 @@ async function setControl(v: Control) {
   controlMsg.value = null
   const steer = (steering: string) => api('/api/ecoflow/steering', { method: 'PUT', body: { steering } })
   const mode = (controlMode: string) => api('/api/plan/override', { method: 'POST', body: { controlMode } })
+  // Turning WattsWise steering on asks for the steering disclaimer first (409 with data.consent), then tries again
+  const withConsent = async (call: () => Promise<unknown>) => {
+    try {
+      return await call()
+    } catch (e: any) {
+      const c = e?.data?.data
+      if (e?.statusCode !== 409 || c?.consent !== 'steering') throw e
+      if (!(await consent.value?.ask(c.version))) throw new Error(m.value.consent.declined)
+      return call()
+    }
+  }
   try {
     if (v === 'ecoflow_ai') await steer('ecoflow_ai')
     else if (v === 'monitor') {
@@ -368,8 +381,8 @@ async function setControl(v: Control) {
       if (cur.controlMode !== 'manual') await mode('manual')
       if (cur.steering === 'ecoflow_ai') await steer('wattwise')
     } else {
-      if (cur.steering === 'ecoflow_ai') await steer('wattwise')
-      if (cur.controlMode !== 'auto') await mode('auto')
+      if (cur.steering === 'ecoflow_ai') await withConsent(() => steer('wattwise'))
+      if (cur.controlMode !== 'auto') await withConsent(() => mode('auto'))
     }
     controlMsg.value = { ok: true, text: m.value.settings.controlDone[v] }
   } catch (e: any) {
