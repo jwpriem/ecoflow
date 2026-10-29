@@ -27,10 +27,8 @@ export default defineNuxtConfig({
       script: [{ innerHTML: SKY_BOOT, tagPosition: 'head' }],
       link: [
         { rel: 'manifest', href: '/manifest.webmanifest' },
-        // Archivo with its width axis: wide for the status line, condensed for numbers
-        { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
-        { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
-        { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&display=swap' },
+        // Archivo with its width axis, served by us (see main.css): no request to Google, so no visitor IP leaves for it
+        { rel: 'preload', href: '/fonts/archivo-latin.woff2', as: 'font', type: 'font/woff2', crossorigin: '' },
         { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg?v=4' },
         { rel: 'icon', type: 'image/png', sizes: '32x32', href: '/favicon-32.png?v=4' },
         // PNG only: iOS can't use SVG for the Home Screen icon

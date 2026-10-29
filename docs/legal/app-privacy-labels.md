@@ -38,5 +38,5 @@ Answer **not collected** for:
 
 - **The iOS app ships (JER-45/46):** the APNs device token joins the web push endpoint. Apple doesn't list push tokens as a separate type, so the "Identifiers" answer stays the same. Recheck if a native SDK is added (for example Sentry's Cocoa SDK, or a crash reporter that collects device IDs).
 - **The demo household (JER-39) ships:** demo visitors have no account. If the demo sends error reports, those are "not linked".
-- **Google Fonts:** loading the font from Google sends visitors' IP addresses to Google (see `processors.md`). Self-hosting it before launch keeps these answers true. In the Capacitor app, fonts must be bundled anyway.
+- **Fonts and other assets** must stay self-hosted (JER-52): a font, script or image loaded from another company's server would send it the visitor's IP address.
 - **Paid plans:** Purchases and possibly Financial Info would then apply.
