@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { guideHtml } from '../app/utils/guides'
 import { legalHtml, legalVersion } from '../app/utils/legal'
-import { SITE_DOCS, SITE_PAGES, SITE_TEXT, SITE_URL } from '../app/utils/site'
+import { SITE_BOOT, SITE_DOCS, SITE_PAGES, SITE_TEXT, SITE_URL } from '../app/utils/site'
 import { STEERING_VERSION, TERMS_VERSION } from '../server/lib/legal'
 
 describe('website', () => {
@@ -39,5 +39,20 @@ describe('website', () => {
   it('shows the version users accept as the last-updated date', () => {
     const accepted = { privacy: TERMS_VERSION, terms: TERMS_VERSION, steering: STEERING_VERSION }
     for (const lang of ['nl', 'en'] as const) for (const doc of SITE_DOCS.legal) expect(legalVersion(doc, lang)).toBe(accepted[doc])
+  })
+
+  it('sends only the installed app to /app, never a browser visit (logged in or not)', () => {
+    const run = (o: { search?: string; token?: string; standalone?: boolean }) => {
+      let to: string | undefined
+      const location = { search: o.search ?? '', replace: (u: string) => (to = u) }
+      const localStorage = { getItem: (k: string) => (k === 'battery.token' ? (o.token ?? null) : null) }
+      const matchMedia = () => ({ matches: !!o.standalone })
+      new Function('location', 'localStorage', 'matchMedia', 'navigator', SITE_BOOT)(location, localStorage, matchMedia, {})
+      return to
+    }
+    expect(run({})).toBeUndefined()
+    expect(run({ token: 'abc' })).toBeUndefined()
+    expect(run({ standalone: true })).toBe('/app')
+    expect(run({ standalone: true, search: '?site' })).toBeUndefined()
   })
 })
