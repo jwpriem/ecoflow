@@ -82,8 +82,8 @@ export const SITE_TEXT = {
       ],
       shotsHeading: 'Zo ziet het eruit',
       shots: [
-        { title: 'Je besparing', text: 'Wat de batterij en de panelen deze maand opleverden, dag voor dag.' },
-        { title: 'Het plan voor morgen', text: 'Wanneer de batterij laadt en ontlaadt, zodra de prijzen voor morgen bekend zijn.' },
+        { img: 'savings', title: 'Je besparing', text: 'Wat de batterij en de panelen deze maand opleverden, dag voor dag.' },
+        { img: 'plan', title: 'Het plan voor morgen', text: 'Wanneer de batterij laadt en ontlaadt, zodra de prijzen voor morgen bekend zijn.' },
       ],
       more: { how: 'Lees hoe het werkt', devices: 'Bekijk welke apparaten werken' },
     },
@@ -189,8 +189,8 @@ export const SITE_TEXT = {
       ],
       shotsHeading: 'What it looks like',
       shots: [
-        { title: 'Your savings', text: 'What the battery and the panels earned this month, day by day.' },
-        { title: 'Tomorrow’s plan', text: 'When the battery charges and discharges, as soon as tomorrow’s prices are in.' },
+        { img: 'savings', title: 'Your savings', text: 'What the battery and the panels earned this month, day by day.' },
+        { img: 'plan', title: 'Tomorrow’s plan', text: 'When the battery charges and discharges, as soon as tomorrow’s prices are in.' },
       ],
       more: { how: 'Read how it works', devices: 'See which devices work' },
     },

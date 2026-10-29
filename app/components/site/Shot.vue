@@ -1,7 +1,9 @@
 <template>
-  <!-- A stand-in for an app screenshot until the demo household (JER-40) can take the real ones -->
   <figure class="shot">
-    <div class="frame" role="img" :aria-label="`${t.mark}: ${title}. ${t.note}`">
+    <!-- A screenshot of the demo household (JER-40), in the page's language -->
+    <img v-if="src" class="screen" :src="src" :alt="title" width="472" height="1022" loading="lazy" decoding="async" />
+    <!-- A stand-in, for a screenshot that isn't there yet -->
+    <div v-else class="frame" role="img" :aria-label="`${t.mark}: ${title}. ${t.note}`">
       <span class="mark small">{{ t.mark }}</span>
       <span class="hint small">{{ t.note }}</span>
     </div>
@@ -15,14 +17,16 @@
 <script setup lang="ts">
 import { SITE_TEXT, type SiteLang } from '~/utils/site'
 
-const props = defineProps<{ lang: SiteLang; title: string; text: string }>()
+const props = defineProps<{ lang: SiteLang; title: string; text: string; src?: string }>()
 const t = computed(() => SITE_TEXT[props.lang].shot)
 </script>
 
 <style scoped>
 .shot { margin: 0; }
+.screen, .frame { width: 100%; max-width: 236px; border-radius: 28px; }
+.screen { display: block; height: auto; border: 6px solid var(--text); background: var(--bg); }
 .frame {
-  aspect-ratio: 9 / 16; max-height: 420px; width: 100%; max-width: 236px; border-radius: 28px;
+  aspect-ratio: 9 / 16; max-height: 420px;
   border: 2px dashed var(--rule); background: var(--fill-2);
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 20px; text-align: center;
 }
