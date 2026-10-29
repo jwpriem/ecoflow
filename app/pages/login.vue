@@ -12,7 +12,7 @@
             :autocomplete="signingUp ? 'new-password' : 'current-password'" required minlength="8"
           />
         </label>
-        <label v-if="signingUp" class="list-row terms"><input v-model="acceptTerms" type="checkbox" required /><span>{{ m.login.acceptTerms }}</span></label>
+        <label v-if="signingUp" class="list-row terms"><input v-model="acceptTerms" type="checkbox" required /><TermsLabel from="/login" /></label>
       </div>
       <p v-if="error" class="error">{{ error }}</p>
       <p v-if="notice" class="notice" role="status">{{ notice }}</p>

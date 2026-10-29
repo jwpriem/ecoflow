@@ -145,7 +145,7 @@ export const en = {
     email: 'Email',
     password: 'Password',
     newPassword: 'Password (at least 8 characters)',
-    acceptTerms: 'I accept the terms of use and the privacy policy',
+    acceptTerms: 'I accept the',
     noAccount: 'No account yet?',
     haveAccount: 'Already have an account?',
     forgot: 'Forgot your password?',
@@ -211,6 +211,13 @@ export const en = {
     confirm: (why: string) => `${why}. Continue?`,
     failedTitle: "This invitation doesn't work",
     failedLede: 'Ask the owner of the household to send a new one.',
+  },
+  legal: {
+    title: 'Legal',
+    terms: 'terms of use',
+    and: 'and the',
+    privacy: 'privacy policy',
+    docs: { privacy: 'Privacy policy', terms: 'Terms of use', steering: 'Steering disclaimer' },
   },
   guides: {
     title: 'How-to',

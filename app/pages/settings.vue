@@ -262,6 +262,10 @@
             <button class="plain" :disabled="busy === 'export'" @click="downloadData">{{ busy === 'export' ? m.settings.preparing : m.settings.downloadData }}</button>
             <span v-if="exportError" class="small error" role="status">{{ exportError }}</span>
           </div>
+          <NuxtLink v-for="doc in ['privacy', 'terms', 'steering'] as const" :key="doc" :to="`/legal/${doc}?from=/settings`" class="list-row indent">
+            <span class="title">{{ m.legal.docs[doc] }}</span>
+            <AppIcon name="chevron" class="chev" />
+          </NuxtLink>
           <div class="list-row"><button class="plain danger" @click="logout">{{ m.settings.logOut }}</button></div>
           <div class="list-row"><button class="plain danger" @click="logoutAll">{{ m.settings.logOutAll }}</button></div>
           <details class="conn">
