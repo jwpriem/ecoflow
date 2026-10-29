@@ -3,7 +3,7 @@ import type { Db } from '../db/client'
 import { integrations, jobRuns, sites, users } from '../db/schema'
 
 /** How often each job runs, in minutes: the schedule in nuxt.config.ts */
-export const JOB_SCHEDULE = { collect: 1, vehicles: 5, ledger: 15, strategy: 15, prices: 60, digest: 60, retention: 24 * 60 } as const
+export const JOB_SCHEDULE = { collect: 1, vehicles: 5, ledger: 15, strategy: 15, prices: 60, digest: 60, retention: 24 * 60, demo: 5 } as const
 export type JobName = keyof typeof JOB_SCHEDULE
 
 const KEEP_MS = 7 * 24 * 60 * 60_000

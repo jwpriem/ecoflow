@@ -20,6 +20,8 @@ export interface LiveState {
 const live = new Map<number, LiveState>()
 export const liveState = (siteId: number) => live.get(siteId)
 export const forgetLive = (siteId: number) => live.delete(siteId)
+/** For the demo household, whose readings come from the demo generator instead of a collection tick */
+export const setLive = (siteId: number, state: LiveState) => live.set(siteId, state)
 
 /**
  * One collection tick: read the batteries (EcoFlow), the meter (Tibber Pulse) and solar (SolarEdge) and store samples.
