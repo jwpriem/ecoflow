@@ -14,7 +14,7 @@ WattsWise is run by **Jeroen Priem**, a private person in the Netherlands, who i
 - **Your household's name and settings (battery settings, feed-in terms, steering on or off)**: to make the plan and show your savings. *Legal basis: contract.*
 - **The keys and tokens for Tibber, EcoFlow and SolarEdge**: to read your data from those services, and (only if you turn steering on) to send settings to your batteries. Stored **encrypted** and never shown again. *Legal basis: contract.*
 - **Energy data: electricity prices, meter readings from your Tibber Pulse, your batteries' charge level and power, your solar production, and the savings worked out from them**: this is what WattsWise shows you and steers with. *Legal basis: contract.*
-- **Device details: battery serial numbers and models, and the name of your home in Tibber (or its street address when it has no name)**: to tell your batteries and your home apart. *Legal basis: contract.*
+- **Device details: battery serial numbers and models, the name of your home in Tibber (or its street address when it has no name), and the type of browser or phone you sign in or turn on notifications with**: to tell your batteries, your home and your sign-ins apart. *Legal basis: contract.*
 - **Push notification subscriptions for the devices where you turn notifications on**: to send the notifications you chose. *Legal basis: your consent (you turn them on and off per device).*
 - **What you agreed to and when (these terms, the steering disclaimer)**: to show what you accepted. *Legal basis: legal obligation and legitimate interest.*
 - **Error reports (what went wrong in the app or on the server, with your household's number but without your email, keys or IP address)**: to find and fix bugs. *Legal basis: legitimate interest.*
@@ -26,7 +26,7 @@ We don't collect your location, contacts or anything from your phone beyond the 
 All data is stored in the **European Union**. We use these processors, each under a data processing agreement:
 
 - **DigitalOcean** (servers, Amsterdam, the Netherlands)
-- **Neon** (database, [EU region: to be confirmed])
+- **Neon** (database, Frankfurt, Germany)
 - **SMTP2GO** (sending emails, EU region)
 - **Sentry** (error reports, Frankfurt, Germany)
 - **Apple, Google and Mozilla** deliver push notifications to your device; they only see an encrypted message
@@ -39,7 +39,7 @@ Tibber, EcoFlow and SolarEdge are services **you** connect. WattsWise reads your
 - Everything else is kept as long as you have an account.
 - Sign-ins expire after 60 days without use. Links in emails expire after an hour (password reset), a day (verification) or a week (invitations).
 - Error reports are kept by Sentry for 90 days at most.
-- When you **delete your account**, your data is deleted right away. If you're the owner of a household, that includes the household's energy data. Backups are overwritten within [backup period: to be confirmed].
+- When you **delete your account**, your data is deleted right away. If you're the owner of a household, that includes the household's energy data. The database keeps a restore history of 6 hours, so after that nothing of it can be brought back.
 
 ## Your rights
 
