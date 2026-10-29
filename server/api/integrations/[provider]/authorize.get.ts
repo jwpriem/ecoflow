@@ -16,5 +16,7 @@ export default defineEventHandler(async (event) => {
   if (!se) throw createError({ statusCode: 400, statusMessage: 'Save the SolarEdge client ID and secret first' })
   await markSolarEdgeAuthStarted(db, se, key)
   const redirectUri = solarEdgeRedirectUri(event)
-  return { url: solarEdgeAuthorizeUrl(se.creds.clientId, redirectUri, signState({ site: site.id }, key)), redirectUri }
+  // From the iOS app (?app=1) the callback sends the result back to the app instead of to a web page
+  const app = getQuery(event).app === '1'
+  return { url: solarEdgeAuthorizeUrl(se.creds.clientId, redirectUri, signState({ site: site.id, ...(app ? { app: true } : {}) }, key)), redirectUri }
 })

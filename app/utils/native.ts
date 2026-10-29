@@ -1,4 +1,4 @@
-import { Capacitor } from '@capacitor/core'
+import { Capacitor, registerPlugin } from '@capacitor/core'
 
 /** True inside the iOS app; false on the web, where nothing below is loaded */
 export const isNative = () => Capacitor.isNativePlatform()
@@ -31,3 +31,7 @@ export async function writeNativeToken(value: string | null) {
     console.warn('[native] keychain', (err as Error).message)
   }
 }
+
+/** Apple's sign-in sheet (ios/App/App/WebAuth.swift): opens `url`, closes on a `scheme://` URL and returns it; no url when cancelled */
+const WebAuth = registerPlugin<{ start(o: { url: string; scheme: string }): Promise<{ url?: string }> }>('WebAuth')
+export const webAuth = (url: string, scheme: string) => WebAuth.start({ url, scheme })
