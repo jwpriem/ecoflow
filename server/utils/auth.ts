@@ -1,7 +1,6 @@
 import type { H3Event } from 'h3'
-import { and, eq, gt, isNull } from 'drizzle-orm'
-import { sessions, users } from '../db/schema'
-import { assertAdmin, assertOwner, experimentalEnabled, sessionSite, touchSession } from '../services/members'
+import { sessions } from '../db/schema'
+import { assertAdmin, assertNotDemo, assertOwner, experimentalEnabled, sessionSite, touchSession } from '../services/members'
 import { newToken, sha256 } from './crypto'
 
 const SESSION_DAYS = 60
@@ -21,14 +20,12 @@ function bearerHash(event: H3Event) {
   return sha256(token)
 }
 
+/** The logged-in user. Their household comes along in the same query, for the demo check. */
 export async function requireUser(event: H3Event) {
-  const [row] = await useDb()
-    .select({ user: users, sessionId: sessions.id, lastUsedAt: sessions.lastUsedAt })
-    .from(sessions)
-    .innerJoin(users, eq(users.id, sessions.userId))
-    .where(and(eq(sessions.tokenHash, bearerHash(event)), gt(sessions.expiresAt, new Date()), isNull(users.disabledAt)))
+  const row = await sessionSite(useDb(), bearerHash(event))
   if (!row) throw createError({ statusCode: 401, statusMessage: 'Session expired' })
-  touchSession(useDb(), row.sessionId, row.lastUsedAt)
+  touchSession(useDb(), row.sessionId, row.sessionLastUsedAt)
+  assertNotDemo(row.site, event.method, event.path)
   return { ...row.user, sessionId: row.sessionId }
 }
 
@@ -41,6 +38,7 @@ export async function requireSite(event: H3Event) {
   if (!row) throw createError({ statusCode: 401, statusMessage: 'Session expired' })
   touchSession(useDb(), row.sessionId, row.sessionLastUsedAt)
   if (!row.site || !row.role) throw createError({ statusCode: 404, statusMessage: 'No site configured' })
+  assertNotDemo(row.site, event.method, event.path)
   // For error reports: the household's number, so a failure can be traced without any personal data
   event.context.siteId = row.site.id
   return { user: { ...row.user, sessionId: row.sessionId }, site: row.site, role: row.role, experimental: experimentalEnabled(row.owner) }

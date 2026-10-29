@@ -87,6 +87,11 @@ describe('route permissions', () => {
     expect(source(f)).toMatch(/requireAdmin\(event\)/)
   })
 
+  it('checks for the demo household wherever a session is resolved', () => {
+    const auth = readFileSync('server/utils/auth.ts', 'utf8')
+    expect(auth.match(/assertNotDemo\(row\.site, event\.method, event\.path\)/g)).toHaveLength(2)
+  })
+
   it('lets only the owner switch steering on or off through an override', () => {
     expect(source('plan/override.post.ts')).toMatch(/if \(body\.controlMode !== undefined\) assertOwner\(role\)/)
   })

@@ -93,6 +93,8 @@ export const sites = pgTable('sites', {
   onboarding: text('onboarding').$type<OnboardingStep>(),
   /** Rough location for the solar forecast (0.1°), from the Tibber home or set by the owner; null = the original fixed one */
   location: jsonb('location').$type<SiteLocation | null>(),
+  /** The demo household (JER-39): read-only for its sessions, left alone by the jobs that talk to providers */
+  isDemo: boolean('is_demo').notNull().default(false),
   createdAt: ts('created_at').notNull().defaultNow(),
 })
 

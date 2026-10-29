@@ -112,12 +112,15 @@ async function applyCommand(db: Db, site: Site, cmd: Command, now: Date, send?: 
   const prevMode = last?.command as BatteryMode | undefined
   // The STREAM units work as one system: one setting on the main unit steers them all.
   // Monitor only (manual) sends nothing, whatever the command says; a failed send is retried on the next run.
+  // The demo household's batteries don't exist: its plan is followed on paper only.
   const changed = devs.some((d) => (d.state as DeviceState).mode !== cmd.mode)
   const result = !changed
     ? null
-    : cmd.source === 'manual' || site.controlMode === 'manual'
-      ? 'skipped: monitor only'
-      : await (send ?? ((m: BatteryMode) => controlEcoFlow(db, site, encryptionKey(), m)))(cmd.mode)
+    : site.isDemo
+      ? 'skipped: demo'
+      : cmd.source === 'manual' || site.controlMode === 'manual'
+        ? 'skipped: monitor only'
+        : await (send ?? ((m: BatteryMode) => controlEcoFlow(db, site, encryptionKey(), m)))(cmd.mode)
   if (result !== null) {
     const validUntil = addMs(from, SLOT_MS + 5 * 60_000)
     for (const d of devs) {
