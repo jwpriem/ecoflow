@@ -1,4 +1,5 @@
 import { eq } from 'drizzle-orm'
+import { appReturnUrl } from '../../../../shared/appReturn'
 import { sites } from '../../../db/schema'
 import {
   completeSolarEdgeAuth,
@@ -20,7 +21,7 @@ export default defineEventHandler(async (event) => {
   const key = encryptionKey()
   const db = useDb()
 
-  const fromState = q.state ? verifyState<{ site: number }>(q.state, key) : null
+  const fromState = q.state ? verifyState<{ site: number; app?: boolean }>(q.state, key) : null
   const stateCheck = fromState ? 'ok' : q.state ? 'invalid' : 'missing'
   const pending = fromState ? undefined : await pendingSolarEdgeSite(db)
   const siteId = fromState?.site ?? (stateCheck === 'missing' ? pending : undefined)
@@ -45,6 +46,8 @@ export default defineEventHandler(async (event) => {
   console.log(`[solaredge] callback params=${params.join(',')} state=${stateCheck} result=${error ?? 'ok'}`)
   const recordFor = site?.id ?? pending
   if (recordFor) await recordSolarEdgeCallback(db, recordFor, key, { params, state: stateCheck, error })
+  // Started in the iOS app: the sign-in sheet closes on the app's scheme and the app shows the result
+  if (fromState?.app) return sendRedirect(event, appReturnUrl('solaredge', error ?? 'ok'))
   // Back to where the sign-in started: onboarding while that's still going, otherwise Settings
   const back = site?.onboarding ? '/onboarding' : '/settings'
   return sendRedirect(event, `${back}?solaredge=${encodeURIComponent(error ?? 'ok')}`)

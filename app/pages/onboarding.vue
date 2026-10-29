@@ -251,10 +251,16 @@ const pickHome = () =>
     if (!r.ok) throw new Error(r.error ?? m.value.settings.testFailed)
   })
 
+const solarEdgeSignIn = useSolarEdgeSignIn()
+// On the web this leaves for SolarEdge (the result comes back in ?solaredge); in the iOS app it returns here
 async function startSolarEdge() {
-  const { url } = await api<{ url: string }>('/api/integrations/solaredge/authorize')
-  window.location.href = url
+  const se = await solarEdgeSignIn()
+  await load()
+  if (se) seResult(se)
+  if (se) haptic(se === 'ok' ? 'success' : 'error')
 }
+const seResult = (se: string) =>
+  (msg.value = se === 'ok' ? { ok: true, text: m.value.onboarding.solaredge.connected } : { ok: false, text: serverText(se) })
 const signInSolarEdge = () => run(startSolarEdge)
 
 const saveBattery = () =>
@@ -298,7 +304,7 @@ onMounted(async () => {
   await load().catch(fail)
   // Back from the SolarEdge sign-in
   const se = route.query.solaredge
-  if (typeof se === 'string') msg.value = se === 'ok' ? { ok: true, text: m.value.onboarding.solaredge.connected } : { ok: false, text: serverText(se) }
+  if (typeof se === 'string') seResult(se)
 })
 useHead({ title: () => `${m.value.onboarding.welcome} · WattsWise` })
 </script>

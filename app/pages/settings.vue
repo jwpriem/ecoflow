@@ -432,16 +432,21 @@ async function save(provider: string) {
   }
 }
 
+const solarEdgeSignIn = useSolarEdgeSignIn()
+// On the web this leaves for SolarEdge (the result comes back in ?solaredge); in the iOS app it returns here
 async function signInSolarEdge() {
   busy.value = 'se-auth'
   try {
-    const r: any = await api('/api/integrations/solaredge/authorize')
-    window.location.href = r.url
+    const se = await solarEdgeSignIn()
+    await safeLoad()
+    if (se) results.solaredge = seResult(se)
   } catch (e: any) {
     results.solaredge = { ok: false, text: serverText(e?.data?.statusMessage) || m.value.common.failed }
-    busy.value = ''
   }
+  if (results.solaredge) haptic(results.solaredge.ok ? 'success' : 'error')
+  busy.value = ''
 }
+const seResult = (se: string) => (se === 'ok' ? { ok: true, text: m.value.settings.connected } : { ok: false, text: se })
 
 async function remove(provider: string) {
   await api(`/api/integrations/${provider}`, { method: 'DELETE' })
@@ -571,7 +576,7 @@ onMounted(async () => {
   const route = useRoute()
   const se = route.query.solaredge
   if (typeof se === 'string') {
-    results.solaredge = se === 'ok' ? { ok: true, text: m.value.settings.connected } : { ok: false, text: se }
+    results.solaredge = seResult(se)
     navigateTo({ query: {} }, { replace: true })
   }
   push.init().catch(() => (push.state.value = 'unsupported'))
