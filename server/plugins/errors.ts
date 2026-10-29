@@ -2,6 +2,7 @@ import { initErrorReporting, reportError } from '../services/errors'
 
 /** Sends server errors (5xx, not a user's 4xx) to the error tracker when NUXT_PUBLIC_SENTRY_DSN is set */
 export default defineNitroPlugin((nitroApp) => {
+  if (import.meta.prerender) return
   if (!initErrorReporting(useRuntimeConfig().public.sentryDsn)) return
   nitroApp.hooks.hook('error', (error, { event }) => {
     const status = (error as { statusCode?: number }).statusCode ?? 500

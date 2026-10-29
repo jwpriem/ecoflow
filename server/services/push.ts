@@ -94,7 +94,7 @@ export async function notify(db: Db, siteId: number, topic: PushTopic | null, ms
     for (const s of subs) {
       const m = typeof msg === 'function' ? msg(s.locale) : msg
       try {
-        await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, JSON.stringify({ ...m, url: m.url ?? '/' }),
+        await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, JSON.stringify({ ...m, url: m.url ?? '/app' }),
           sendOptions(s.endpoint, topic, m.tag, { subject, publicKey: keys.publicKey, privateKey: keys.privateKey }),
         )
         await db.update(pushSubscriptions).set({ lastOkAt: new Date() }).where(eq(pushSubscriptions.id, s.id))

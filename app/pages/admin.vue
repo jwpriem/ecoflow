@@ -3,7 +3,7 @@
   <div v-if="me && !isAdmin" class="missing">
     <h1>404</h1>
     <p class="muted">{{ m.admin.notFound }}</p>
-    <NuxtLink to="/">{{ m.verify.toApp }}</NuxtLink>
+    <NuxtLink to="/app">{{ m.verify.toApp }}</NuxtLink>
   </div>
   <div v-else-if="isAdmin">
     <header class="page-head"><h1>{{ m.admin.title }}</h1></header>

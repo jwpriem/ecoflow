@@ -1,9 +1,13 @@
 export default defineNuxtRouteMiddleware(async (to) => {
   const { loggedIn, experimental, loadMe } = useAuth()
   // Pages reached from an email, the how-to guides and the legal texts (also linked from the website) work without logging in
+  // The Capacitor build has no website: its start page goes to the app
+  if (to.path === '/' && !to.matched.length) return navigateTo('/app')
+  // The public website is for everyone
+  if (to.meta.site) return
   const open = ['/reset', '/verify', '/invite', '/guides', '/legal'].some((p) => to.path.startsWith(p))
   if (!loggedIn.value && to.path !== '/login' && !open) return navigateTo('/login')
-  if (loggedIn.value && to.path === '/login') return navigateTo('/')
+  if (loggedIn.value && to.path === '/login') return navigateTo('/app')
   // A new household's owner sets it up first; the guides and legal texts stay reachable from the steps
   if (loggedIn.value && !open && to.path !== '/onboarding') {
     const me = await loadMe().catch(() => null)
@@ -12,6 +16,6 @@ export default defineNuxtRouteMiddleware(async (to) => {
   // The cars come from the experimental integrations: elsewhere the page doesn't exist
   if (loggedIn.value && to.path.startsWith('/cars')) {
     await loadMe().catch(() => undefined)
-    if (!experimental.value) return navigateTo('/')
+    if (!experimental.value) return navigateTo('/app')
   }
 })

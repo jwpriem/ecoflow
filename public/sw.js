@@ -16,7 +16,7 @@ self.addEventListener('push', (event) => {
       tag: data.tag,
       icon: '/icon-192.png',
       badge: '/icon-192.png',
-      data: { url: data.url || '/' },
+      data: { url: data.url || '/app' },
     }),
   )
 })
@@ -24,7 +24,7 @@ self.addEventListener('push', (event) => {
 // Tap: focus the open app and go to the page, or open it
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
-  const url = new URL(event.notification.data?.url || '/', self.location.origin).href
+  const url = new URL(event.notification.data?.url || '/app', self.location.origin).href
   event.waitUntil(
     (async () => {
       const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })

@@ -4,7 +4,7 @@
     <template v-if="!invite">
       <h1>{{ failed ? m.invite.failedTitle : m.invite.checking }}</h1>
       <p v-if="failed" class="muted lede">{{ failed }}</p>
-      <NuxtLink v-if="failed" :to="loggedIn ? '/' : '/login'" class="button">{{ loggedIn ? m.verify.toApp : m.verify.toLogin }}</NuxtLink>
+      <NuxtLink v-if="failed" :to="loggedIn ? '/app' : '/login'" class="button">{{ loggedIn ? m.verify.toApp : m.verify.toLogin }}</NuxtLink>
     </template>
     <template v-else>
       <h1>{{ m.invite.title(invite.household) }}</h1>
@@ -82,7 +82,7 @@ async function submit() {
       if (!(await accept())) return
     }
     await loadMe(true)
-    await navigateTo('/')
+    await navigateTo('/app')
   } catch (e: any) {
     error.value = serverText(e?.data?.statusMessage) || m.value.login.failed
   } finally {

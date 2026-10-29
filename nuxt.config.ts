@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs'
+import { SITE_PAGES } from './app/utils/site'
 import { SKY_BOOT } from './app/utils/skyBoot'
 
 // iOS's Add to Home Screen sheet loads the icon with its own loader, which can fail on a network URL
@@ -6,11 +7,26 @@ import { SKY_BOOT } from './app/utils/skyBoot'
 // public/ (including the apple-touch-icon*.png names iOS probes at the root) stay for everything else.
 const appleTouchIcon = `data:image/png;base64,${readFileSync(new URL('./public/apple-touch-icon.png', import.meta.url)).toString('base64')}`
 
-// The whole UI is a client-rendered SPA so the same build can be wrapped by Capacitor.
-// The Nitro server (API + background jobs) is deployed separately on DO App Platform.
+// The app is a client-rendered SPA, so the same pages can be wrapped by Capacitor. The public website
+// (pages/(site)) is prerendered to HTML at build time, for speed and search engines. The Capacitor build
+// (NUXT_APP_BUILD=1, `npm run generate:app`) is the app alone: no website pages, nothing rendered on a server.
+const APP_BUILD = process.env.NUXT_APP_BUILD === '1'
+/** The website's pages: prerendered, and listed in public/sitemap.xml (tests/site.test.ts checks) */
+const SITE_ROUTES = Object.values(SITE_PAGES).flatMap((p) => Object.values(p))
+
 export default defineNuxtConfig({
   compatibilityDate: '2025-10-01',
-  ssr: false,
+  ssr: !APP_BUILD,
+  // Everything is a client-side app page unless it's a website page
+  routeRules: APP_BUILD ? {} : { '/**': { ssr: false }, ...Object.fromEntries(SITE_ROUTES.map((r) => [r, { ssr: true, prerender: true }])) },
+  // The website's pages are small: their payload stays inline. (A separate _payload.json would fall under the '/**' app rule.)
+  experimental: { payloadExtraction: false },
+  hooks: {
+    'pages:extend'(pages) {
+      if (!APP_BUILD) return
+      for (let i = pages.length - 1; i >= 0; i--) if (pages[i]!.file?.includes('/(site)/')) pages.splice(i, 1)
+    },
+  },
   devtools: { enabled: false },
   css: ['~/assets/main.css'],
   app: {

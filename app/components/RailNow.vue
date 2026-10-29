@@ -1,7 +1,7 @@
 <template>
   <!-- The batteries at a glance from every page: each STREAM unit stands upright, filled to its charge.
        Home already says all of this in full, so the rail leaves it out there. -->
-  <NuxtLink v-if="shown" to="/" class="now" :aria-label="m.home.batteriesPct(pct)">
+  <NuxtLink v-if="shown" to="/app" class="now" :aria-label="m.home.batteriesPct(pct)">
     <div class="units" aria-hidden="true">
       <div v-for="b in d.devices" :key="b.id" class="unit" :style="{ flexGrow: b.capacityWh }">
         <div class="unit-fill" :class="unitState(b)" :style="{ height: `${(b.soc ?? 0) * 100}%` }" />
@@ -38,7 +38,7 @@ const unitState = (b: any) => (b.powerW > 5 ? 'charging' : b.powerW < -5 ? 'disc
 const state = computed(() => unitState({ powerW: power.value }))
 
 async function refresh() {
-  if (!wide.value || route.path === '/' || document.visibilityState !== 'visible') return
+  if (!wide.value || route.path === '/app' || document.visibilityState !== 'visible') return
   try {
     d.value = await api('/api/dashboard')
   } catch {

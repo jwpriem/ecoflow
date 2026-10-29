@@ -70,7 +70,7 @@ const confirm = () =>
     const res = await api<{ token: string }>('/api/auth/login', { method: 'POST', body: { email: email.value, password: password.value } }).catch(() => null)
     if (res) {
       setToken(res.token)
-      await navigateTo('/')
+      await navigateTo('/app')
     } else await navigateTo('/login')
   })
 </script>

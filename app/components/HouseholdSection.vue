@@ -84,7 +84,7 @@ function leave() {
     await api('/api/household/leave', { method: 'POST' })
     // A new, empty household: start over from the home screen
     await loadMe(true)
-    await navigateTo('/')
+    await navigateTo('/app')
   })
 }
 

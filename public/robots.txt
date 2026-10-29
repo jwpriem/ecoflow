@@ -1,0 +1,17 @@
+# The website is public; the app behind login has nothing for search engines
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /app
+Disallow: /login
+Disallow: /onboarding
+Disallow: /settings
+Disallow: /plan
+Disallow: /savings
+Disallow: /cars
+Disallow: /admin
+Disallow: /invite
+Disallow: /reset
+Disallow: /verify
+
+Sitemap: https://www.wattswise.eu/sitemap.xml

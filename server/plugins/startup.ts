@@ -11,6 +11,8 @@ import { readZeekrVehicles } from '../services/zeekr'
 
 /** On boot: apply migrations, check the EcoFlow units, start the Tibber Pulse streams and make sure there are prices, a solar forecast and a plan. */
 export default defineNitroPlugin(() => {
+  // Prerendering the website at build time starts the server too: no database, no jobs then
+  if (import.meta.prerender) return
   const cfg = useRuntimeConfig()
   if (!cfg.databaseUrl && !process.env.NUXT_DATABASE_URL) {
     console.warn('[startup] NUXT_DATABASE_URL not set, skipping migrations and jobs')
