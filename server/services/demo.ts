@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm'
+import { and, eq, isNull } from 'drizzle-orm'
 import type { Db } from '../db/client'
 import { consents, devices, integrations, type Provider, siteMembers, sites, users } from '../db/schema'
 import type { SiteLocation } from '../lib/location'
@@ -22,6 +22,17 @@ const DEMO_BATTERIES = [
   { serial: 'DEMO-STREAM-PRO-1', name: 'Living room' },
   { serial: 'DEMO-STREAM-PRO-2', name: 'Garage' },
 ]
+
+/** The demo account, when this server has one (NUXT_DEMO_PASSWORD set) and it isn't disabled */
+export async function demoUser(db: Db) {
+  const [row] = await db
+    .select({ id: users.id })
+    .from(users)
+    .innerJoin(siteMembers, eq(siteMembers.userId, users.id))
+    .innerJoin(sites, eq(sites.id, siteMembers.siteId))
+    .where(and(eq(users.email, DEMO_EMAIL), eq(sites.isDemo, true), isNull(users.disabledAt)))
+  return row ?? null
+}
 
 /**
  * Creates the demo account and its household, or brings an existing one back in line: run it as often as you

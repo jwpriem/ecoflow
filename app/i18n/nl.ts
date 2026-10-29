@@ -154,6 +154,13 @@ export const nl: Messages = {
     create: 'Account aanmaken',
     logIn: 'Inloggen',
     failed: 'Inloggen mislukt. Controleer je e-mail en wachtwoord en probeer het opnieuw.',
+    tryDemo: 'Bekijk de demo',
+    demoHint: 'Een voorbeeldhuishouden met twee STREAM Pro-batterijen en zonnepanelen. Geen account nodig.',
+    startingDemo: 'Demo openen…',
+  },
+  demo: {
+    banner: 'Je bekijkt een demo. Wat je hier verandert, wordt niet bewaard.',
+    create: 'Maak je eigen account',
   },
   verify: {
     banner: (email) => `Bevestig je e-mailadres: we stuurden een link naar ${email}. Tot dan kun je Tibber, EcoFlow en SolarEdge niet koppelen.`,
@@ -660,6 +667,7 @@ export const nl: Messages = {
     'The password is wrong': 'Het wachtwoord klopt niet',
     'Only the household owner can do this': 'Alleen de eigenaar van het huishouden kan dit doen',
     'This is a demo: changes are not saved': 'Dit is een demo: wijzigingen worden niet bewaard',
+    'The demo is not available right now': 'De demo is nu niet beschikbaar',
     'Not logged in': 'Niet ingelogd',
     'Session expired': 'Sessie verlopen',
     'No site configured': 'Geen locatie ingesteld',

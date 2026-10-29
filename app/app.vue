@@ -2,7 +2,7 @@
   <!-- The public website (pages/(site)) brings its own header and footer -->
   <NuxtPage v-if="isSite" />
   <div v-else class="shell" :class="{ authed: tabsOn }">
-    <main><VerifyBanner v-if="loggedIn" /><ConsentBanner v-if="loggedIn" /><NuxtPage :transition="{ name: 'page', mode: 'out-in' }" /></main>
+    <main><DemoBanner v-if="loggedIn" /><VerifyBanner v-if="loggedIn" /><ConsentBanner v-if="loggedIn" /><NuxtPage :transition="{ name: 'page', mode: 'out-in' }" /></main>
     <nav v-if="tabsOn" class="tabs" :aria-label="m.tabs.main">
       <!-- On a large screen the tab bar is a rail: logo on top, the batteries at the foot -->
       <NuxtLink to="/app" class="rail-only rail-logo" aria-hidden="true" tabindex="-1">

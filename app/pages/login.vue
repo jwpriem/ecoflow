@@ -16,9 +16,14 @@
       </div>
       <p v-if="error" class="error">{{ error }}</p>
       <p v-if="notice" class="notice" role="status">{{ notice }}</p>
-      <button class="primary" type="submit" :disabled="busy">{{ busy ? (signingUp ? m.login.creating : m.login.loggingIn) : signingUp ? m.login.create : m.login.logIn }}</button>
+      <button class="primary" type="submit" :disabled="!!busy">{{ busy === true ? (signingUp ? m.login.creating : m.login.loggingIn) : signingUp ? m.login.create : m.login.logIn }}</button>
     </form>
     <p v-if="!signingUp" class="other small"><NuxtLink to="/reset">{{ m.login.forgot }}</NuxtLink></p>
+    <!-- One tap into the shared, read-only demo household -->
+    <div v-if="demoOpen && !signingUp" class="demo">
+      <button type="button" :disabled="!!busy" @click="tryDemo">{{ busy === 'demo' ? m.login.startingDemo : m.login.tryDemo }}</button>
+      <p class="small muted">{{ m.login.demoHint }}</p>
+    </div>
     <p v-if="signupOpen" class="other small muted">
       {{ signingUp ? m.login.haveAccount : m.login.noAccount }}
       <button type="button" class="plain" @click="toggle">{{ signingUp ? m.login.logIn : m.login.create }}</button>
@@ -36,20 +41,37 @@ const password = ref('')
 const acceptTerms = ref(false)
 const error = ref('')
 const notice = ref('')
-const busy = ref(false)
+const busy = ref<boolean | 'demo'>(false)
 const signupOpen = ref(false)
+const demoOpen = ref(false)
 const signingUp = ref(false)
 
 onMounted(async () => {
-  signupOpen.value = (await api<{ signupOpen: boolean }>('/api/auth/status').catch(() => ({ signupOpen: false }))).signupOpen
-  // "Start for free" on the website lands on the sign-up form
+  const status = await api<{ signupOpen: boolean; demo: boolean }>('/api/auth/status').catch(() => ({ signupOpen: false, demo: false }))
+  signupOpen.value = status.signupOpen
+  demoOpen.value = status.demo
+  // "Start for free" on the website lands on the sign-up form, "Try the demo" opens the demo straight away
   if (signupOpen.value && route.query.signup) signingUp.value = true
+  if (demoOpen.value && route.query.demo) await tryDemo()
 })
 
 function toggle() {
   signingUp.value = !signingUp.value
   error.value = ''
   notice.value = ''
+}
+
+async function tryDemo() {
+  busy.value = 'demo'
+  error.value = ''
+  try {
+    setToken((await api<{ token: string }>('/api/auth/demo', { method: 'POST' })).token)
+    await navigateTo('/app')
+  } catch (e: any) {
+    error.value = serverText(e?.data?.statusMessage || e?.statusMessage) || m.value.login.failed
+  } finally {
+    busy.value = false
+  }
 }
 
 const logIn = () => api<{ token: string }>('/api/auth/login', { method: 'POST', body: { email: email.value, password: password.value } })
@@ -94,4 +116,7 @@ h1 { margin: 0 0 8px; font-size: 28px; font-stretch: 125%; letter-spacing: -0.02
 button.primary { width: 100%; padding: 13px; font-size: 16px; }
 .error, .notice { margin: 0 0 12px; }
 .other { margin-top: 20px; }
+.demo { margin-top: 28px; padding-top: 24px; border-top: 1px solid var(--separator); }
+.demo button { width: 100%; padding: 12px; font-size: 16px; }
+.demo p { margin: 8px 0 0; }
 </style>

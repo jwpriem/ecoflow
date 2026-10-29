@@ -155,6 +155,13 @@ export const en = {
     create: 'Create account',
     logIn: 'Log in',
     failed: 'Logging in failed. Check your email and password, then try again.',
+    tryDemo: 'Try the demo',
+    demoHint: 'A sample household with two STREAM Pro batteries and solar panels. No account needed.',
+    startingDemo: 'Opening the demo…',
+  },
+  demo: {
+    banner: "You're viewing a demo. Nothing you change here is saved.",
+    create: 'Create your own account',
   },
   verify: {
     banner: (email: string) => `Confirm your email address: we sent a link to ${email}. Until then you can't connect Tibber, EcoFlow or SolarEdge.`,

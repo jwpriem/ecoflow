@@ -73,6 +73,7 @@ export const SITE_TEXT = {
       heading: 'Zie wat je batterij écht oplevert',
       lede: 'WattsWise rekent elk kwartier uit wat je thuisbatterij bespaart op je dynamische stroomprijs, en kan hem voor je laden als stroom goedkoop is en ontladen als hij duur is.',
       cta: 'Gratis beginnen',
+      demo: 'Bekijk de demo',
       works: 'Werkt met Tibber, EcoFlow STREAM en SolarEdge',
       points: [
         { title: 'Inzicht in euro’s', text: 'Per dag, maand en jaar: wat je batterij en je panelen je opleveren, uitgerekend met je echte kwartierprijzen.' },
@@ -179,6 +180,7 @@ export const SITE_TEXT = {
       heading: 'See what your battery really earns',
       lede: 'Every quarter of an hour, WattsWise works out what your home battery saves on your dynamic electricity price, and it can charge it when power is cheap and use it when power is dear.',
       cta: 'Start for free',
+      demo: 'Try the demo',
       works: 'Works with Tibber, EcoFlow STREAM and SolarEdge',
       points: [
         { title: 'Savings in euros', text: 'Per day, month and year: what your battery and your panels earn you, worked out with your real quarter-hour prices.' },
