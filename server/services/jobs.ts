@@ -16,19 +16,24 @@ export interface JobOptions {
   skipEmpty?: boolean
   /** How long the lock holds if the runner dies without giving it back */
   leaseMs?: number
-  /** Also work on the demo household. Only for jobs that never talk to a provider; its data comes from the demo generator. */
-  includeDemo?: boolean
+  /**
+   * The demo household: left out by default (its connections are fake), 'include' for jobs that never talk to a
+   * provider, 'only' for the demo generator itself
+   */
+  demo?: 'include' | 'only'
 }
 
 /** Per job: the timeout fits its work (a collect tick must finish inside its minute). Retention also thins old samples of households that disconnected. */
 export const JOB_OPTIONS: Record<JobName, JobOptions> = {
   collect: { timeoutMs: 45_000, skipEmpty: true },
   vehicles: { timeoutMs: 90_000, skipEmpty: true },
-  ledger: { timeoutMs: 120_000, skipEmpty: true, includeDemo: true },
+  ledger: { timeoutMs: 120_000, skipEmpty: true },
   strategy: { timeoutMs: 60_000, skipEmpty: true },
   prices: { timeoutMs: 120_000, skipEmpty: true },
   digest: { timeoutMs: 60_000, skipEmpty: true },
-  retention: { timeoutMs: 600_000, includeDemo: true },
+  retention: { timeoutMs: 600_000, demo: 'include' },
+  // The first run writes and books two months: well over a normal tick
+  demo: { timeoutMs: 300_000, demo: 'only' },
 }
 
 export const DEFAULT_CONCURRENCY = 8
@@ -79,8 +84,8 @@ export async function releaseLock(db: Db, job: string, holder: string) {
  * The households a job works on: all of them, or only those with at least one connection. The demo household
  * only when asked for: its connections are fake, so reading, pricing, steering and mailing must leave it alone.
  */
-export async function jobSites(db: Db, skipEmpty = false, includeDemo = false): Promise<Site[]> {
-  const all = (await db.select().from(sites).orderBy(sites.id)).filter((s) => includeDemo || !s.isDemo)
+export async function jobSites(db: Db, skipEmpty = false, demo?: JobOptions['demo']): Promise<Site[]> {
+  const all = (await db.select().from(sites).orderBy(sites.id)).filter((s) => (demo === 'only' ? s.isDemo : demo === 'include' || !s.isDemo))
   if (!skipEmpty) return all
   const connected = new Set((await db.selectDistinct({ siteId: integrations.siteId }).from(integrations)).map((r) => r.siteId))
   return all.filter((s) => connected.has(s.id))
@@ -116,7 +121,7 @@ export async function runSites(db: Db, job: JobName, fn: (site: Site) => Promise
   if (!(await claimLock(db, job, holder, opts.leaseMs))) return { skipped: 'locked' as const }
   const startedAt = new Date()
   try {
-    const list = await jobSites(db, opts.skipEmpty, opts.includeDemo)
+    const list = await jobSites(db, opts.skipEmpty, opts.demo)
     const results = await forEachSite(list, fn, opts, (site, err) => {
       console.error(`[job:${job}] site ${site.id}:`, err.message)
       reportError(err, { job, siteId: site.id })

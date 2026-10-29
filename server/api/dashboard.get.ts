@@ -8,6 +8,7 @@ import { getPrices } from '../services/prices'
 import { savingsByPeriod } from '../services/ledger'
 import { solarByPeriod } from '../services/solar'
 import { pulseStatus } from '../providers/tibberPulse'
+import { demoPulseStatus } from '../services/demoData'
 
 export default defineEventHandler(async (event) => {
   const { site, experimental } = await requireSite(event)
@@ -72,7 +73,7 @@ export default defineEventHandler(async (event) => {
     today: today ?? null,
     solarToday: solarToday ?? null,
     sources: {
-      pulse: pulseStatus(site.id),
+      pulse: site.isDemo ? demoPulseStatus() : pulseStatus(site.id),
       // Experimental connections stay invisible to a household without them, even with credentials still stored
       integrations: experimental ? ints : ints.filter((i) => !isExperimentalProvider(i.provider)),
     },

@@ -15,7 +15,7 @@ const DEMO_LOCATION: SiteLocation = { lat: 52.1, lon: 5.1, place: 'Utrecht', sou
 const DEMO_CONNECTIONS: { provider: Provider; meta: Record<string, unknown> }[] = [
   { provider: 'tibber', meta: { homeId: 'demo', homeName: DEMO_NAME, realtime: true } },
   { provider: 'ecoflow_official', meta: { steering: 'wattwise' } },
-  { provider: 'solaredge', meta: { siteId: 'demo', siteName: DEMO_NAME } },
+  { provider: 'solaredge', meta: { siteId: 'demo', siteName: DEMO_NAME, lastTest: { peakPower: 3.6 } } },
 ]
 
 const DEMO_BATTERIES = [

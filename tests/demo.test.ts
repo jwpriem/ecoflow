@@ -78,14 +78,14 @@ describe('demo is read-only', () => {
 })
 
 describe('jobs and the demo household', () => {
-  it('skips it in every job that talks to a provider, keeps it in the ledger and retention', async () => {
+  it('skips it in every job that talks to a provider; only retention and the demo generator work on it', async () => {
     const { siteId: demoId } = await seedDemo(db, 'pw-demo-123', KEY)
     const { site: real } = await createAccount(db, 'real@example.com', 'pw-real-123')
     await db.insert(schema.integrations).values({ siteId: real.id, provider: 'tibber', credentialsEnc: 'x' })
     for (const [job, opts] of Object.entries(JOB_OPTIONS)) {
-      const ids = (await jobSites(db, opts.skipEmpty, opts.includeDemo)).map((s) => s.id)
-      expect(ids.includes(demoId), job).toBe(job === 'ledger' || job === 'retention')
-      expect(ids, job).toContain(real.id)
+      const ids = (await jobSites(db, opts.skipEmpty, opts.demo)).map((s) => s.id)
+      expect(ids.includes(demoId), job).toBe(job === 'retention' || job === 'demo')
+      expect(ids.includes(real.id), job).toBe(job !== 'demo')
     }
     // The startup sweep (EcoFlow, Pulse, prices, Zeekr, strategy) uses the default
     expect((await jobSites(db, true)).map((s) => s.id)).toEqual([real.id])
