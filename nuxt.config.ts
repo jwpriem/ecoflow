@@ -60,6 +60,7 @@ export default defineNuxtConfig({
     encryptionKey: '', // NUXT_ENCRYPTION_KEY (base64, 32 bytes)
     jobsEnabled: 'true', // NUXT_JOBS_ENABLED
     jobsConcurrency: '', // NUXT_JOBS_CONCURRENCY: households a job works on at once (default 8)
+    demoPassword: '', // NUXT_DEMO_PASSWORD: set = the demo account (demo@wattswise.eu) exists with this password
     appUrl: '', // NUXT_APP_URL: public URL of the server, for the SolarEdge OAuth redirect. Empty = taken from the request
     public: {
       apiBase: '', // NUXT_PUBLIC_API_BASE, empty = same origin; set for the Capacitor build

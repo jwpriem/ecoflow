@@ -6,10 +6,11 @@ import { refreshIrradiance } from '../services/solarForecast'
 import { syncPulse } from '../services/pulse'
 import { experimentalSite } from '../services/experimental'
 import { forEachSite, jobSites } from '../services/jobs'
+import { seedDemo } from '../services/demo'
 import { runStrategy } from '../services/strategy'
 import { readZeekrVehicles } from '../services/zeekr'
 
-/** On boot: apply migrations, check the EcoFlow units, start the Tibber Pulse streams and make sure there are prices, a solar forecast and a plan. */
+/** On boot: apply migrations, set up the demo household, check the EcoFlow units, start the Tibber Pulse streams and make sure there are prices, a solar forecast and a plan. */
 export default defineNitroPlugin(() => {
   // Prerendering the website at build time starts the server too: no database, no jobs then
   if (import.meta.prerender) return
@@ -27,8 +28,13 @@ export default defineNitroPlugin(() => {
       console.error('[startup] migration failed', err)
       return
     }
-    if (String(cfg.jobsEnabled) === 'false') return
     const key = cfg.encryptionKey || process.env.NUXT_ENCRYPTION_KEY || ''
+    if (cfg.demoPassword && key) {
+      await seedDemo(db, cfg.demoPassword, key)
+        .then(({ siteId }) => console.info(`[startup] demo household ${siteId} ready`))
+        .catch((err: Error) => console.error('[startup] demo seed failed:', err.message))
+    }
+    if (String(cfg.jobsEnabled) === 'false') return
     // Every instance starts its own Pulse streams, so no lock here. A household that hangs only holds up itself.
     const list = await jobSites(db, true)
     await forEachSite(

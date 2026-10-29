@@ -659,6 +659,7 @@ export const nl: Messages = {
     'Mode must be open or closed': 'Kies open of gesloten',
     'The password is wrong': 'Het wachtwoord klopt niet',
     'Only the household owner can do this': 'Alleen de eigenaar van het huishouden kan dit doen',
+    'This is a demo: changes are not saved': 'Dit is een demo: wijzigingen worden niet bewaard',
     'Not logged in': 'Niet ingelogd',
     'Session expired': 'Sessie verlopen',
     'No site configured': 'Geen locatie ingesteld',

@@ -57,6 +57,22 @@ export function assertOwner(role: MemberRole) {
   if (role !== 'owner') throw createError({ statusCode: 403, statusMessage: 'Only the household owner can do this' })
 }
 
+/** What a demo session may still do besides reading: log itself out */
+const DEMO_ALLOWED = new Set(['/api/auth/logout'])
+
+/**
+ * Throws a 403 when a session of the demo household (JER-39) tries to change something. Everyone shares the
+ * demo account, so nothing may stick: every request but a read is refused, as are the reads that store
+ * something (starting the SolarEdge sign-in). Called by requireUser and requireSite, so no route can forget it.
+ */
+export function assertNotDemo(site: { isDemo: boolean } | null | undefined, method: string, path: string) {
+  if (!site?.isDemo) return
+  const route = path.split('?')[0]!
+  const read = (method === 'GET' || method === 'HEAD') && !route.endsWith('/authorize')
+  if (read || DEMO_ALLOWED.has(route)) return
+  throw createError({ statusCode: 403, statusMessage: 'This is a demo: changes are not saved' })
+}
+
 /** The owner's email, the contact of last resort for a household. */
 export async function ownerEmail(db: Db, siteId: number): Promise<string | null> {
   const [row] = await db
