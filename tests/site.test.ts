@@ -1,6 +1,9 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { SITE_PAGES, SITE_TEXT, SITE_URL } from '../app/utils/site'
+import { guideHtml } from '../app/utils/guides'
+import { legalHtml, legalVersion } from '../app/utils/legal'
+import { SITE_DOCS, SITE_PAGES, SITE_TEXT, SITE_URL } from '../app/utils/site'
+import { STEERING_VERSION, TERMS_VERSION } from '../server/lib/legal'
 
 describe('website', () => {
   it('lists every page in both languages in the sitemap', () => {
@@ -23,5 +26,18 @@ describe('website', () => {
     expect(blocked('/app')).toBe(true)
     expect(blocked('/app/')).toBe(true)
     for (const path of Object.values(SITE_PAGES).flatMap((p) => Object.values(p))) expect(blocked(path), path).toBe(false)
+  })
+
+  it('has a page for every legal text and guide, in both languages', () => {
+    for (const lang of ['nl', 'en'] as const) {
+      for (const doc of SITE_DOCS.legal) expect(legalHtml(doc, lang), `${doc}.${lang}`).toMatch(/^<h1>/)
+      for (const doc of SITE_DOCS.guide) expect(guideHtml(doc, lang), `${doc}.${lang}`).toMatch(/^<h1>/)
+    }
+    for (const doc of [...SITE_DOCS.legal, ...SITE_DOCS.guide]) expect(SITE_PAGES[doc]).toBeDefined()
+  })
+
+  it('shows the version users accept as the last-updated date', () => {
+    const accepted = { privacy: TERMS_VERSION, terms: TERMS_VERSION, steering: STEERING_VERSION }
+    for (const lang of ['nl', 'en'] as const) for (const doc of SITE_DOCS.legal) expect(legalVersion(doc, lang)).toBe(accepted[doc])
   })
 })

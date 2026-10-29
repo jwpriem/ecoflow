@@ -15,29 +15,32 @@
     <nav class="site-pages" :aria-label="t.nav.pagesLabel">
       <NuxtLink v-for="p in PAGES" :key="p" :to="sitePath(p, lang)" :aria-current="p === page ? 'page' : undefined">{{ t.nav.pages[p] }}</NuxtLink>
     </nav>
-    <!-- Links into the app (login, legal texts) are plain <a>: the app is a separate client-side bundle -->
+    <!-- Links into the app (login) are plain <a>: the app is a separate client-side bundle -->
     <main class="site-main"><slot /></main>
     <footer class="site-foot">
       <p class="tagline">WattsWise · {{ t.tagline }}</p>
       <p class="small muted">{{ t.footer.made }}</p>
-      <nav class="foot-links small" aria-label="Legal">
-        <a :href="legalPath('privacy', lang)">{{ t.footer.privacy }}</a>
-        <a :href="legalPath('terms', lang)">{{ t.footer.terms }}</a>
-        <a :href="legalPath('steering', lang)">{{ t.footer.steering }}</a>
+      <nav class="foot-links small" :aria-label="t.footer.terms">
+        <NuxtLink v-for="doc in SITE_DOCS.legal" :key="doc" :to="sitePath(doc, lang)">{{ t.footer[doc] }}</NuxtLink>
         <a href="mailto:hello@wattswise.eu">{{ t.footer.contact }}</a>
         <NuxtLink :to="other" :hreflang="otherLang" :lang="otherLang">{{ t.nav.otherLang }}</NuxtLink>
+      </nav>
+      <nav class="foot-links small" :aria-label="t.footer.guides">
+        <span class="muted">{{ t.footer.guides }}:</span>
+        <NuxtLink v-for="doc in SITE_DOCS.guide" :key="doc" :to="sitePath(doc, lang)">{{ GUIDE_NAMES[doc] }}</NuxtLink>
       </nav>
     </footer>
   </div>
 </template>
 
 <script setup lang="ts">
-import { legalPath, SITE_PAGES, SITE_TEXT, SITE_URL, type SiteLang, type SitePage, sitePath } from '~/utils/site'
+import { SITE_DOCS, SITE_PAGES, SITE_TEXT, SITE_URL, type SiteLang, type SitePage, sitePath } from '~/utils/site'
 
 /** The website's frame: header with language switch and the way into the app, footer with the legal texts. */
 const props = defineProps<{ lang: SiteLang; page: SitePage; title: string; description: string }>()
 const t = computed(() => SITE_TEXT[props.lang])
 const PAGES = ['how', 'devices', 'faq'] as const
+const GUIDE_NAMES = { tibber: 'Tibber', ecoflow: 'EcoFlow', solaredge: 'SolarEdge' } as const
 const otherLang = computed<SiteLang>(() => (props.lang === 'nl' ? 'en' : 'nl'))
 const other = computed(() => sitePath(props.page, otherLang.value))
 const url = (lang: SiteLang) => `${SITE_URL}${SITE_PAGES[props.page][lang]}`
@@ -91,6 +94,7 @@ useSeoMeta({
 .site-foot { max-width: 1080px; width: 100%; margin: 64px auto 0; padding: 24px 16px calc(32px + env(safe-area-inset-bottom)); border-top: 1px solid var(--separator); }
 .tagline { margin: 0 0 4px; font-weight: 600; font-stretch: 112%; }
 .foot-links { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 14px; }
+.foot-links + .foot-links { margin-top: 8px; }
 .foot-links a { color: var(--text-2); }
 .small { font-size: 13px; }
 .muted { color: var(--text-2); margin: 0; }

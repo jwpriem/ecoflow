@@ -15,5 +15,8 @@ Disallow: /admin
 Disallow: /invite
 Disallow: /reset
 Disallow: /verify
+# The app's copies of the legal texts and guides; the website has them at their own addresses
+Disallow: /legal/
+Disallow: /guides/
 
 Sitemap: https://www.wattswise.eu/sitemap.xml
