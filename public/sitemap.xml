@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- The website's pages (SITE_ROUTES in nuxt.config.ts), each with its other language -->
+<!-- The website's pages (SITE_PAGES in app/utils/site.ts), each with its other language -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
     <loc>https://www.wattswise.eu/</loc>
@@ -10,5 +10,35 @@
     <loc>https://www.wattswise.eu/en</loc>
     <xhtml:link rel="alternate" hreflang="nl" href="https://www.wattswise.eu/" />
     <xhtml:link rel="alternate" hreflang="en" href="https://www.wattswise.eu/en" />
+  </url>
+  <url>
+    <loc>https://www.wattswise.eu/zo-werkt-het</loc>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://www.wattswise.eu/zo-werkt-het" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://www.wattswise.eu/en/how-it-works" />
+  </url>
+  <url>
+    <loc>https://www.wattswise.eu/en/how-it-works</loc>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://www.wattswise.eu/zo-werkt-het" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://www.wattswise.eu/en/how-it-works" />
+  </url>
+  <url>
+    <loc>https://www.wattswise.eu/apparaten</loc>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://www.wattswise.eu/apparaten" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://www.wattswise.eu/en/devices" />
+  </url>
+  <url>
+    <loc>https://www.wattswise.eu/en/devices</loc>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://www.wattswise.eu/apparaten" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://www.wattswise.eu/en/devices" />
+  </url>
+  <url>
+    <loc>https://www.wattswise.eu/vragen</loc>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://www.wattswise.eu/vragen" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://www.wattswise.eu/en/faq" />
+  </url>
+  <url>
+    <loc>https://www.wattswise.eu/en/faq</loc>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://www.wattswise.eu/vragen" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://www.wattswise.eu/en/faq" />
   </url>
 </urlset>

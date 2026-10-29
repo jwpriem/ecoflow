@@ -17,7 +17,11 @@ describe('website', () => {
 
   it('keeps the app out of search engines but not the website', () => {
     const robots = readFileSync('public/robots.txt', 'utf8')
-    expect(robots).toMatch(/^Disallow: \/app$/m)
-    expect(robots).not.toMatch(/^Disallow: \/$/m)
+    const rules = [...robots.matchAll(/^Disallow: (\S+)$/gm)].map((m) => m[1]!)
+    // Robots rules match by prefix; a trailing $ anchors the end
+    const blocked = (path: string) => rules.some((r) => (r.endsWith('$') ? path === r.slice(0, -1) : path.startsWith(r)))
+    expect(blocked('/app')).toBe(true)
+    expect(blocked('/app/')).toBe(true)
+    for (const path of Object.values(SITE_PAGES).flatMap((p) => Object.values(p))) expect(blocked(path), path).toBe(false)
   })
 })
