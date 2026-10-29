@@ -15,11 +15,12 @@ WattsWise wordt beheerd door **Jeroen Priem**, een particulier in Nederland, die
 - **De sleutels en codes voor Tibber, EcoFlow en SolarEdge**: om je gegevens bij die diensten te lezen, en (alleen als je sturen aanzet) instellingen naar je batterijen te sturen. **Versleuteld** bewaard en nooit meer getoond. *Grondslag: overeenkomst.*
 - **Energiegegevens: stroomprijzen, meterstanden van je Tibber Pulse, het laadniveau en vermogen van je batterijen, je zonneopwek, en de besparing die daaruit volgt**: dit is wat WattsWise je laat zien en waarmee het stuurt. *Grondslag: overeenkomst.*
 - **Apparaatgegevens: serienummers en modellen van je batterijen, de naam van je huis in Tibber (of het straatadres als het geen naam heeft), en het type browser of telefoon waarmee je inlogt of meldingen aanzet**: om je batterijen, je huis en je inlogsessies uit elkaar te houden. *Grondslag: overeenkomst.*
+- **De globale locatie van je huishouden, tot op zo'n 10 km (overgenomen van je Tibber-huis, of door jou ingesteld)**: om de voorspelling van zon en bewolking voor jouw omgeving op te halen bij Open-Meteo. Alleen dit afgeronde punt gaat erheen, via onze server, nooit je adres. *Grondslag: overeenkomst.*
 - **Pushmeldingen voor de apparaten waarop je meldingen aanzet**: om de meldingen te sturen die je kiest. *Grondslag: je toestemming (je zet ze per apparaat aan en uit).*
 - **Waarmee je akkoord ging en wanneer (deze voorwaarden, de stuurverklaring)**: om te kunnen laten zien wat je hebt geaccepteerd. *Grondslag: wettelijke plicht en gerechtvaardigd belang.*
 - **Foutmeldingen (wat er misging in de app of op de server, met het nummer van je huishouden maar zonder je e-mailadres, sleutels of IP-adres)**: om fouten te vinden en op te lossen. *Grondslag: gerechtvaardigd belang.*
 
-We verzamelen geen locatie, contacten of iets anders van je telefoon dan hierboven staat. Je IP-adres wordt alleen kort in het geheugen gehouden om het raden van wachtwoorden tegen te gaan; het wordt niet opgeslagen.
+We gebruiken niet de locatie van je telefoon, je contacten of iets anders van je telefoon dan hierboven staat. Je IP-adres wordt alleen kort in het geheugen gehouden om het raden van wachtwoorden tegen te gaan; het wordt niet opgeslagen.
 
 ## Waar je gegevens staan
 

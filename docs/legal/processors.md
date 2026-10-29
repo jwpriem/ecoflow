@@ -40,18 +40,18 @@ The user gives WattsWise keys to read their own data there. Each service has its
 
 | Service | What it receives | Personal data? | Note |
 |---|---|---|---|
-| **Open-Meteo** (`api.open-meteo.com`), `server/providers/openMeteo.ts` | One **fixed** coordinate for the solar forecast (`SOLAR_LOCATION` in `server/lib/solarForecast.ts`), from the server's IP | **No.** No user data, and the request comes from the server, not the user's device | Open-Meteo is an independent controller: https://open-meteo.com/en/terms. The free plan is for **non-commercial use** only; switch to a paid plan if WattsWise ever charges. ⚠️ Product gap, not privacy: every household gets the forecast for Waddinxveen (JER-53). |
+| **Open-Meteo** (`api.open-meteo.com`), `server/providers/openMeteo.ts` | The household's **rough location**, rounded to 0.1° (`sites.location`, `server/lib/location.ts`), from the server's IP. Households in the same square share one call (`server/services/solarForecast.ts`) | **Barely.** A ~10 km square, not linked to anyone at Open-Meteo, and sent by the server, not the user's device | Open-Meteo is an independent controller: https://open-meteo.com/en/terms. The free plan is for **non-commercial use** only; switch to a paid plan if WattsWise ever charges. Households without a location use the original fixed one (Waddinxveen). |
 | ~~Google Fonts~~ | Nothing, since JER-52: Archivo is served from `public/fonts/` (`app/assets/main.css`) | — | Fixed in JER-52. Before that, every visitor's browser loaded the font from Google, sending its IP address (cf. LG München I, 20 Jan 2022, 3 O 17493/20). |
 
 ## What is stored (from `server/db/schema.ts`)
 
 - **Account:** email, password hash (scrypt), role, language, verification and disabled timestamps (`users`). Sign-in sessions: token hash, **browser user agent**, last seen, expiry (`sessions`; last seen is shown in the admin panel, `server/services/admin.ts`). One-time link token hashes (`auth_tokens`). Accepted legal versions (`consents`). Admin actions (`admin_audit`).
-- **Household:** name, time zone, strategy and feed-in settings, steering mode, onboarding step (`sites`), members and invitations (`site_members`, `household_invites`: the invitee's email).
+- **Household:** name, rough location (0.1°), time zone, strategy and feed-in settings, steering mode, onboarding step (`sites`), members and invitations (`site_members`, `household_invites`: the invitee's email).
 - **Connections:** keys and tokens **encrypted** with AES-256-GCM (`integrations.credentials_enc`, `server/utils/crypto.ts`), plus non-secret settings such as the Tibber home's name or street address (`integrations.meta`).
 - **Energy data:** prices, Pulse meter readings, battery state, solar production, forecasts, plans, commands sent, savings ledgers (`prices`, `samples`, `devices`, `solar_production`, `irradiance`, `plans`, `commands_log`, `ledger`, `solar_ledger`, `battery_pool`). Minute samples are averaged after **60 days** (`server/lib/retention.ts`).
 - **Push:** endpoint, keys, topics, language, **user agent** (`push_subscriptions`, `server/api/push/index.put.ts`).
 - **Experimental (owner only):** cars with VIN and charge data (`vehicles`, `vehicle_samples`).
-- **Not stored:** IP addresses. The login rate limiter keeps them in memory only (`server/utils/limits.ts`). Locations are not stored either.
+- **Not stored:** IP addresses. The login rate limiter keeps them in memory only (`server/utils/limits.ts`). A rough location per household is stored (0.1°, from the Tibber home's coordinates or set by the owner, `sites.location`); the device's location is never used.
 
 ## Changes made to the privacy policy draft with this check
 

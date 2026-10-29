@@ -17,7 +17,7 @@ export interface TibberPrice {
 export interface TibberHome {
   id: string
   appNickname: string | null
-  address: { address1: string | null } | null
+  address: { address1: string | null; city: string | null; latitude: string | null; longitude: string | null } | null
   features: { realTimeConsumptionEnabled: boolean | null } | null
 }
 
@@ -40,7 +40,7 @@ async function gql<T>(token: string, query: string, variables?: Record<string, u
 export async function tibberHomes(creds: TibberCredentials): Promise<TibberHome[]> {
   const data = await gql<{ viewer: { homes: TibberHome[] } }>(
     creds.token,
-    `{ viewer { homes { id appNickname address { address1 } features { realTimeConsumptionEnabled } } } }`,
+    `{ viewer { homes { id appNickname address { address1 city latitude longitude } features { realTimeConsumptionEnabled } } } }`,
   )
   return data.viewer.homes
 }

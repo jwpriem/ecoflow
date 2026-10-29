@@ -2,14 +2,34 @@ import { and, eq, gte, lt, sql } from 'drizzle-orm'
 import type { Db } from '../db/client'
 import { integrations, irradiance, type sites, solarProduction } from '../db/schema'
 import { changed } from '../db/upsert'
-import { defaultFactor, expectedSolarW, FORECAST_DAYS, FORECAST_PAST_DAYS, fitFactor, SOLAR_LOCATION } from '../lib/solarForecast'
+import { forecastLocation } from '../lib/location'
+import { defaultFactor, expectedSolarW, FORECAST_DAYS, FORECAST_PAST_DAYS, fitFactor } from '../lib/solarForecast'
 import { openMeteoIrradiance } from '../providers/openMeteo'
 
 type Site = typeof sites.$inferSelect
 
-/** Fetch past and forecast irradiance (one free call) and keep it per slot */
+// Households in the same 0.1° square share one call per run: the hourly job asks for each in turn
+const FETCH_TTL_MS = 20 * 60_000
+const fetches = new Map<string, { at: number; rows: ReturnType<typeof openMeteoIrradiance> }>()
+
+function irradianceAt(lat: number, lon: number) {
+  const key = `${lat},${lon}`
+  const hit = fetches.get(key)
+  if (hit && Date.now() - hit.at < FETCH_TTL_MS) return hit.rows
+  const rows = openMeteoIrradiance(lat, lon, { pastDays: FORECAST_PAST_DAYS, forecastDays: FORECAST_DAYS })
+  fetches.set(key, { at: Date.now(), rows })
+  // A failed call is not kept: the next household or run tries again
+  rows.catch(() => fetches.delete(key))
+  return rows
+}
+
+/** Forget the shared calls (tests, or after a household moved) */
+export const resetIrradianceFetches = () => fetches.clear()
+
+/** Fetch past and forecast irradiance for the household's location (one free call, shared nearby) and keep it per slot */
 export async function refreshIrradiance(db: Db, site: Site): Promise<number> {
-  const rows = await openMeteoIrradiance(SOLAR_LOCATION.lat, SOLAR_LOCATION.lon, { pastDays: FORECAST_PAST_DAYS, forecastDays: FORECAST_DAYS })
+  const { lat, lon } = forecastLocation(site.location)
+  const rows = await irradianceAt(lat, lon)
   if (!rows.length) return 0
   const now = new Date()
   for (let i = 0; i < rows.length; i += 1000) {

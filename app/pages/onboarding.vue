@@ -104,6 +104,8 @@
           <span class="unit-in">€ <input v-model.number="strategy.feedIn.feeEur" type="number" step="0.001" inputmode="decimal" /> /kWh</span>
         </label>
       </div>
+      <h3 class="section-title">{{ m.location.section }}</h3>
+      <SolarLocation />
       <p class="small muted">{{ m.onboarding.battery.later }}</p>
     </form>
 
