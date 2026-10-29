@@ -245,8 +245,9 @@ export const SITE_TEXT = {
 } as const
 
 /**
- * Logged-in visitors and the installed app (Home Screen) skip the website and open the app: they had the
- * app at / before the website moved in. Runs in <head>, before anything is drawn. ?site keeps the website.
+ * The installed app (Home Screen) opens the app, not the website: installs from before the website moved in
+ * start at /. A browser always gets the website, logged in or not; "Log in" takes a logged-in user to the app.
+ * Runs in <head>, before anything is drawn. ?site keeps the website.
  */
 export const SITE_BOOT =
-  "try{if(!/[?&]site\\b/.test(location.search)&&(localStorage.getItem('battery.token')||matchMedia('(display-mode: standalone)').matches||navigator.standalone))location.replace('/app')}catch(e){}"
+  "try{if(!/[?&]site\\b/.test(location.search)&&(matchMedia('(display-mode: standalone)').matches||navigator.standalone))location.replace('/app')}catch(e){}"
