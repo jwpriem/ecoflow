@@ -91,6 +91,18 @@ The VAPID key pair that signs the pushes is generated on first use and stored in
 
 Brand: **WattsWise** (wattswise.eu) · *Know your energy.* The app icons in `public/` (`icon-192.png`, `icon-512.png`, `favicon-32.png`) are rendered from `scripts/icon.svg`, and `icon-maskable-512.png` from `scripts/icon-maskable.svg`, and the `apple-touch-icon*.png` files from `scripts/icon-apple.svg` (the mark smaller, because iOS rounds the corners hard). The `apple-touch-icon*.png` copies at the root are for the filenames iOS probes there; the page itself inlines `apple-touch-icon.png` as a data URI (see `nuxt.config.ts`) because iOS's Add to Home Screen sheet can fail to load it from a URL and then shows a letter tile (the mark scaled into Android's 80% safe zone). Logo files live in `public/brand/`: the mark on its own, the logo for dark and light backgrounds, and the lockup with tagline. The mark is a house with a charged battery under the sun: the house in the text colour, the battery in the grid-charge teal, the sun in the solar yellow (night tokens on the icons and the dark logos, day tokens on the light ones). All these SVGs are written by `node scripts/brand.mjs`; change the mark there, not in the files. The wordmark is Inter Display SemiBold at −1.5% letter spacing, converted to outlines. The PNGs were rendered with headless Chrome at their exact sizes. Bump the `?v=` on the icon URLs in `manifest.webmanifest` and `nuxt.config.ts` when the icons change, so browsers and installed PWAs pick them up.
 
-## Capacitor (later)
+## iOS app (Capacitor)
 
-The UI is a client-side SPA that talks to the API with bearer tokens, and the server allows CORS from `capacitor://localhost`. See `capacitor.config.ts` for the steps. The token storage in `app/composables/useAuth.ts` is the one place to switch to `@capacitor/preferences`.
+The App Store app is the same SPA, wrapped by Capacitor 8 in `ios/` (bundle id `app.wattswise.ios`, Swift Package Manager, no CocoaPods). It talks to the production API with a bearer token; the server allows CORS from `capacitor://localhost`.
+
+- **Session token:** in the Keychain (`@aparajita/capacitor-secure-storage`, after first unlock, this device only, not in iCloud), read by `app/plugins/native.client.ts` before the app starts. The web keeps localStorage. Both sit behind `useAuth()`.
+- **Universal Links:** the verify, reset and invite links in emails open the app when it's installed. `ios/App/App/App.entitlements` claims `www.wattswise.eu` and `wattswise.eu`; the server serves `/.well-known/apple-app-site-association` once `NUXT_APPLE_TEAM_ID` is set (404 until then); `app/utils/appLinks.ts` routes the link inside the app.
+- **Status bar:** follows the sky, light text at night and dark text by day.
+
+Build and run on an iPhone (Xcode 26 or later):
+
+1. `npm run ios:build`: the static app against `https://www.wattswise.eu` (set `NUXT_PUBLIC_API_BASE` for another server), copied into `ios/` with `cap sync`.
+2. `npx cap open ios`, pick your team under **Signing & Capabilities** (the Associated Domains capability needs the App ID registered in the developer account), choose your iPhone and press Run.
+3. For Universal Links, set `NUXT_APPLE_TEAM_ID` (Membership details in the developer account) in DigitalOcean and deploy. The apex `wattswise.eu` must serve the file itself too, not redirect it, or drop it from the entitlements.
+
+Run `npm run ios:build` again after every web change; Xcode alone doesn't rebuild the web part.

@@ -7,6 +7,7 @@
     "build": "nuxt build",
     "start": "node .output/server/index.mjs",
     "generate:app": "NUXT_APP_BUILD=1 nuxt generate",
+    "ios:build": "NUXT_PUBLIC_API_BASE=${NUXT_PUBLIC_API_BASE:-https://www.wattswise.eu} npm run generate:app && cap sync ios",
     "postinstall": "nuxt prepare",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx scripts/migrate.ts",
@@ -15,6 +16,7 @@
     "typecheck": "nuxt typecheck"
   },
   "devDependencies": {
+    "@capacitor/cli": "8.5.3",
     "@electric-sql/pglite": "^0.3.16",
     "@types/node": "^22.0.0",
     "@types/nodemailer": "^8.0.2",
@@ -27,6 +29,11 @@
     "vue-tsc": "^3.1.0"
   },
   "dependencies": {
+    "@aparajita/capacitor-secure-storage": "8.0.1",
+    "@capacitor/app": "8.1.2",
+    "@capacitor/core": "8.5.3",
+    "@capacitor/ios": "8.5.3",
+    "@capacitor/status-bar": "8.0.4",
     "@sentry/node": "^11.10.0",
     "@sentry/vue": "^11.10.0",
     "chart.js": "^4.5.0",

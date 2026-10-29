@@ -1,12 +1,12 @@
 import type { OnboardingStep } from '#shared/onboarding'
 
-// Token storage is kept behind this composable so the Capacitor build can swap
-// localStorage for @capacitor/preferences / secure storage later.
+// The session token: localStorage on the web, the Keychain in the iOS app (utils/native.ts; plugins/native.client.ts
+// reads it before the app starts)
 const KEY = 'battery.token'
 
 function readToken(): string | null {
   try {
-    return localStorage.getItem(KEY)
+    return isNative() ? null : localStorage.getItem(KEY)
   } catch {
     return null
   }
@@ -46,6 +46,7 @@ export function useAuth() {
   function setToken(value: string | null) {
     token.value = value
     me.value = null
+    if (isNative()) return void writeNativeToken(value)
     try {
       if (value) localStorage.setItem(KEY, value)
       else localStorage.removeItem(KEY)
