@@ -41,7 +41,7 @@ The user gives WattsWise keys to read their own data there. Each service has its
 | Service | What it receives | Personal data? | Note |
 |---|---|---|---|
 | **Open-Meteo** (`api.open-meteo.com`), `server/providers/openMeteo.ts` | One **fixed** coordinate for the solar forecast (`SOLAR_LOCATION` in `server/lib/solarForecast.ts`), from the server's IP | **No.** No user data, and the request comes from the server, not the user's device | Open-Meteo is an independent controller: https://open-meteo.com/en/terms. The free plan is for **non-commercial use** only; switch to a paid plan if WattsWise ever charges. ⚠️ Product gap, not privacy: every household gets the forecast for Waddinxveen (JER-53). |
-| **Google Fonts** (`fonts.googleapis.com`, `fonts.gstatic.com`), `nuxt.config.ts` | **Every visitor's browser** loads the Archivo font from Google, which sends Google the visitor's **IP address** and user agent | **Yes** | ⚠️ **Fix before launch:** not in the privacy policy, and it contradicts "no third parties". A German court (LG München I, 20 Jan 2022, 3 O 17493/20) awarded damages for exactly this. Self-host the font (JER-53). |
+| **Google Fonts** (`fonts.googleapis.com`, `fonts.gstatic.com`), `nuxt.config.ts` | **Every visitor's browser** loads the Archivo font from Google, which sends Google the visitor's **IP address** and user agent | **Yes** | ⚠️ **Fix before launch:** not in the privacy policy, and it contradicts "no third parties". A German court (LG München I, 20 Jan 2022, 3 O 17493/20) awarded damages for exactly this. Self-host the font (JER-52). |
 
 ## What is stored (from `server/db/schema.ts`)
 
@@ -62,5 +62,5 @@ The user gives WattsWise keys to read their own data there. Each service has its
 ## Owner actions
 
 1. Accept or request SMTP2GO's DPA in the account, and confirm where it stores message logs.
-2. Self-host the font before launch (JER-53), or add Google Fonts to the privacy policy.
+2. Self-host the font before launch (JER-52), or add Google Fonts to the privacy policy.
 3. Decide on a plan for Open-Meteo if WattsWise ever charges money.
