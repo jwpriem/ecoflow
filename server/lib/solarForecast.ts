@@ -7,7 +7,7 @@
  * starts from the system's peak power at 75% performance (9.36 kWp -> 7 W per W/m²).
  */
 
-/** The house; the app has one site, so the location lives here and in app/utils/sun.ts */
+/** The forecast location of households that have none set (see lib/location.ts): the first household's town */
 export const SOLAR_LOCATION = { name: 'Waddinxveen', lat: 52.035, lon: 4.651 } as const
 export const FORECAST_PAST_DAYS = 14
 export const FORECAST_DAYS = 3

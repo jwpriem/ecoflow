@@ -103,6 +103,8 @@
           </button>
         </div>
         <p class="foot">{{ m.settings.solarFoot }}</p>
+        <h3 class="section-title">{{ m.location.section }}</h3>
+        <SolarLocation />
       </section>
       </div>
       <div class="col">

@@ -12,6 +12,7 @@ import {
   timestamp,
   uniqueIndex,
 } from 'drizzle-orm/pg-core'
+import type { SiteLocation } from '../lib/location'
 import type { Locale, Override, StrategyConfig } from '../lib/types'
 import type { OnboardingStep } from '../../shared/onboarding'
 
@@ -90,6 +91,8 @@ export const sites = pgTable('sites', {
   override: jsonb('override').$type<Override | null>(),
   /** The onboarding step the owner is on; null once done (and for every household from before onboarding) */
   onboarding: text('onboarding').$type<OnboardingStep>(),
+  /** Rough location for the solar forecast (0.1°), from the Tibber home or set by the owner; null = the original fixed one */
+  location: jsonb('location').$type<SiteLocation | null>(),
   createdAt: ts('created_at').notNull().defaultNow(),
 })
 

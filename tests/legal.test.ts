@@ -33,7 +33,7 @@ describe('legal texts', () => {
   })
 
   it('renders, with every kind of data and its legal basis', () => {
-    expect(legalHtml('privacy', 'nl')!.match(/<em>Grondslag: /g)).toHaveLength(8)
+    expect(legalHtml('privacy', 'nl')!.match(/<em>Grondslag: /g)).toHaveLength(9)
     expect(legalHtml('privacy', 'en')).not.toMatch(/\*\*/)
     expect(legalHtml('steering', 'en')).toContain('<h1>Letting WattsWise steer your batteries</h1>')
     expect(legalHtml('nope', 'en')).toBeUndefined()

@@ -148,6 +148,13 @@
       "when": 1793258351839,
       "tag": "0020_onboarding",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1793265285169,
+      "tag": "0021_site_location",
+      "breakpoints": true
     }
   ]
 }

@@ -1,14 +1,16 @@
 import { eq } from 'drizzle-orm'
 import { type Provider, vehicles } from '../../db/schema'
-import { tibberHomes, type TibberCredentials } from '../../providers/tibber'
+import { type TibberHome, tibberHomes, type TibberCredentials } from '../../providers/tibber'
 import { forgetTibberApp } from '../../providers/tibberApp'
 import { getIntegration, markIntegration, saveIntegration } from '../../services/integrations'
+import { locationFromTibber } from '../../services/location'
 import { assertExperimental } from '../../services/experimental'
 import { refreshPrices } from '../../services/prices'
 import { assertVerified } from '../../services/verify'
 import { syncEcoFlowDevices } from '../../services/ecoflow'
 import { syncPulse } from '../../services/pulse'
 import { forgetSolarEdge, testSolarEdge } from '../../services/solaredge'
+import { refreshIrradiance } from '../../services/solarForecast'
 import { runStrategy } from '../../services/strategy'
 import { syncTibberApp } from '../../services/tibberEv'
 import { readZeekrVehicles, syncZeekrVehicles } from '../../services/zeekr'
@@ -56,12 +58,14 @@ export default defineEventHandler(async (event) => {
 
   // Test the connection and fill in useful settings before saving
   let error: string | undefined
+  let tibberHome: TibberHome | undefined
   try {
     if (provider === 'tibber') {
       const homes = await tibberHomes(creds as unknown as TibberCredentials)
       if (!homes.length) throw new Error('No homes on this Tibber account')
       const home = homes.find((h) => h.id === meta.homeId) ?? homes[0]!
       meta.homeId = home.id
+      tibberHome = home
       meta.realtime = home.features?.realTimeConsumptionEnabled ?? false
       meta.homes = homes.map((h) => ({ id: h.id, name: h.appNickname || h.address?.address1 || h.id }))
     } else if (provider === 'solaredge' && body.credentials) {
@@ -103,6 +107,9 @@ export default defineEventHandler(async (event) => {
   }
 
   if (provider === 'tibber' && !error) {
+    // The home's rough location drives the solar forecast
+    const located = await locationFromTibber(db, site, tibberHome!)
+    if (located.changed) await refreshIrradiance(db, located.site).catch(() => undefined)
     await syncPulse(db, site, key)
     await refreshPrices(db, site, key).catch(() => undefined)
     await runStrategy(db, site).catch(() => undefined)

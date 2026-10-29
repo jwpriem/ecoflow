@@ -19,6 +19,7 @@
 | Diagnostics → **Crash Data** | Yes, only when Sentry is on | **Yes** (see note) | App Functionality | Unhandled errors with a stack trace (`server/services/errors.ts`, `app/plugins/errors.client.ts`) |
 | Diagnostics → **Other Diagnostic Data** | Yes | Yes | App Functionality | The browser/OS version in error reports. The user agent of each sign-in and push subscription (`sessions.user_agent`, `push_subscriptions.user_agent`) |
 | Usage Data → **Product Interaction** | Yes | Yes | App Functionality | When each sign-in was last used, shown to admins (`sessions.last_used_at`, `server/services/admin.ts`). Nothing else about taps or screens is recorded |
+| Location → **Coarse Location** | Yes | Yes | App Functionality | The household's rough location, rounded to 0.1° (about 10 km), for the solar forecast. Taken from the Tibber home's coordinates or typed in by the owner, never from the device (`sites.location`, `server/lib/location.ts`, JER-53) |
 | User Content → **Other User Content** | Yes | Yes | App Functionality | Names the user types in: the household name and battery names (`sites.name`, `devices.name`) |
 | **Other Data Types** | Yes | Yes | App Functionality | Energy data from the user's own services: Pulse meter readings, battery charge and power, solar production, the plan and savings (`samples`, `devices`, `solar_production`, `ledger`). Plus the keys for Tibber, EcoFlow and SolarEdge, stored encrypted (`integrations.credentials_enc`), and battery serial numbers |
 
@@ -27,7 +28,7 @@
 ## Not collected
 
 Answer **not collected** for:
-- Location (precise and coarse). The solar forecast uses one fixed coordinate (`server/lib/solarForecast.ts`). The app never asks for the device's location.
+- Location → Precise Location. The app never asks for the device's location.
 - Health & Fitness, Financial Info, Sensitive Info, Contacts.
 - Photos or Videos, Audio, Gameplay, Customer Support data, Browsing History, Search History.
 - Purchases: the app is free, with no in-app purchases.

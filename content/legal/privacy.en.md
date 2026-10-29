@@ -15,11 +15,12 @@ WattsWise is run by **Jeroen Priem**, a private person in the Netherlands, who i
 - **The keys and tokens for Tibber, EcoFlow and SolarEdge**: to read your data from those services, and (only if you turn steering on) to send settings to your batteries. Stored **encrypted** and never shown again. *Legal basis: contract.*
 - **Energy data: electricity prices, meter readings from your Tibber Pulse, your batteries' charge level and power, your solar production, and the savings worked out from them**: this is what WattsWise shows you and steers with. *Legal basis: contract.*
 - **Device details: battery serial numbers and models, the name of your home in Tibber (or its street address when it has no name), and the type of browser or phone you sign in or turn on notifications with**: to tell your batteries, your home and your sign-ins apart. *Legal basis: contract.*
+- **Your household's rough location, to about 10 km (taken from your Tibber home, or set by you)**: to fetch the sun and cloud forecast for your area from Open-Meteo. Only this rounded point is sent, by our server, never your address. *Legal basis: contract.*
 - **Push notification subscriptions for the devices where you turn notifications on**: to send the notifications you chose. *Legal basis: your consent (you turn them on and off per device).*
 - **What you agreed to and when (these terms, the steering disclaimer)**: to show what you accepted. *Legal basis: legal obligation and legitimate interest.*
 - **Error reports (what went wrong in the app or on the server, with your household's number but without your email, keys or IP address)**: to find and fix bugs. *Legal basis: legitimate interest.*
 
-We don't collect your location, contacts or anything from your phone beyond the above. Your IP address is only held in memory for a short while to stop people guessing passwords; it isn't stored.
+We don't use your phone's location, contacts or anything else from your phone beyond the above. Your IP address is only held in memory for a short while to stop people guessing passwords; it isn't stored.
 
 ## Where your data is
 
