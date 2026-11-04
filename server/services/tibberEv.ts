@@ -269,7 +269,7 @@ export async function askDeparture(db: Db, site: Site, key: string, car: Vehicle
   const integ = await getIntegration<TibberAppCredentials>(db, site.id, 'tibber_app', key)
   const meta = (integ?.meta ?? {}) as TibberAppMeta
   if (!meta.homeId || !meta.map?.[car.id]) return
-  await notify(db, site.id, 'car', departureAskMessage(car.name, car.id))
+  await notify(db, site.id, 'car', departureAskMessage(car.model?.trim() || car.name, car.id))
 }
 
 /** One charge window of Tibber's plan: back-to-back periods merged. SoC 0-100 in the car's own terms. */

@@ -17,16 +17,14 @@
 
       <!-- With more than one car, one sentence says where they all are first -->
       <p v-if="cars.length > 1" class="summary">
-        <template v-for="c in cars" :key="c.id">
-          {{ c.name }} <span :class="summary(c).cls">{{ summary(c).verb }}</span><template v-if="summary(c).where"> <span class="quiet">{{ summary(c).where }}</span></template>.
-        </template>
+        <span v-for="c in cars" :key="c.id" class="summary-car">{{ carLabel(c) }} <span :class="summary(c).cls">{{ summary(c).verb }}</span>{{ summary(c).where ? ' ' : '' }}<span v-if="summary(c).where" class="quiet">{{ summary(c).where }}</span>.{{ " " }}</span>
       </p>
 
       <div class="cars">
         <section v-for="c in cars" :key="c.id" class="car">
           <header class="car-head">
             <div>
-              <h2 class="car-name">{{ c.name }}</h2>
+              <h2 class="car-name">{{ carLabel(c) }}</h2>
               <span class="where" :class="{ home: c.state.atHome }">
                 <AppIcon :name="c.state.atHome ? 'house' : 'car'" />
                 {{ c.state.atHome ? m.cars.atHome : m.cars.away }}
@@ -40,7 +38,7 @@
 
           <CarFigure
             :soc="c.state.soc" :charging="c.state.charging" :target="c.state.targetSoc" :model="c.model" :name="c.name"
-            :label="m.cars.figureAria(c.name, c.state.soc == null ? m.cars.levelUnknown : m.cars.pctCharged(Math.round(c.state.soc * 100)), carStatus(c).text)"
+            :label="m.cars.figureAria(carLabel(c), c.state.soc == null ? m.cars.levelUnknown : m.cars.pctCharged(Math.round(c.state.soc * 100)), carStatus(c).text)"
           />
 
           <!-- Only what matters now: plug and charge power are in the status line, the times in the note below -->
