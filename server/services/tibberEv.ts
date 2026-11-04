@@ -33,6 +33,8 @@ export interface TibberAppMeta {
   /** our vehicles.id -> the departure last set from WattsWise */
   departures?: Record<string, { day: Weekday; time: string; at: string }>
   debug?: TibberAppDiscovery['debug']
+  /** The last charging plan as Tibber sent it, per Tibber car, to check how its periods look */
+  planRaw?: Record<string, { at: string; periods: TibberAppChargePeriod[] }>
   /** When the cars and charger were last looked up */
   discoveredAt?: string
 }
@@ -307,7 +309,8 @@ export function carSocFromTibber(pct: number | null, targetSoc: number | null | 
 export function chargeWindows(periods: TibberAppChargePeriod[], now: Date, targetSoc?: number | null): ChargeWindow[] {
   const ahead = periods
     .map((p) => ({ p, start: new Date(p.startAt), end: new Date(p.stopAt) }))
-    .filter((x) => !Number.isNaN(x.start.getTime()) && !Number.isNaN(x.end.getTime()) && x.end > now)
+    // A period without energy is a pause in the plan, not a charge
+    .filter((x) => !Number.isNaN(x.start.getTime()) && !Number.isNaN(x.end.getTime()) && x.end > now && (x.p.energy == null || x.p.energy > 0))
     .sort((a, b) => a.start.getTime() - b.start.getTime() || a.end.getTime() - b.end.getTime())
   const out: (ChargeWindow & { endMs: number })[] = []
   for (const { p, start, end } of ahead) {
@@ -359,6 +362,8 @@ export async function getTibberChargingPlan(
   const hit = planCache.get(cacheKey)
   if (hit && now.getTime() - hit.at < PLAN_CACHE_MS) return hit.plan
   const raw = await tibberAppCharging(integ.creds, vehicleId)
+  const planRaw = { ...(meta.planRaw ?? {}), [vehicleId]: { at: now.toISOString(), periods: raw.periods.slice(0, 200) } }
+  await updateIntegration(db, integ.row.id, { meta: { ...meta, planRaw } as Record<string, unknown> }, key).catch(() => undefined)
   const targetSoc = (car.state as { targetSoc?: number | null } | null)?.targetSoc
   const windows = chargeWindows(raw.periods, now, targetSoc)
   const plan: TibberChargingPlan = {
