@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { carSocFromTibber, chargeWindows, departureChanges, departureKey, departureSchedule, matchTibberVehicle, tibberBatteryLevel } from '../server/services/tibberEv'
+import { carSocFromTibber, chargeWindows, departureChanges, departureKey, departureSchedule, matchTibberVehicle, tibberBatteryLevel, tibberPushStep } from '../server/services/tibberEv'
 
 describe('battery level sent to Tibber', () => {
   it('is the state of charge when the car charges to 100%', () => {
@@ -122,5 +122,22 @@ describe("Tibber's charging plan", () => {
     expect(carSocFromTibber(null, 0.8)).toBeNull()
     const [w] = chargeWindows([p('2026-11-05T01:00:00Z', '2026-11-05T02:00:00Z', 40, 100, 40, 8)], now, 0.8)
     expect([w!.fromSoc, w!.toSoc]).toEqual([20, 80])
+  })
+})
+
+describe('sending the battery level to Tibber after plug-in', () => {
+  const at = '2026-11-04T16:42:26Z'
+  const plugged = { atHome: true, pluggedIn: true }
+
+  it('sends it on plug-in, and again when the first push failed', () => {
+    expect(tibberPushStep({}, new Date(at))).toBe('first')
+    expect(tibberPushStep({ atHome: true, pluggedIn: false, tibberSyncedAt: at }, new Date(at))).toBe('first')
+    expect(tibberPushStep(plugged, new Date(at))).toBe('first')
+  })
+
+  it('sends it once more a few minutes later, after Tibber started its session', () => {
+    expect(tibberPushStep({ ...plugged, tibberSyncedAt: at }, new Date('2026-11-04T16:44:00Z'))).toBe('wait')
+    expect(tibberPushStep({ ...plugged, tibberSyncedAt: at }, new Date('2026-11-04T16:47:20Z'))).toBe('again')
+    expect(tibberPushStep({ ...plugged, tibberSyncedAt: at, tibberResyncedAt: '2026-11-04T16:47:20Z' }, new Date('2026-11-04T17:30:00Z'))).toBe('done')
   })
 })
