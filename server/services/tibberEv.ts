@@ -35,6 +35,8 @@ export interface TibberAppMeta {
   debug?: TibberAppDiscovery['debug']
   /** The last charging plan as Tibber sent it, per Tibber car, to check how its periods look */
   planRaw?: Record<string, { at: string; periods: TibberAppChargePeriod[] }>
+  /** What the ERE certificates for a kWh through the charger sell for (EUR), null when not set */
+  ereEurPerKwh?: number | null
   /** When the cars and charger were last looked up */
   discoveredAt?: string
 }
@@ -289,6 +291,9 @@ export interface TibberChargingPlan {
   smartChargingStatus: string | null
   chargingStatus: string | null
   fetchedAt: string
+  /** ERE certificate value per kWh charged, and the cost after it; null when not set */
+  ereEurPerKwh: number | null
+  netCost: number | null
 }
 
 /**
@@ -360,7 +365,7 @@ export async function getTibberChargingPlan(
   if (!integ || !vehicleId) return null
   const cacheKey = `${site.id}:${vehicleId}`
   const hit = planCache.get(cacheKey)
-  if (hit && now.getTime() - hit.at < PLAN_CACHE_MS) return hit.plan
+  if (hit && now.getTime() - hit.at < PLAN_CACHE_MS) return withEre(hit.plan, meta.ereEurPerKwh)
   const raw = await tibberAppCharging(integ.creds, vehicleId)
   const planRaw = { ...(meta.planRaw ?? {}), [vehicleId]: { at: now.toISOString(), periods: raw.periods.slice(0, 200) } }
   await updateIntegration(db, integ.row.id, { meta: { ...meta, planRaw } as Record<string, unknown> }, key).catch(() => undefined)
@@ -374,7 +379,23 @@ export async function getTibberChargingPlan(
     smartChargingStatus: raw.smartChargingStatus,
     chargingStatus: raw.chargingStatus,
     fetchedAt: now.toISOString(),
+    ereEurPerKwh: null,
+    netCost: null,
   }
   planCache.set(cacheKey, { at: now.getTime(), plan })
-  return plan
+  return withEre(plan, meta.ereEurPerKwh)
+}
+
+/** Every kWh through the charger earns ERE certificates: the plan's cost after selling them. */
+export function withEre(plan: TibberChargingPlan, eurPerKwh: number | null | undefined): TibberChargingPlan {
+  if (eurPerKwh == null || !(eurPerKwh > 0)) return { ...plan, ereEurPerKwh: null, netCost: null }
+  return { ...plan, ereEurPerKwh: eurPerKwh, netCost: Math.round((plan.cost - plan.energyKwh * eurPerKwh) * 100) / 100 }
+}
+
+/** Sets what ERE certificates earn per kWh charged (null or 0 removes it). */
+export async function setEreValue(db: Db, site: Site, key: string, eurPerKwh: number | null) {
+  const integ = await getIntegration<TibberAppCredentials>(db, site.id, 'tibber_app', key)
+  if (!integ) throw new Error('Tibber app is not connected')
+  const meta = (integ.meta ?? {}) as TibberAppMeta
+  await updateIntegration(db, integ.row.id, { meta: { ...meta, ereEurPerKwh: eurPerKwh && eurPerKwh > 0 ? eurPerKwh : null } as Record<string, unknown> }, key)
 }

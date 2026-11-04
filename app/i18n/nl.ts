@@ -56,8 +56,13 @@ export const nl: Messages = {
       none: 'Tibber heeft nu geen laadmomenten gepland.',
       failed: 'Kon het laadplan niet uit Tibber halen.',
       duration: (h: number, min: number) => (h ? `${h} u${min ? ` ${min} min` : ''}` : `${min} min`),
+      net: (ere: string, price: string) => `Na ERE-certificaten (−${ere}, ${price}/kWh)`,
       perKwh: (price: string) => `${price}/kWh`,
       total: (blocks: number, energy: string, cost: string) => `${blocks === 1 ? '1 blok' : `${blocks} blokken`}, samen ${energy}, ongeveer ${cost}`,
+    },
+    ere: {
+      label: 'ERE-certificaten',
+      help: 'Wat je per geladen kWh krijgt, bijvoorbeeld via Lekker Laden',
     },
     foot: 'Elke 5 minuten uitgelezen via de Zeekr-app-API. Alleen lezen: WattsWise stuurt nooit opdrachten naar de auto.',
   },

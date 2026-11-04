@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { carSocFromTibber, chargeWindows, departureChanges, departureKey, departureSchedule, matchTibberVehicle, tibberBatteryLevel, tibberPushStep } from '../server/services/tibberEv'
+import { carSocFromTibber, chargeWindows, departureChanges, departureKey, departureSchedule, matchTibberVehicle, tibberBatteryLevel, tibberPushStep, withEre } from '../server/services/tibberEv'
 
 describe('battery level sent to Tibber', () => {
   it('is the state of charge when the car charges to 100%', () => {
@@ -151,5 +151,18 @@ describe('sending the battery level to Tibber after plug-in', () => {
     expect(tibberPushStep({ ...plugged, tibberSyncedAt: at }, new Date('2026-11-04T16:44:00Z'))).toBe('wait')
     expect(tibberPushStep({ ...plugged, tibberSyncedAt: at }, new Date('2026-11-04T16:47:20Z'))).toBe('again')
     expect(tibberPushStep({ ...plugged, tibberSyncedAt: at, tibberResyncedAt: '2026-11-04T16:47:20Z' }, new Date('2026-11-04T17:30:00Z'))).toBe('done')
+  })
+})
+
+describe('cost after ERE certificates', () => {
+  const plan = { windows: [], energyKwh: 58.47, cost: 22.19, currency: 'EUR', smartChargingStatus: null, chargingStatus: null, fetchedAt: '', ereEurPerKwh: null, netCost: null }
+
+  it('takes the certificate value of every planned kWh off the cost', () => {
+    expect(withEre(plan, 0.1)).toMatchObject({ ereEurPerKwh: 0.1, netCost: 16.34 })
+  })
+
+  it('leaves it out when no value is set', () => {
+    expect(withEre(plan, null).netCost).toBeNull()
+    expect(withEre(plan, 0).netCost).toBeNull()
   })
 })

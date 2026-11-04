@@ -31,13 +31,17 @@
         </li>
       </ol>
       <p class="total">{{ m.cars.plan.total(plan.windows.length, kwh(plan.energyKwh, 1), eur(plan.cost)) }}</p>
+      <p v-if="plan.netCost != null && plan.ereEurPerKwh" class="net">
+        <span>{{ m.cars.plan.net(eur(plan.ereEurPerKwh * plan.energyKwh), eur(plan.ereEurPerKwh)) }}</span>
+        <strong>{{ eur(plan.netCost) }}</strong>
+      </p>
     </template>
   </section>
 </template>
 
 <script setup lang="ts">
 interface Window { start: string; end: string; fromSoc: number | null; toSoc: number | null; energyKwh: number; cost: number }
-const props = defineProps<{ plan: { windows: Window[]; energyKwh: number; cost: number } | null; error?: boolean }>()
+const props = defineProps<{ plan: { windows: Window[]; energyKwh: number; cost: number; ereEurPerKwh?: number | null; netCost?: number | null } | null; error?: boolean }>()
 const { m } = useLocale()
 
 const HOUR = 3_600_000
@@ -117,4 +121,7 @@ function dayLabel(iso: string) {
 .cost { grid-column: 1 / -1; font-size: 13px; color: var(--text-2); }
 .now .when, .now .soc { color: var(--cheap); }
 .total { margin: 8px 0 0; font-size: 13px; color: var(--text-2); }
+.net { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin: 8px 0 0; padding-top: 8px; border-top: 1px solid var(--rule); font-size: 14px; }
+.net span { color: var(--text-2); }
+.net strong { font-weight: 650; font-variant-numeric: tabular-nums; }
 </style>
