@@ -57,8 +57,13 @@ export const en = {
       none: 'Tibber has no charging planned right now.',
       failed: 'Could not get the charging plan from Tibber.',
       duration: (h: number, min: number) => (h ? `${h} h${min ? ` ${min} min` : ''}` : `${min} min`),
+      net: (ere: string, price: string) => `After ERE certificates (−${ere}, ${price}/kWh)`,
       perKwh: (price: string) => `${price}/kWh`,
       total: (blocks: number, energy: string, cost: string) => `${blocks === 1 ? '1 block' : `${blocks} blocks`}, ${energy} in total, about ${cost}`,
+    },
+    ere: {
+      label: 'ERE certificates',
+      help: 'What you get per kWh charged, for example through Lekker Laden',
     },
     foot: 'Read through the Zeekr app API every 5 minutes. Read-only: WattsWise never sends commands to the car.',
   },

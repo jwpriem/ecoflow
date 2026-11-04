@@ -78,6 +78,14 @@
       </template>
       </div>
 
+      <section v-if="cars.some((c) => c.tibberVehicleId)" class="ere">
+        <label class="list-row">
+          <span class="title">{{ m.cars.ere.label }}<small>{{ m.cars.ere.help }}</small></span>
+          <span class="unit-in">€ <input v-model.number="ere" type="number" step="0.01" min="0" max="1" inputmode="decimal" @change="saveEre" /> /kWh</span>
+        </label>
+        <span v-if="ereSaved" class="small pos">{{ m.cars.saved }}</span>
+      </section>
+
       <p v-if="cars.length" class="foot">{{ m.cars.foot }}</p>
       <DepartureSheet :car="asking" @close="closeSheet" @saved="afterDeparture" />
     </template>
@@ -129,6 +137,18 @@ function fullRange(c: any) {
 }
 async function load() {
   cars.value = await api('/api/vehicles')
+  if (ere.value === undefined) ere.value = cars.value?.[0]?.ereEurPerKwh ?? null
+}
+
+// What ERE certificates earn per kWh through the charger: the plan shows its cost after them
+const ere = ref<number | null | undefined>(undefined)
+const ereSaved = ref(false)
+async function saveEre() {
+  const v = typeof ere.value === 'number' && ere.value > 0 ? ere.value : null
+  await api('/api/vehicles/ere', { method: 'PUT', body: { eurPerKwh: v } })
+  ereSaved.value = true
+  setTimeout(() => (ereSaved.value = false), 2500)
+  loadPlans()
 }
 
 // Tibber's charging plan per car (only for cars linked to a car in Tibber)
@@ -229,6 +249,8 @@ onBeforeUnmount(() => {
 .edit summary { cursor: pointer; font-size: 14px; color: var(--text-2); padding: 6px 0; }
 .unit-in { display: inline-flex; align-items: center; justify-content: flex-end; gap: 4px; color: var(--text-2); width: 55%; }
 .unit-in input { width: 100%; }
+.ere { border-top: 1px solid var(--rule); padding-top: 10px; margin-bottom: 18px; }
+.ere .title small { display: block; font-size: 13px; color: var(--text-2); font-weight: 400; }
 .foot { font-size: 13px; color: var(--text-2); margin: 4px 2px 0; max-width: 60ch; }
 
 /* Large screens: cars side by side. A car with room for it puts the photo beside its numbers */
