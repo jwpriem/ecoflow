@@ -6,7 +6,9 @@ import {
   type TibberAppCredentials,
   type TibberAppDiscovery,
   type TibberAppItem,
+  type TibberAppChargePeriod,
   type TibberAppSetting,
+  tibberAppCharging,
   tibberAppDiscover,
   tibberAppSetBatteryLevel,
   tibberAppSetChargerVehicle,
@@ -31,6 +33,10 @@ export interface TibberAppMeta {
   /** our vehicles.id -> the departure last set from WattsWise */
   departures?: Record<string, { day: Weekday; time: string; at: string }>
   debug?: TibberAppDiscovery['debug']
+  /** The last charging plan as Tibber sent it, per Tibber car, to check how its periods look */
+  planRaw?: Record<string, { at: string; periods: TibberAppChargePeriod[] }>
+  /** What the ERE certificates for a kWh through the charger sell for (EUR), null when not set */
+  ereEurPerKwh?: number | null
   /** When the cars and charger were last looked up */
   discoveredAt?: string
 }
@@ -123,6 +129,24 @@ export async function rediscoverTibberApp(db: Db, site: Site, key: string, cars:
   const wait = meta.vehicles?.length && mapped ? REDISCOVER_CHARGER_MS : REDISCOVER_MS
   if (meta.discoveredAt && now.getTime() - new Date(meta.discoveredAt).getTime() < wait) return
   await syncTibberApp(db, site, key, cars)
+}
+
+/** How long after the first push to send the battery level again */
+export const TIBBER_RESYNC_AFTER_MS = 4 * 60 * 1000
+
+/**
+ * What to send Tibber for a car plugged in at home, given the car's previous state. Tibber can
+ * start its charging session a few seconds after our first push and then plans from the level it
+ * had before; a change during the session makes it replan. So send the level once on plug-in
+ * ('first') and once more a few minutes later ('again'), then nothing ('wait' in between, 'done').
+ */
+export function tibberPushStep(
+  prev: { atHome?: boolean; pluggedIn?: boolean; tibberSyncedAt?: string; tibberResyncedAt?: string },
+  now: Date,
+): 'first' | 'wait' | 'again' | 'done' {
+  if (!(prev.atHome && prev.pluggedIn && prev.tibberSyncedAt)) return 'first'
+  if (prev.tibberResyncedAt) return 'done'
+  return now.getTime() - new Date(prev.tibberSyncedAt).getTime() >= TIBBER_RESYNC_AFTER_MS ? 'again' : 'wait'
 }
 
 /**
@@ -246,4 +270,132 @@ export async function askDeparture(db: Db, site: Site, key: string, car: Vehicle
   const meta = (integ?.meta ?? {}) as TibberAppMeta
   if (!meta.homeId || !meta.map?.[car.id]) return
   await notify(db, site.id, 'car', departureAskMessage(car.name, car.id))
+}
+
+/** One charge window of Tibber's plan: back-to-back periods merged. SoC 0-100 in the car's own terms. */
+export interface ChargeWindow {
+  start: string
+  end: string
+  fromSoc: number | null
+  toSoc: number | null
+  energyKwh: number
+  cost: number
+}
+
+export interface TibberChargingPlan {
+  windows: ChargeWindow[]
+  energyKwh: number
+  cost: number
+  currency: string | null
+  /** Tibber's own status texts, such as whether smart charging is on */
+  smartChargingStatus: string | null
+  chargingStatus: string | null
+  fetchedAt: string
+  /** ERE certificate value per kWh charged, and the cost after it; null when not set */
+  ereEurPerKwh: number | null
+  netCost: number | null
+}
+
+/**
+ * Tibber's battery level back in the car's own terms: with a charge limit the level entered in
+ * Tibber has the part above the limit added (see tibberBatteryLevel), so Tibber plans "to 100%"
+ * where the car stops at its limit.
+ */
+export function carSocFromTibber(pct: number | null, targetSoc: number | null | undefined): number | null {
+  if (pct == null) return null
+  const limit = targetSoc != null && targetSoc > 0 && targetSoc <= 1 ? targetSoc : 1
+  return Math.max(0, Math.min(100, Math.round(pct - (1 - limit) * 100)))
+}
+
+/**
+ * The plan ahead as charge windows: periods that have not ended, sorted, and merged when one
+ * starts where the other stops (Tibber splits one charge at every quarter-hour price boundary).
+ */
+export function chargeWindows(periods: TibberAppChargePeriod[], now: Date, targetSoc?: number | null): ChargeWindow[] {
+  const ahead = periods
+    .map((p) => ({ p, start: new Date(p.startAt), end: new Date(p.stopAt) }))
+    // A period without energy is a pause in the plan, not a charge
+    .filter((x) => !Number.isNaN(x.start.getTime()) && !Number.isNaN(x.end.getTime()) && x.end > now && (x.p.energy == null || x.p.energy > 0))
+    .sort((a, b) => a.start.getTime() - b.start.getTime() || a.end.getTime() - b.end.getTime())
+  const out: (ChargeWindow & { endMs: number })[] = []
+  for (const { p, start, end } of ahead) {
+    const last = out.at(-1)
+    if (last && start.getTime() <= last.endMs) {
+      if (end.getTime() > last.endMs) {
+        last.endMs = end.getTime()
+        last.end = end.toISOString()
+      }
+      if (p.toStateOfCharge != null) last.toSoc = carSocFromTibber(p.toStateOfCharge, targetSoc)
+    } else {
+      out.push({
+        start: start.toISOString(),
+        end: end.toISOString(),
+        endMs: end.getTime(),
+        fromSoc: carSocFromTibber(p.fromStateOfCharge, targetSoc),
+        toSoc: carSocFromTibber(p.toStateOfCharge, targetSoc),
+        energyKwh: 0,
+        cost: 0,
+      })
+    }
+    const w = out.at(-1)!
+    w.energyKwh += p.energy ?? 0
+    w.cost += p.cost ?? 0
+  }
+  return out.map(({ endMs: _, ...w }) => ({ ...w, energyKwh: Math.round(w.energyKwh * 100) / 100, cost: Math.round(w.cost * 100) / 100 }))
+}
+
+// The plan per Tibber car for a short while, so the Cars page refreshing doesn't ask Tibber every time
+const PLAN_CACHE_MS = 2 * 60 * 1000
+const planCache = new Map<string, { at: number; plan: TibberChargingPlan }>()
+
+/**
+ * The car's smart-charging plan from the Tibber app, or null when the car is not linked to a car
+ * in Tibber. Battery levels are converted to the car's own terms using its charge limit.
+ */
+export async function getTibberChargingPlan(
+  db: Db,
+  site: Site,
+  key: string,
+  car: VehicleRow,
+  now = new Date(),
+): Promise<TibberChargingPlan | null> {
+  const integ = await getIntegration<TibberAppCredentials>(db, site.id, 'tibber_app', key)
+  const meta = (integ?.meta ?? {}) as TibberAppMeta
+  const vehicleId = meta.map?.[car.id]
+  if (!integ || !vehicleId) return null
+  const cacheKey = `${site.id}:${vehicleId}`
+  const hit = planCache.get(cacheKey)
+  if (hit && now.getTime() - hit.at < PLAN_CACHE_MS) return withEre(hit.plan, meta.ereEurPerKwh)
+  const raw = await tibberAppCharging(integ.creds, vehicleId)
+  const planRaw = { ...(meta.planRaw ?? {}), [vehicleId]: { at: now.toISOString(), periods: raw.periods.slice(0, 200) } }
+  await updateIntegration(db, integ.row.id, { meta: { ...meta, planRaw } as Record<string, unknown> }, key).catch(() => undefined)
+  const targetSoc = (car.state as { targetSoc?: number | null } | null)?.targetSoc
+  const windows = chargeWindows(raw.periods, now, targetSoc)
+  const plan: TibberChargingPlan = {
+    windows,
+    energyKwh: Math.round(windows.reduce((s, w) => s + w.energyKwh, 0) * 100) / 100,
+    cost: Math.round(windows.reduce((s, w) => s + w.cost, 0) * 100) / 100,
+    currency: raw.currency,
+    smartChargingStatus: raw.smartChargingStatus,
+    chargingStatus: raw.chargingStatus,
+    fetchedAt: now.toISOString(),
+    ereEurPerKwh: null,
+    netCost: null,
+  }
+  planCache.set(cacheKey, { at: now.getTime(), plan })
+  return withEre(plan, meta.ereEurPerKwh)
+}
+
+/** Every kWh through the charger earns ERE certificates: the plan's cost after selling them. */
+export function withEre(plan: TibberChargingPlan, eurPerKwh: number | null | undefined): TibberChargingPlan {
+  if (eurPerKwh == null || !(eurPerKwh > 0)) return { ...plan, ereEurPerKwh: null, netCost: null }
+  return { ...plan, ereEurPerKwh: eurPerKwh, netCost: Math.round((plan.cost - plan.energyKwh * eurPerKwh) * 100) / 100 }
+}
+
+/** Sets what ERE certificates earn per kWh charged (null or 0 removes it). */
+export async function setEreValue(db: Db, site: Site, key: string, eurPerKwh: number | null) {
+  const integ = await getIntegration<TibberAppCredentials>(db, site.id, 'tibber_app', key)
+  if (!integ) throw new Error('Tibber app is not connected')
+  const meta = (integ.meta ?? {}) as TibberAppMeta
+  await updateIntegration(db, integ.row.id, { meta: { ...meta, ereEurPerKwh: eurPerKwh && eurPerKwh > 0 ? eurPerKwh : null } as Record<string, unknown> }, key)
 }

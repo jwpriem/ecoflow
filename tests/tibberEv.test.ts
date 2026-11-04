@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { departureChanges, departureKey, departureSchedule, matchTibberVehicle, tibberBatteryLevel } from '../server/services/tibberEv'
+import { carSocFromTibber, chargeWindows, departureChanges, departureKey, departureSchedule, matchTibberVehicle, tibberBatteryLevel, tibberPushStep, withEre } from '../server/services/tibberEv'
 
 describe('battery level sent to Tibber', () => {
   it('is the state of charge when the car charges to 100%', () => {
@@ -86,5 +86,83 @@ describe('departure schedule in Tibber', () => {
     const changes = departureChanges(null, 'sunday', '12:00')
     expect(changes[0]).toEqual({ key: 'offline.vehicle.departureTimes.sunday', value: '12:00' })
     expect(changes.slice(1).map((c) => c.value)).toEqual([null, null, null, null, null, null])
+  })
+})
+
+describe("Tibber's charging plan", () => {
+  const p = (startAt: string, stopAt: string, from: number, to: number, energy: number, cost: number) => ({
+    startAt, stopAt, fromStateOfCharge: from, toStateOfCharge: to, energy, cost,
+  })
+  const now = new Date('2026-11-04T20:00:00Z')
+
+  it('merges back-to-back periods into one window and adds up energy and cost', () => {
+    const w = chargeWindows(
+      [
+        p('2026-11-05T01:15:00Z', '2026-11-05T01:30:00Z', 45, 48, 2.75, 0.5),
+        p('2026-11-05T01:00:00Z', '2026-11-05T01:15:00Z', 42, 45, 2.75, 0.55),
+        p('2026-11-05T03:00:00Z', '2026-11-05T03:15:00Z', 48, 50, 2, 0.4),
+      ],
+      now,
+    )
+    expect(w).toEqual([
+      { start: '2026-11-05T01:00:00.000Z', end: '2026-11-05T01:30:00.000Z', fromSoc: 42, toSoc: 48, energyKwh: 5.5, cost: 1.05 },
+      { start: '2026-11-05T03:00:00.000Z', end: '2026-11-05T03:15:00.000Z', fromSoc: 48, toSoc: 50, energyKwh: 2, cost: 0.4 },
+    ])
+  })
+
+  it('keeps a pause without energy as a gap between windows', () => {
+    const w = chargeWindows(
+      [
+        p('2026-11-04T22:00:00Z', '2026-11-04T22:30:00Z', 24, 27, 2.8, 1),
+        p('2026-11-04T22:30:00Z', '2026-11-04T23:00:00Z', 27, 27, 0, 0),
+        p('2026-11-04T23:00:00Z', '2026-11-05T05:15:00Z', 27, 100, 55.7, 21),
+      ],
+      now,
+    )
+    expect(w.map((x) => [x.start.slice(11, 16), x.end.slice(11, 16)])).toEqual([['22:00', '22:30'], ['23:00', '05:15']])
+  })
+
+  it('drops windows that already ended', () => {
+    expect(chargeWindows([p('2026-11-04T18:00:00Z', '2026-11-04T19:00:00Z', 10, 20, 5, 1)], now)).toEqual([])
+  })
+
+  it("shows battery levels in the car's own terms when it has a charge limit", () => {
+    // Limit 80%: Tibber was told 40% for a car at 20%, so its 100% is the car's 80%
+    expect(carSocFromTibber(100, 0.8)).toBe(80)
+    expect(carSocFromTibber(40, 0.8)).toBe(20)
+    expect(carSocFromTibber(57, 1)).toBe(57)
+    expect(carSocFromTibber(null, 0.8)).toBeNull()
+    const [w] = chargeWindows([p('2026-11-05T01:00:00Z', '2026-11-05T02:00:00Z', 40, 100, 40, 8)], now, 0.8)
+    expect([w!.fromSoc, w!.toSoc]).toEqual([20, 80])
+  })
+})
+
+describe('sending the battery level to Tibber after plug-in', () => {
+  const at = '2026-11-04T16:42:26Z'
+  const plugged = { atHome: true, pluggedIn: true }
+
+  it('sends it on plug-in, and again when the first push failed', () => {
+    expect(tibberPushStep({}, new Date(at))).toBe('first')
+    expect(tibberPushStep({ atHome: true, pluggedIn: false, tibberSyncedAt: at }, new Date(at))).toBe('first')
+    expect(tibberPushStep(plugged, new Date(at))).toBe('first')
+  })
+
+  it('sends it once more a few minutes later, after Tibber started its session', () => {
+    expect(tibberPushStep({ ...plugged, tibberSyncedAt: at }, new Date('2026-11-04T16:44:00Z'))).toBe('wait')
+    expect(tibberPushStep({ ...plugged, tibberSyncedAt: at }, new Date('2026-11-04T16:47:20Z'))).toBe('again')
+    expect(tibberPushStep({ ...plugged, tibberSyncedAt: at, tibberResyncedAt: '2026-11-04T16:47:20Z' }, new Date('2026-11-04T17:30:00Z'))).toBe('done')
+  })
+})
+
+describe('cost after ERE certificates', () => {
+  const plan = { windows: [], energyKwh: 58.47, cost: 22.19, currency: 'EUR', smartChargingStatus: null, chargingStatus: null, fetchedAt: '', ereEurPerKwh: null, netCost: null }
+
+  it('takes the certificate value of every planned kWh off the cost', () => {
+    expect(withEre(plan, 0.1)).toMatchObject({ ereEurPerKwh: 0.1, netCost: 16.34 })
+  })
+
+  it('leaves it out when no value is set', () => {
+    expect(withEre(plan, null).netCost).toBeNull()
+    expect(withEre(plan, 0).netCost).toBeNull()
   })
 })

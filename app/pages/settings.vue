@@ -203,6 +203,16 @@
           </div>
           <p v-if="carMsg?.id === c.id" class="foot" :class="{ error: carMsg?.ok === false }" role="status">{{ carMsg?.text }}</p>
         </template>
+        <!-- What ERE certificates earn per kWh charged: the charging plan on the Cars tab shows its cost after them -->
+        <template v-if="cars.some((c) => c.tibberVehicleId)">
+          <div class="list" @change="saveEre">
+            <label class="list-row">
+              <span class="stack-text"><span class="title">{{ m.cars.ere.label }}</span><span class="small muted">{{ m.cars.ere.help }}</span></span>
+              <span class="unit-in">€ <input v-model.number="ere" type="number" step="0.01" min="0" max="1" inputmode="decimal" /> /kWh</span>
+            </label>
+          </div>
+          <p v-if="ereMsg" class="foot" :class="{ error: !ereMsg.ok }" role="status">{{ ereMsg.text }}</p>
+        </template>
         <p class="foot">{{ m.settings.carsFoot }}</p>
       </section>
       <section class="group" style="--o: 7">
@@ -367,6 +377,8 @@ const deviceMsg = ref<{ id: number; ok: boolean; text: string } | null>(null)
 // The cars only exist with the experimental integrations; tibberCars are the ones in the Tibber app to pick from
 const cars = ref<any[]>([])
 const carMsg = ref<{ id: number; ok: boolean; text: string } | null>(null)
+const ere = ref<number | null>(null)
+const ereMsg = ref<Msg>(null)
 const tibberCars = computed<{ id: string; name: string }[]>(() => (integrations.value.find((i) => i.provider === 'tibber_app')?.meta.vehicles as any[]) ?? [])
 
 const pct = reactive({ reserveSoc: 10, maxSoc: 100, roundTripEfficiency: 85 })
@@ -433,6 +445,7 @@ async function load() {
   setStrategy(plan.strategy)
   await loadMe(true)
   cars.value = experimental.value ? await api<any[]>('/api/vehicles') : []
+  ere.value = cars.value[0]?.ereEurPerKwh ?? null
 }
 
 async function save(provider: string) {
@@ -498,6 +511,15 @@ async function saveCar(c: any) {
     carMsg.value = { id: c.id, ok: true, text: m.value.settings.deviceSaved(c.name) }
   } catch (e: any) {
     carMsg.value = { id: c.id, ok: false, text: whyNot(e) }
+  }
+}
+async function saveEre() {
+  try {
+    const v = typeof ere.value === 'number' && ere.value > 0 ? ere.value : null
+    await api('/api/vehicles/ere', { method: 'PUT', body: { eurPerKwh: v } })
+    ereMsg.value = { ok: true, text: m.value.settings.deviceSaved(m.value.cars.ere.label) }
+  } catch (e: any) {
+    ereMsg.value = { ok: false, text: whyNot(e) }
   }
 }
 function setStrategy(s: any) {

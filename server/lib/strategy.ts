@@ -1,3 +1,4 @@
+import { dateFormat } from './time'
 import type { BatteryMode, PriceSlot, StrategyConfig } from './types'
 
 export interface PlanInput {
@@ -144,7 +145,8 @@ export function buildPlan(input: PlanInput): PlanSlot[] {
       }
       return { under, at, over }
     }
-    const dayOf = (d: Date) => new Intl.DateTimeFormat('en-CA', { timeZone: input.timeZone ?? 'Europe/Amsterdam' }).format(d)
+    const dayFmt = dateFormat('en-CA', { timeZone: input.timeZone ?? 'Europe/Amsterdam' })
+    const dayOf = (d: Date) => dayFmt.format(d)
     const days = new Map<string, number[]>()
     slots.forEach((s, i) => {
       const k = dayOf(s.slotStart)

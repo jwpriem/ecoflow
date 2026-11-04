@@ -14,13 +14,21 @@ type Site = typeof sites.$inferSelect
 const DAY_MS = 86_400_000
 /** The demo keeps about two months of history */
 export const DEMO_DAYS = 60
+/**
+ * Days of readings one run writes at most. The first run would otherwise work out and book all two months at
+ * once: minutes of work on the small server, long enough to stop it answering (a white screen in the app) and
+ * to have it restarted. In steps of a week the history is filled in within the first hour.
+ */
+export const DEMO_DAYS_PER_RUN = 7
+/** Let requests and the other jobs in between two simulated days */
+const breathe = () => new Promise<void>((resolve) => setImmediate(resolve))
 
 /**
  * One run for the demo household (every 5 minutes): write the readings from the last one up to now (two months
  * on the first run), the prices and sun for today and, from 13:00, tomorrow, then book them with the real
  * ledgers, plan with the real planner and show the latest reading as live. Older than two months is removed.
  */
-export async function demoTick(db: Db, site: Site, now = new Date(), historyDays = DEMO_DAYS) {
+export async function demoTick(db: Db, site: Site, now = new Date(), historyDays = DEMO_DAYS, daysPerRun = DEMO_DAYS_PER_RUN) {
   const devs = await db.select().from(devices).where(eq(devices.siteId, site.id)).orderBy(asc(devices.id))
   if (!devs.length) return { written: 0 }
   const cfg = { ...defaultStrategy, ...site.strategy }
@@ -29,6 +37,8 @@ export async function demoTick(db: Db, site: Site, now = new Date(), historyDays
 
   const [last] = await db.select({ ts: max(samples.ts) }).from(samples).where(and(eq(samples.siteId, site.id), eq(samples.kind, 'grid')))
   const from = last?.ts && last.ts > windowStart ? addMs(last.ts, DEMO_STEP_MS) : windowStart
+  // Up to this run's share of the history; the next run carries on from there
+  const until = new Date(Math.min(now.getTime(), startOfLocalDay(addMs(from, daysPerRun * DAY_MS + 12 * 3600_000), tz).getTime() - 1))
 
   const days = new Map<string, DemoDay>()
   const day = (d: Date) => {
@@ -39,9 +49,10 @@ export async function demoTick(db: Db, site: Site, now = new Date(), historyDays
 
   // Readings: every 5 minutes, the grid, the solar and each battery (the system's power split over the units)
   const rows: (typeof samples.$inferInsert)[] = []
-  for (let t = startOfLocalDay(from, tz); t <= now; t = startOfLocalDay(addMs(t, 36 * 3600_000), tz)) {
+  for (let t = startOfLocalDay(from, tz); t <= until; t = startOfLocalDay(addMs(t, 36 * 3600_000), tz)) {
+    await breathe()
     for (const p of day(t).points) {
-      if (p.ts < from || p.ts > now) continue
+      if (p.ts < from || p.ts > until) continue
       rows.push({ siteId: site.id, ts: p.ts, kind: 'grid', powerW: p.gridW })
       rows.push({ siteId: site.id, ts: p.ts, kind: 'solar', powerW: p.solarW })
       for (const d of devs) rows.push({ siteId: site.id, deviceId: d.id, ts: p.ts, kind: 'battery', powerW: p.batteryW / devs.length, soc: p.soc, pvW: 0 })
@@ -55,6 +66,7 @@ export async function demoTick(db: Db, site: Site, now = new Date(), historyDays
   if (localHour(now, tz) >= 13) day(tomorrow)
   day(today)
   for (const d of days.values()) {
+    await breathe()
     await upsertPrices(db, d.prices.map((p) => ({ siteId: site.id, slotStart: p.slotStart, slotMinutes: 15, energy: p.energy, tax: p.tax, total: p.total, feedIn: p.feedIn, source: 'tibber' as const })))
     const slots = d.prices.map((p) => p.slotStart)
     await db

@@ -26,5 +26,7 @@ export default defineEventHandler(async (event) => {
     /** The departure last set from WattsWise */
     departure: meta.departures?.[v.id] ?? null,
     state: (v.state ?? {}) as Partial<VehicleState>,
+    /** What ERE certificates earn per kWh charged at home (household-wide) */
+    ereEurPerKwh: meta.ereEurPerKwh ?? null,
   }))
 })

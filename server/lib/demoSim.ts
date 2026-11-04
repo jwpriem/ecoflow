@@ -1,6 +1,6 @@
 import { feedInPrice } from './feedin'
 import { buildPlan } from './strategy'
-import { addMs, SLOT_MS, startOfLocalDay } from './time'
+import { addMs, dateFormat, SLOT_MS, startOfLocalDay } from './time'
 import type { BatteryMode, PriceSlot, StrategyConfig } from './types'
 
 /**
@@ -34,12 +34,12 @@ export function seededRandom(seed: string) {
 
 /** The local calendar date of a moment, as YYYY-MM-DD */
 export function localDateKey(d: Date, timeZone: string) {
-  return new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(d)
+  return dateFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(d)
 }
 
 const dayOfYear = (d: Date) => Math.floor((d.getTime() - Date.UTC(d.getUTCFullYear(), 0, 0)) / 86_400_000)
 const fracHour = (d: Date, timeZone: string) => {
-  const [h, m] = new Intl.DateTimeFormat('en-GB', { timeZone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(d).split(':').map(Number)
+  const [h, m] = dateFormat('en-GB', { timeZone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(d).split(':').map(Number)
   return h! + m! / 60
 }
 

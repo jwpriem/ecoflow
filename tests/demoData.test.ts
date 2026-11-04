@@ -1,4 +1,4 @@
-import { and, eq, gte, lt, sum } from 'drizzle-orm'
+import { and, eq, gte, lt, max, sum } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from '../server/db/client'
 import * as schema from '../server/db/schema'
@@ -52,7 +52,7 @@ describe('demo generator', { timeout: 60_000 }, () => {
   })
 
   it('writes history the real ledger books, with plausible savings for 2 STREAM Pro', async () => {
-    const r = await demoTick(db, site, now, 14)
+    const r = await demoTick(db, site, now, 14, 15)
     expect(r.written).toBeGreaterThan(14 * 288 * 4)
     expect(r.booked).toBeGreaterThan(0)
 
@@ -83,6 +83,23 @@ describe('demo generator', { timeout: 60_000 }, () => {
     const tomorrow = new Date('2026-10-29T23:00:00Z')
     expect(await db.select().from(schema.prices).where(gte(schema.prices.slotStart, tomorrow))).toHaveLength(0)
     expect((await db.select().from(schema.commandsLog)).every((c) => c.result === 'skipped: demo')).toBe(true)
+  })
+
+  it('fills a long history in steps of a few days, without gaps or doubles', async () => {
+    // The real first run: two months would block the server for minutes (JER-40 white screen), so a week per run
+    const first = await demoTick(db, site, now, 14, 7)
+    expect(first.written).toBeLessThanOrEqual(8 * 300 * 4)
+    const [last1] = await db.select({ ts: max(schema.samples.ts) }).from(schema.samples)
+    expect(last1!.ts!.getTime()).toBeLessThan(now.getTime() - 5 * 86_400_000)
+    // Home still has a live reading and a plan meanwhile
+    expect(liveState(site.id)!.ts).toBe('2026-10-29T10:00:00.000Z')
+
+    for (let i = 0; i < 3; i++) await demoTick(db, site, now, 14, 7)
+    const all = await db.select().from(schema.samples).where(eq(schema.samples.kind, 'grid'))
+    const ts = all.map((s) => s.ts.getTime()).sort((a, b) => a - b)
+    expect(new Set(ts).size).toBe(ts.length)
+    expect(ts.at(-1)).toBe(new Date('2026-10-29T10:00:00Z').getTime())
+    for (let i = 1; i < ts.length; i++) expect(ts[i]! - ts[i - 1]!).toBe(5 * 60_000)
   })
 
   it('adds only what is new on the next run, tomorrow’s prices after 13:00, and drops what falls out of the window', async () => {
