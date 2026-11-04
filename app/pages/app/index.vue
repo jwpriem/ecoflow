@@ -9,18 +9,20 @@
     <LoadError v-else-if="error" :error="error" :what="m.load.what.batteries" :busy="loading" auto @retry="load" />
 
     <template v-if="d">
-      <!-- One column on a phone; on a large screen the charge and the day on the left, the flow and cars beside them -->
+      <!-- Three tiers: Now, Today, Around the house. On a phone one column in that order (set by order below);
+           on a large screen Now and Today on the left, the flow and Around the house beside them -->
       <div class="cols">
       <div class="main">
+      <h2 class="tier first" style="--o: 1">{{ m.home.tiers.now }}</h2>
       <!-- No batteries yet: say what to do instead of showing a 0% pack -->
-      <section v-if="!d.devices.length" class="status">
+      <section v-if="!d.devices.length" class="status" style="--o: 2">
         <h1 class="headline">{{ m.home.connectTitle }}</h1>
         <p class="detail">{{ m.home.connectText }}</p>
         <NuxtLink to="/settings" class="go">{{ m.common.openSettings }}</NuxtLink>
       </section>
 
       <!-- What the batteries are doing, in words -->
-      <section v-else class="status" aria-live="polite">
+      <section v-else class="status" style="--o: 2" aria-live="polite">
         <h1 class="headline" :class="state">{{ headline }}</h1>
         <p class="detail">{{ detail }}</p>
         <p v-if="d.site.override" class="note">{{ m.home.override(m.mode[d.site.override.mode]?.toLowerCase() ?? d.site.override.mode, time(d.site.override.until)) }}</p>
@@ -28,7 +30,7 @@
       </section>
 
       <!-- The battery as one bar, split into the real units -->
-      <section v-if="d.devices.length" class="pack" :aria-label="m.home.batteriesPct(Math.round(combinedSoc * 100))">
+      <section v-if="d.devices.length" class="pack" style="--o: 3" :aria-label="m.home.batteriesPct(Math.round(combinedSoc * 100))">
         <div class="pack-figure">
           <span class="pct">{{ Math.round(socT * 100) }}<small>%</small></span>
           <span class="kwh">{{ m.home.kwhOf(num(storedKwhT), num(capacityKwh)) }}</span>
@@ -56,21 +58,8 @@
         </p>
       </section>
 
-      <!-- The day: prices, the plan and the charge level on one time axis -->
-      <section class="block">
-        <div class="block-head">
-          <h2>{{ m.home.pricesAndPlan }}</h2>
-          <NuxtLink to="/plan">{{ m.home.openPlan }}</NuxtLink>
-        </div>
-        <DayStrip
-          v-if="soc && plan?.slots.length"
-          :slots="plan.slots" :history="soc.history" :forecast="soc.forecast" :now="soc.now" :soc-now="soc.socNow" :reserve="soc.reserveSoc"
-        />
-        <p v-else-if="plan" class="empty-text">{{ m.home.noPrices }}</p>
-        <div v-else class="skeleton" style="height: 230px" />
-      </section>
-
-      <section v-if="d.devices.length" class="figures">
+      <h2 class="tier" style="--o: 5">{{ m.home.tiers.today }}</h2>
+      <section v-if="d.devices.length" class="figures" style="--o: 6">
         <div>
           <span class="f-label">{{ m.home.savedToday }}</span>
           <span class="f-value" :class="{ neg: savedToday < 0 }">{{ eur(savedTodayT) }}</span>
@@ -85,27 +74,24 @@
           <span v-else class="f-note">{{ m.home.noPriceNow }}</span>
         </div>
       </section>
+      <!-- The day: prices, the plan and the charge level on one time axis -->
+      <section class="block" style="--o: 7">
+        <div class="block-head">
+          <h2>{{ m.home.pricesAndPlan }}</h2>
+          <NuxtLink to="/plan">{{ m.home.openPlan }}</NuxtLink>
+        </div>
+        <DayStrip
+          v-if="soc && plan?.slots.length"
+          :slots="plan.slots" :history="soc.history" :forecast="soc.forecast" :now="soc.now" :soc-now="soc.socNow" :reserve="soc.reserveSoc"
+        />
+        <p v-else-if="plan" class="empty-text">{{ m.home.noPrices }}</p>
+        <div v-else class="skeleton" style="height: 230px" />
+      </section>
+
       </div>
 
       <div class="side">
-      <!-- The cars at a glance; the Cars tab has the details -->
-      <section v-if="cars.length" class="block">
-        <div class="block-head">
-          <h2>{{ m.home.cars }}</h2>
-          <NuxtLink to="/cars">{{ m.home.openCars }}</NuxtLink>
-        </div>
-        <NuxtLink v-for="c in cars" :key="c.id" to="/cars" class="car-row">
-          <span class="cr-name">{{ c.model || c.name }}</span>
-          <span class="cr-pct">{{ c.state.soc == null ? '–' : Math.round(c.state.soc * 100) }}<small>%</small></span>
-          <div class="cr-bar"><div class="cr-fill" :class="carStatus(c).cls" :style="{ width: `${(c.state.soc ?? 0) * 100}%` }" /></div>
-          <span class="cr-status">
-            <span :class="carStatus(c).cls">{{ carStatus(c).text }}</span>
-, {{ (c.state.atHome ? m.cars.atHome : m.cars.away).toLowerCase() }}<template v-if="c.state.rangeKm != null">, {{ Math.round(c.state.rangeKm) }} km</template>
-          </span>
-        </NuxtLink>
-      </section>
-
-      <section v-if="d.devices.length || d.live" class="block flow-block">
+      <section v-if="d.devices.length || d.live" class="block flow-block" style="--o: 4">
         <div class="block-head">
           <h2>{{ m.home.energyFlow }}</h2>
           <Segmented v-model="view" :options="viewOptions" />
@@ -116,7 +102,30 @@
         </Transition>
       </section>
 
-      <footer class="sources">
+      <h2 class="tier" style="--o: 8">{{ m.home.tiers.around }}</h2>
+      <!-- The cars at a glance, laid out like the Cars tab; the whole row opens it -->
+      <section v-if="cars.length" class="block" style="--o: 9">
+        <div class="block-head">
+          <h2>{{ m.home.cars }}</h2>
+          <NuxtLink to="/cars">{{ m.home.openCars }}</NuxtLink>
+        </div>
+        <NuxtLink v-for="c in cars" :key="c.id" to="/cars" class="car-row">
+          <div>
+            <span class="cr-name">{{ c.name }}</span>
+            <span class="cr-where" :class="{ home: c.state.atHome }">
+              <AppIcon :name="c.state.atHome ? 'house' : 'car'" />
+              {{ c.state.atHome ? m.cars.atHome : m.cars.away }}
+            </span>
+          </div>
+          <div class="cr-level">
+            <span class="cr-pct">{{ c.state.soc == null ? '–' : Math.round(c.state.soc * 100) }}<small>%</small></span>
+            <span class="cr-status" :class="carStatus(c).cls">{{ carStatus(c).text }}</span>
+          </div>
+          <div class="cr-bar"><div class="cr-fill" :class="carStatus(c).cls" :style="{ width: `${(c.state.soc ?? 0) * 100}%` }" /></div>
+        </NuxtLink>
+      </section>
+
+      <footer class="sources" style="--o: 10">
         <span class="sources-clock"><span class="dot live" /> {{ time(d.now) }}</span>
         <span><span class="dot" :class="d.sources.pulse.connected ? 'ok' : ''" /> Tibber Pulse</span>
         <span v-for="i in d.sources.integrations" :key="i.provider">
@@ -252,12 +261,12 @@ const detail = computed(() => {
   const t = m.value.home
   const next = nextRuns.value[1]
   const w = watt(Math.abs(totalPower.value))
+  // What the batteries do and until when; the price is in Today below.
   // The plan's next step lives in this sentence now that Home has no Up next list; the full list is on Plan
   if (state.value !== 'idle') {
     parts.push(next ? t.powerUntilThen(w, run ? time(run.end) : null, (m.value.mode[next.action] ?? next.action).toLowerCase()) : t.powerUntil(w, run ? time(run.end) : null))
   } else if (next) parts.push(t.nextFrom(m.value.mode[next.action] ?? next.action, time(next.slotStart)))
   else if (run) parts.push(t.nextChange(time(run.end)))
-  if (d.value?.price) parts.push(t.costsNow(cents(d.value.price.total)))
   return parts.join(' ')
 })
 
@@ -270,17 +279,28 @@ onBeforeUnmount(() => clearInterval(timer))
 </script>
 
 <style scoped>
-.top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px; }
+.top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
 .logo { height: 26px; width: auto; display: block; }
 .clock { font-size: 14px; color: var(--text-2); display: inline-flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; }
 
 /* The status sentence: Archivo at full width is the page's voice */
-.status { margin-bottom: 28px; }
+.status { margin-bottom: 36px; }
 .headline {
   font-size: clamp(30px, 8.4vw, 48px); line-height: 1.02; font-weight: 750; font-stretch: 125%;
   letter-spacing: -0.025em; margin: 0 0 12px; max-width: 14ch; text-wrap: balance;
 }
-.detail { font-size: 18px; line-height: 1.4; color: var(--text-2); margin: 0; max-width: 34ch; font-variant-numeric: tabular-nums; }
+.detail { font-size: 16px; line-height: 1.4; color: var(--text-2); margin: 0; max-width: 34ch; font-variant-numeric: tabular-nums; }
+
+/* The tiers: a rule and a quiet label above Today and Around the house; Now sits under the logo.
+   The block before a tier brings 36px, so 4px more makes the 40px between tiers */
+.tier { font-size: 14px; font-weight: 600; color: var(--text-2); margin: 4px 2px 12px; padding-top: 14px; border-top: 1px solid var(--rule); }
+.tier.first { margin-top: 0; padding-top: 0; border-top: 0; }
+/* Phone: one column, in tier order */
+@media (max-width: 1023px) {
+  .cols { display: flex; flex-direction: column; }
+  .main, .side { display: contents; }
+  .main > *, .side > * { order: var(--o); }
+}
 
 /* Empty and stale states */
 .go { display: inline-block; margin-top: 16px; font-weight: 600; }
@@ -301,13 +321,13 @@ onBeforeUnmount(() => clearInterval(timer))
 .cell-fill.charging { box-shadow: inset -4px 0 0 var(--cheap); }
 .cell-fill.discharging { box-shadow: inset -4px 0 0 var(--dear); }
 .cell-reserve { position: absolute; bottom: -8px; width: 1.5px; height: 5px; margin-left: 2px; background: var(--text-2); }
-.cell-meta { display: flex; gap: 8px; align-items: baseline; margin-top: 10px; font-size: 14px; font-variant-numeric: tabular-nums; font-stretch: 88%; white-space: nowrap; }
+.cell-meta { display: flex; gap: 8px; align-items: baseline; margin-top: 10px; font-size: 13px; font-variant-numeric: tabular-nums; font-stretch: 88%; white-space: nowrap; }
 .cell-name { color: var(--text-2); overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .cell-pct { font-weight: 600; }
 .cell-power { margin-left: auto; color: var(--text-2); }
 .cell-power.charging { color: var(--cheap); }
 .cell-power.discharging { color: var(--dear); }
-.pack-value { margin: 14px 0 0; font-size: 14px; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.pack-value { margin: 14px 0 0; font-size: 13px; color: var(--text-2); font-variant-numeric: tabular-nums; }
 
 
 
@@ -315,18 +335,22 @@ onBeforeUnmount(() => clearInterval(timer))
 .swap-enter-active, .swap-leave-active { transition: opacity 0.2s; }
 .swap-enter-from, .swap-leave-to { opacity: 0; }
 
-/* Cars: one compact row each, the whole row opens the Cars tab */
-.car-row { display: grid; grid-template-columns: 1fr auto; align-items: baseline; gap: 6px 12px; padding: 10px 0; color: inherit; text-decoration: none; }
+/* Cars: one row each like a car on the Cars tab, name and place left, charge right; the whole row opens it */
+.car-row { display: grid; grid-template-columns: 1fr auto; align-items: start; gap: 12px 16px; padding: 14px 0 20px; color: inherit; text-decoration: none; }
 .car-row + .car-row { border-top: 1px solid var(--rule); }
-.cr-name { font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.cr-pct { font-size: 24px; line-height: 1; font-weight: 600; font-stretch: 75%; font-variant-numeric: tabular-nums; }
-.cr-pct small { font-size: 14px; font-weight: 400; color: var(--text-2); }
+.cr-name { display: block; font-weight: 600; line-height: 1.25; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cr-where { display: inline-flex; align-items: center; gap: 5px; margin-top: 4px; font-size: 14px; color: var(--text-2); }
+.cr-where svg { width: 16px; height: 16px; }
+.cr-where.home { color: var(--text); }
+.cr-level { text-align: right; }
+.cr-pct { font-size: 28px; line-height: 1; font-weight: 600; font-stretch: 75%; font-variant-numeric: tabular-nums; }
+.cr-pct small { font-size: 14px; font-weight: 500; color: var(--text-2); margin-left: 1px; }
+.cr-status { display: block; margin-top: 4px; font-size: 14px; font-weight: 600; color: var(--text-2); }
+.cr-status.charging { color: var(--cheap); }
+/* The charge is ink like the car on the Cars tab; the leading edge shows energy going in */
 .cr-bar { grid-column: 1 / -1; height: 6px; border-radius: 3px; background: var(--fill); overflow: hidden; }
-.cr-fill { height: 100%; border-radius: 3px; background: var(--text-2); transition: width 1s var(--ease-out); }
-.cr-fill.charging { background: var(--cheap); }
-.cr-status { grid-column: 1 / -1; font-size: 13px; color: var(--text-2); font-variant-numeric: tabular-nums; }
-.cr-status .charging { color: var(--cheap); font-weight: 600; }
-.cr-status .plugged { color: var(--text); }
+.cr-fill { height: 100%; border-radius: 3px; background: var(--text); transition: width 1s var(--ease-out); }
+.cr-fill.charging { box-shadow: inset -4px 0 0 var(--cheap); }
 
 .sources { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; color: var(--text-2); }
 .sources > span { display: inline-flex; align-items: center; gap: 6px; }
@@ -347,7 +371,6 @@ onBeforeUnmount(() => clearInterval(timer))
   .detail { font-size: 19px; max-width: 40ch; }
   .status { margin: 24px 0 44px; }
   .side { display: flex; flex-direction: column; padding-top: 10px; }
-  .flow-block { order: -1; }
   .block :deep(.flow) { max-width: none; }
 }
 </style>
