@@ -51,6 +51,13 @@ export const en = {
       saving: 'Saving…',
       failed: 'Could not set the departure time in Tibber',
     },
+    plan: {
+      title: 'Charging plan from Tibber',
+      loading: 'Getting the charging plan…',
+      none: 'Tibber has no charging planned right now.',
+      failed: 'Could not get the charging plan from Tibber.',
+      total: (energy: string, cost: string) => `In total ${energy}, about ${cost}`,
+    },
     foot: 'Read through the Zeekr app API every 5 minutes. Read-only: WattsWise never sends commands to the car.',
   },
   mode: { self_use: 'Self-use', solar_only: 'Hold', charge_grid: 'Charge from grid', discharge: 'Discharge' } as Record<string, string>,

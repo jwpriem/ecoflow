@@ -50,6 +50,13 @@ export const nl: Messages = {
       saving: 'Bezig…',
       failed: 'Kon de vertrektijd niet in Tibber zetten',
     },
+    plan: {
+      title: 'Laadplan van Tibber',
+      loading: 'Laadplan ophalen…',
+      none: 'Tibber heeft nu geen laadmomenten gepland.',
+      failed: 'Kon het laadplan niet uit Tibber halen.',
+      total: (energy: string, cost: string) => `Samen ${energy}, ongeveer ${cost}`,
+    },
     foot: 'Elke 5 minuten uitgelezen via de Zeekr-app-API. Alleen lezen: WattsWise stuurt nooit opdrachten naar de auto.',
   },
   mode: { self_use: 'Eigen verbruik', solar_only: 'Vasthouden', charge_grid: 'Laden van net', discharge: 'Ontladen' },
