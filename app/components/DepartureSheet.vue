@@ -1,7 +1,7 @@
 <template>
   <dialog ref="dlg" class="sheet" @close="emit('close')" @click.self="close">
     <form v-if="car" method="dialog" @submit.prevent="save">
-      <h2 tabindex="-1" autofocus>{{ m.cars.departure.title(car.name) }}</h2>
+      <h2 tabindex="-1" autofocus>{{ m.cars.departure.title(carLabel(car)) }}</h2>
 
       <p class="label">{{ m.cars.departure.day }}</p>
       <div class="chips">

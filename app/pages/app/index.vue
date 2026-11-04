@@ -111,7 +111,7 @@
         </div>
         <NuxtLink v-for="c in cars" :key="c.id" to="/cars" class="car-row">
           <div>
-            <span class="cr-name">{{ c.name }}</span>
+            <span class="cr-name">{{ carLabel(c) }}</span>
             <span class="cr-where" :class="{ home: c.state.atHome }">
               <AppIcon :name="c.state.atHome ? 'house' : 'car'" />
               {{ c.state.atHome ? m.cars.atHome : m.cars.away }}
@@ -210,7 +210,7 @@ const sceneCar = computed(() => {
     .sort((a, b) => rank(a) - rank(b))[0]
   if (!c) return null
   const charging = !!c.state.charging
-  return { name: c.name, soc: c.state.soc ?? null, plugged: !!c.state.pluggedIn, charging, powerW: charging ? (c.state.chargePowerW ?? null) : null }
+  return { name: carLabel(c), soc: c.state.soc ?? null, plugged: !!c.state.pluggedIn, charging, powerW: charging ? (c.state.chargePowerW ?? null) : null }
 })
 // The scene draws the charging car on its own, so the house there shows what's left without it
 const sceneHouseW = computed(() => {
