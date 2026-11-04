@@ -110,6 +110,18 @@ describe("Tibber's charging plan", () => {
     ])
   })
 
+  it('keeps a pause without energy as a gap between windows', () => {
+    const w = chargeWindows(
+      [
+        p('2026-11-04T22:00:00Z', '2026-11-04T22:30:00Z', 24, 27, 2.8, 1),
+        p('2026-11-04T22:30:00Z', '2026-11-04T23:00:00Z', 27, 27, 0, 0),
+        p('2026-11-04T23:00:00Z', '2026-11-05T05:15:00Z', 27, 100, 55.7, 21),
+      ],
+      now,
+    )
+    expect(w.map((x) => [x.start.slice(11, 16), x.end.slice(11, 16)])).toEqual([['22:00', '22:30'], ['23:00', '05:15']])
+  })
+
   it('drops windows that already ended', () => {
     expect(chargeWindows([p('2026-11-04T18:00:00Z', '2026-11-04T19:00:00Z', 10, 20, 5, 1)], now)).toEqual([])
   })
