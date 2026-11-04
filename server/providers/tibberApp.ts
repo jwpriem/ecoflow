@@ -351,3 +351,68 @@ export async function tibberAppVehicleSettings(creds: TibberAppCredentials, vehi
 export async function tibberAppSetBatteryLevel(creds: TibberAppCredentials, homeId: string, vehicleId: string, pct: number) {
   await tibberAppSetVehicleSettings(creds, homeId, vehicleId, [{ key: 'offline.vehicle.batteryLevel', value: String(pct) }])
 }
+
+/** One period of Tibber's smart-charging plan, as the app lists it (`charging.days[].periods`). */
+export interface TibberAppChargePeriod {
+  startAt: string
+  stopAt: string
+  fromStateOfCharge: number | null
+  toStateOfCharge: number | null
+  energy: number | null
+  cost: number | null
+}
+
+export interface TibberAppCharging {
+  chargingStatus: string | null
+  smartChargingStatus: string | null
+  targetedStateOfCharge: number | null
+  targetedDepartureTime: string | null
+  currency: string | null
+  periods: TibberAppChargePeriod[]
+}
+
+const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : null)
+const str = (v: unknown) => (v == null || v === '' ? null : String(v))
+
+/**
+ * The car's smart-charging plan as the Tibber app shows it: the planned charge periods per day,
+ * with the battery level at the start and end of each (in Tibber's own numbers) and its energy and
+ * cost. Field names as used by github.com/Donkie/better-tibber, which reads them from the live API.
+ */
+export async function tibberAppCharging(creds: TibberAppCredentials, vehicleId: string): Promise<TibberAppCharging> {
+  const data = await gql<{ me: { vehicle: Json | null } }>(
+    creds,
+    `query ($v: String!) { me { vehicle(id: $v) {
+      chargingStatus smartChargingStatus
+      charging {
+        targetedStateOfCharge targetedDepartureTime currency
+        days { periods { startAt stopAt fromStateOfCharge toStateOfCharge energy cost } }
+      }
+    } } }`,
+    { v: vehicleId },
+  )
+  const v = data.me?.vehicle ?? {}
+  const c = (v.charging ?? {}) as Json
+  const periods: TibberAppChargePeriod[] = []
+  for (const day of (c.days ?? []) as Json[]) {
+    for (const p of (day?.periods ?? []) as Json[]) {
+      if (!p?.startAt || !p?.stopAt) continue
+      periods.push({
+        startAt: String(p.startAt),
+        stopAt: String(p.stopAt),
+        fromStateOfCharge: num(p.fromStateOfCharge),
+        toStateOfCharge: num(p.toStateOfCharge),
+        energy: num(p.energy),
+        cost: num(p.cost),
+      })
+    }
+  }
+  return {
+    chargingStatus: str(v.chargingStatus),
+    smartChargingStatus: str(v.smartChargingStatus),
+    targetedStateOfCharge: num(c.targetedStateOfCharge),
+    targetedDepartureTime: str(c.targetedDepartureTime),
+    currency: str(c.currency),
+    periods,
+  }
+}

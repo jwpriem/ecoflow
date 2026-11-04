@@ -50,6 +50,8 @@
             <div v-if="c.departure"><dt>{{ m.cars.departure.fact }}</dt><dd>{{ departureText(c.departure) }}</dd></div>
           </dl>
 
+          <ChargePlan v-if="showPlan(c)" :plan="plans[c.id] ?? null" :error="planErrors[c.id]" />
+
           <button v-if="c.tibberVehicleId" class="depart" @click="asking = c">{{ m.cars.departure.button }}</button>
 
           <details class="edit">
@@ -77,7 +79,7 @@
       </div>
 
       <p v-if="cars.length" class="foot">{{ m.cars.foot }}</p>
-      <DepartureSheet :car="asking" @close="closeSheet" @saved="safeLoad" />
+      <DepartureSheet :car="asking" @close="closeSheet" @saved="afterDeparture" />
     </template>
 
     <template v-else>
@@ -128,6 +130,31 @@ function fullRange(c: any) {
 async function load() {
   cars.value = await api('/api/vehicles')
 }
+
+// Tibber's charging plan per car (only for cars linked to a car in Tibber)
+const plans = ref<Record<number, any>>({})
+const planErrors = ref<Record<number, boolean>>({})
+function showPlan(c: any) {
+  if (!c.tibberVehicleId) return false
+  return !!plans.value[c.id]?.windows.length || (c.state.pluggedIn && c.state.atHome) || planErrors.value[c.id]
+}
+async function loadPlans() {
+  for (const c of cars.value ?? []) {
+    if (!c.tibberVehicleId) continue
+    try {
+      const { plan } = await api<{ plan: any }>(`/api/vehicles/${c.id}/plan`)
+      plans.value = { ...plans.value, [c.id]: plan }
+      planErrors.value = { ...planErrors.value, [c.id]: false }
+    } catch {
+      planErrors.value = { ...planErrors.value, [c.id]: true }
+    }
+  }
+}
+async function afterDeparture() {
+  await safeLoad()
+  // Tibber replans after a new departure time: look again shortly
+  setTimeout(() => loadPlans(), 20_000)
+}
 async function loadTibberCars() {
   const list: any[] = await api('/api/integrations')
   tibberCars.value = (list.find((i) => i.provider === 'tibber_app')?.meta.vehicles as any[]) ?? []
@@ -153,12 +180,18 @@ async function retryLoad() {
 }
 
 let timer: ReturnType<typeof setInterval>
-onMounted(() => {
-  safeLoad()
+let planTimer: ReturnType<typeof setInterval>
+onMounted(async () => {
   loadTibberCars().catch(() => undefined)
   timer = setInterval(safeLoad, 60_000)
+  planTimer = setInterval(loadPlans, 5 * 60_000)
+  await safeLoad()
+  loadPlans()
 })
-onBeforeUnmount(() => clearInterval(timer))
+onBeforeUnmount(() => {
+  clearInterval(timer)
+  clearInterval(planTimer)
+})
 </script>
 
 <style scoped>
