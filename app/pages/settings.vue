@@ -183,6 +183,28 @@
         <p v-if="!devs.length && !loadError" class="foot">{{ m.settings.noBatteries }}</p>
         <p v-else class="foot">{{ m.settings.batteriesFoot }}</p>
       </section>
+      <!-- The cars, set up like the batteries; the Cars tab links here -->
+      <section v-if="cars.length" id="cars" class="group" style="--o: 6">
+        <template v-for="c in cars" :key="c.id">
+          <h3 class="section-title">{{ c.name }}</h3>
+          <div class="list" @change="saveCar(c)">
+            <label class="list-row"><span class="title">{{ m.cars.name }}</span><input v-model="c.name" /></label>
+            <label class="list-row">
+              <span class="title">{{ m.cars.capacity }}</span>
+              <span class="unit-in"><input v-model.number="c.capacityKwh" type="number" step="0.5" inputmode="decimal" /> kWh</span>
+            </label>
+            <label v-if="tibberCars.length" class="list-row">
+              <span class="title">{{ m.cars.tibberCar }}</span>
+              <select v-model="c.tibberVehicleId">
+                <option :value="null">{{ m.cars.tibberNone }}</option>
+                <option v-for="t in tibberCars" :key="t.id" :value="t.id">{{ t.name }}</option>
+              </select>
+            </label>
+          </div>
+          <p v-if="carMsg?.id === c.id" class="foot" :class="{ error: carMsg?.ok === false }" role="status">{{ carMsg?.text }}</p>
+        </template>
+        <p class="foot">{{ m.settings.carsFoot }}</p>
+      </section>
       <section class="group" style="--o: 7">
         <h3 class="section-title">{{ m.settings.notifications }}</h3>
         <div class="list">
@@ -342,6 +364,10 @@ const strategy = ref<any>(null)
 type Msg = { ok: boolean; text: string } | null
 const strategyMsg = ref<Msg>(null)
 const deviceMsg = ref<{ id: number; ok: boolean; text: string } | null>(null)
+// The cars only exist with the experimental integrations; tibberCars are the ones in the Tibber app to pick from
+const cars = ref<any[]>([])
+const carMsg = ref<{ id: number; ok: boolean; text: string } | null>(null)
+const tibberCars = computed<{ id: string; name: string }[]>(() => (integrations.value.find((i) => i.provider === 'tibber_app')?.meta.vehicles as any[]) ?? [])
 
 const pct = reactive({ reserveSoc: 10, maxSoc: 100, roundTripEfficiency: 85 })
 
@@ -406,6 +432,7 @@ async function load() {
   control.value = { steering: plan.steering, controlMode: plan.controlMode }
   setStrategy(plan.strategy)
   await loadMe(true)
+  cars.value = experimental.value ? await api<any[]>('/api/vehicles') : []
 }
 
 async function save(provider: string) {
@@ -464,6 +491,15 @@ async function saveDevice(d: any) {
   }
 }
 
+async function saveCar(c: any) {
+  try {
+    const body = { name: c.name, capacityKwh: typeof c.capacityKwh === 'number' ? c.capacityKwh : null, ...(tibberCars.value.length ? { tibberVehicleId: c.tibberVehicleId ?? null } : {}) }
+    await api(`/api/vehicles/${c.id}`, { method: 'PUT', body })
+    carMsg.value = { id: c.id, ok: true, text: m.value.settings.deviceSaved(c.name) }
+  } catch (e: any) {
+    carMsg.value = { id: c.id, ok: false, text: whyNot(e) }
+  }
+}
 function setStrategy(s: any) {
   strategy.value = s
   pct.reserveSoc = Math.round(s.reserveSoc * 100)
@@ -581,6 +617,8 @@ onMounted(async () => {
   }
   push.init().catch(() => (push.state.value = 'unsupported'))
   await safeLoad()
+  // From the Cars tab (/settings#cars): the group only exists once loaded, so scroll to it now
+  if (route.hash === '#cars') nextTick(() => document.getElementById('cars')?.scrollIntoView({ block: 'start' }))
   // Sign-in may finish in another window or on another device: refresh when the page is shown again
   document.addEventListener('visibilitychange', onVisible)
 })
