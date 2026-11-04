@@ -125,6 +125,7 @@ export const en = {
     priceNow: 'Price now',
     feedInNow: (c: string) => `You get ${c} for feeding in`,
     noPriceNow: 'No price for this quarter yet',
+    tiers: { now: 'Now', today: 'Today', around: 'Around the house' },
     energyFlow: 'Energy flow',
     viewClean: 'Clean',
     viewHouse: 'House',
@@ -143,7 +144,6 @@ export const en = {
     nextChange: (t: string) => `Next change at ${t}.`,
     powerUntilThen: (w: string, t: string | null, next: string) => `${w}${t ? ` until ${t}` : ''}, then ${next}.`,
     nextFrom: (mode: string, t: string) => `${mode} from ${t}.`,
-    costsNow: (c: string) => `Power costs ${c} per kWh right now.`,
   },
   login: {
     welcome: 'Welcome to WattsWise',

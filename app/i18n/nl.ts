@@ -124,6 +124,7 @@ export const nl: Messages = {
     priceNow: 'Prijs nu',
     feedInNow: (c) => `Je krijgt ${c} voor teruglevering`,
     noPriceNow: 'Nog geen prijs voor dit kwartier',
+    tiers: { now: 'Nu', today: 'Vandaag', around: 'Rondom het huis' },
     energyFlow: 'Energiestroom',
     viewClean: 'Simpel',
     viewHouse: 'Huis',
@@ -142,7 +143,6 @@ export const nl: Messages = {
     nextChange: (t) => `Volgende wissel om ${t}.`,
     powerUntilThen: (w, t, next) => `${w}${t ? ` tot ${t}` : ''}, daarna ${next}.`,
     nextFrom: (mode, t) => `${mode} vanaf ${t}.`,
-    costsNow: (c) => `Stroom kost nu ${c} per kWh.`,
   },
   login: {
     welcome: 'Welkom bij WattsWise',
