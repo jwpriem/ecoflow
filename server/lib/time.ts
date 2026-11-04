@@ -9,9 +9,21 @@ export function addMs(d: Date, ms: number): Date {
   return new Date(d.getTime() + ms)
 }
 
+const formats = new Map<string, Intl.DateTimeFormat>()
+/**
+ * An Intl.DateTimeFormat, made once per locale and options. Making one costs far more than formatting with it:
+ * a fresh one per call made the demo generator block the server for minutes (thousands of calls per day).
+ */
+export function dateFormat(locale: string, options: Intl.DateTimeFormatOptions): Intl.DateTimeFormat {
+  const key = `${locale}|${JSON.stringify(options)}`
+  let f = formats.get(key)
+  if (!f) formats.set(key, (f = new Intl.DateTimeFormat(locale, options)))
+  return f
+}
+
 /** Local wall-clock hour (0-23, fractional) of a date in a timezone */
 export function localHour(d: Date, timeZone = 'Europe/Amsterdam'): number {
-  const parts = new Intl.DateTimeFormat('en-GB', { timeZone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(d)
+  const parts = dateFormat('en-GB', { timeZone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(d)
   const h = Number(parts.find((p) => p.type === 'hour')?.value ?? 0)
   const m = Number(parts.find((p) => p.type === 'minute')?.value ?? 0)
   return h + m / 60
@@ -19,7 +31,7 @@ export function localHour(d: Date, timeZone = 'Europe/Amsterdam'): number {
 
 /** Offset of a timezone from UTC at a moment, in ms (e.g. +2h in Amsterdam summer) */
 export function tzOffsetMs(d: Date, timeZone: string): number {
-  const parts = new Intl.DateTimeFormat('en-US', {
+  const parts = dateFormat('en-US', {
     timeZone, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit',
   }).formatToParts(d)
   const get = (t: string) => Number(parts.find((p) => p.type === t)?.value ?? 0)

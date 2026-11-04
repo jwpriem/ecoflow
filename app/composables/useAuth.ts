@@ -3,6 +3,8 @@ import type { OnboardingStep } from '#shared/onboarding'
 // The session token: localStorage on the web, the Keychain in the iOS app (utils/native.ts; plugins/native.client.ts
 // reads it before the app starts)
 const KEY = 'battery.token'
+/** How long the app waits for /api/auth/me before it opens anyway */
+export const ME_TIMEOUT_MS = 10_000
 
 function readToken(): string | null {
   try {
@@ -39,7 +41,9 @@ export function useAuth() {
   /** Fetch who is logged in (once, unless forced). */
   async function loadMe(force = false) {
     if (!token.value || (me.value && !force)) return me.value
-    me.value = await useApi()<Me>('/api/auth/me')
+    // Every first navigation waits for this (middleware/auth.global.ts): with no answer at all the app would stay
+    // a white screen, so give up after a while. The page then opens and OfflineNotice says the server is away.
+    me.value = await useApi()<Me>('/api/auth/me', { timeout: ME_TIMEOUT_MS })
     return me.value
   }
 
