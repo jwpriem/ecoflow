@@ -127,6 +127,24 @@ export async function rediscoverTibberApp(db: Db, site: Site, key: string, cars:
   await syncTibberApp(db, site, key, cars)
 }
 
+/** How long after the first push to send the battery level again */
+export const TIBBER_RESYNC_AFTER_MS = 4 * 60 * 1000
+
+/**
+ * What to send Tibber for a car plugged in at home, given the car's previous state. Tibber can
+ * start its charging session a few seconds after our first push and then plans from the level it
+ * had before; a change during the session makes it replan. So send the level once on plug-in
+ * ('first') and once more a few minutes later ('again'), then nothing ('wait' in between, 'done').
+ */
+export function tibberPushStep(
+  prev: { atHome?: boolean; pluggedIn?: boolean; tibberSyncedAt?: string; tibberResyncedAt?: string },
+  now: Date,
+): 'first' | 'wait' | 'again' | 'done' {
+  if (!(prev.atHome && prev.pluggedIn && prev.tibberSyncedAt)) return 'first'
+  if (prev.tibberResyncedAt) return 'done'
+  return now.getTime() - new Date(prev.tibberSyncedAt).getTime() >= TIBBER_RESYNC_AFTER_MS ? 'again' : 'wait'
+}
+
 /**
  * Called when a car is newly plugged in at home: tell Tibber which car is on the charger and its
  * battery level. Returns true when Tibber accepted both, so the caller can remember it was done.

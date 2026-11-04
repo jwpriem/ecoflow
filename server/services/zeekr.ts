@@ -11,7 +11,7 @@ import {
   zeekrVehicleReading,
 } from '../providers/zeekr'
 import { getIntegration, markIntegration, updateIntegration } from './integrations'
-import { askDeparture, pushPluggedCarToTibber, rediscoverTibberApp } from './tibberEv'
+import { askDeparture, pushPluggedCarToTibber, rediscoverTibberApp, tibberPushStep } from './tibberEv'
 
 type Site = typeof sites.$inferSelect
 
@@ -21,6 +21,8 @@ export interface VehicleState extends VehicleReading {
   ts: string
   /** Set once the battery level was sent to Tibber for the current plug-in at home */
   tibberSyncedAt?: string
+  /** Set once the battery level was sent a second time, after Tibber's charging session started */
+  tibberResyncedAt?: string
 }
 
 /** A car counts as "at home" within this distance of home. */
@@ -142,8 +144,11 @@ export async function readZeekrVehicles(db: Db, site: Site, key: string, now = n
         await askDeparture(db, site, key, row).catch(() => undefined)
       }
       if (state.atHome && state.pluggedIn && state.soc != null) {
-        if (prev.atHome && prev.pluggedIn && prev.tibberSyncedAt) state.tibberSyncedAt = prev.tibberSyncedAt
-        else if (await pushPluggedCarToTibber(db, site, key, row, state.soc, state.targetSoc)) state.tibberSyncedAt = now.toISOString()
+        const step = tibberPushStep(prev, now)
+        if (step !== 'first') state.tibberSyncedAt = prev.tibberSyncedAt
+        if (step === 'done') state.tibberResyncedAt = prev.tibberResyncedAt
+        if (step === 'first' && (await pushPluggedCarToTibber(db, site, key, row, state.soc, state.targetSoc))) state.tibberSyncedAt = now.toISOString()
+        if (step === 'again' && (await pushPluggedCarToTibber(db, site, key, row, state.soc, state.targetSoc))) state.tibberResyncedAt = now.toISOString()
       }
       states.push(state)
       await db.update(vehicles).set({ state: state as unknown as Record<string, unknown> }).where(eq(vehicles.id, row.id))
