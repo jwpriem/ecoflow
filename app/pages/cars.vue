@@ -1,6 +1,10 @@
 <template>
   <div>
-    <header class="page-head"><h1>{{ m.cars.title }}</h1></header>
+    <header class="page-head">
+      <h1>{{ m.cars.title }}</h1>
+      <!-- Name, capacity and the Tibber car are set in Settings -->
+      <NuxtLink v-if="cars?.length" to="/settings#cars" class="to-settings">{{ m.cars.editInSettings }}<AppIcon name="chevron" /></NuxtLink>
+    </header>
     <LoadError v-if="loadError" :error="loadError" :what="m.cars.what" :busy="busy === 'load'" @retry="retryLoad" />
 
     <template v-else-if="cars !== null">
@@ -11,80 +15,56 @@
         <NuxtLink to="/settings" class="go">{{ m.common.openSettings }}</NuxtLink>
       </section>
 
+      <!-- With more than one car, one sentence says where they all are first -->
+      <p v-if="cars.length > 1" class="summary">
+        <template v-for="c in cars" :key="c.id">
+          {{ c.name }} <span :class="summary(c).cls">{{ summary(c).verb }}</span><template v-if="summary(c).where"> <span class="quiet">{{ summary(c).where }}</span></template>.
+        </template>
+      </p>
+
       <div class="cars">
-      <template v-for="c in cars" :key="c.id">
-        <section class="car">
+        <section v-for="c in cars" :key="c.id" class="car">
           <header class="car-head">
-            <h2 class="car-name">{{ c.name }}</h2>
-            <span class="where" :class="{ home: c.state.atHome }">
-              <AppIcon :name="c.state.atHome ? 'house' : 'car'" />
-              {{ c.state.atHome ? m.cars.atHome : m.cars.away }}
-            </span>
-            <span v-if="c.model" class="sub">{{ c.model }}</span>
+            <div>
+              <h2 class="car-name">{{ c.name }}</h2>
+              <span class="where" :class="{ home: c.state.atHome }">
+                <AppIcon :name="c.state.atHome ? 'house' : 'car'" />
+                {{ c.state.atHome ? m.cars.atHome : m.cars.away }}
+              </span>
+            </div>
+            <div class="level">
+              <span class="pct">{{ c.state.soc == null ? '–' : Math.round(c.state.soc * 100) }}<small>%</small></span>
+              <p class="status-line" :class="carStatus(c).cls">{{ carStatus(c).text }}</p>
+            </div>
           </header>
 
-          <div class="car-body">
           <CarFigure
             :soc="c.state.soc" :charging="c.state.charging" :target="c.state.targetSoc" :model="c.model" :name="c.name"
             :label="m.cars.figureAria(c.name, c.state.soc == null ? m.cars.levelUnknown : m.cars.pctCharged(Math.round(c.state.soc * 100)), carStatus(c).text)"
           />
 
-          <div class="car-info">
-          <div class="readout">
-            <div>
-              <span class="pct">{{ c.state.soc == null ? '–' : Math.round(c.state.soc * 100) }}<small>%</small></span>
-              <p class="status-line" :class="carStatus(c).cls">{{ carStatus(c).text }}</p>
+          <!-- Only what matters now: plug and charge power are in the status line, the times in the note below -->
+          <div v-if="c.state.rangeKm != null || c.state.targetSoc != null || c.tibberVehicleId" class="list">
+            <div v-if="c.state.rangeKm != null" class="list-row">
+              <span class="title">{{ m.cars.rangeLabel }}</span>
+              <span class="detail">
+                {{ Math.round(c.state.rangeKm) }} km
+                <span v-if="fullRange(c)" class="full">{{ m.cars.fullRange(fullRange(c)!) }}</span>
+              </span>
             </div>
-            <div v-if="c.state.rangeKm != null" class="range">
-              <span class="km">{{ Math.round(c.state.rangeKm) }}<small> km</small></span>
-              <p v-if="fullRange(c)" class="status-line muted">{{ m.cars.fullRange(fullRange(c)!) }}</p>
+            <div v-if="c.state.targetSoc != null" class="list-row">
+              <span class="title">{{ m.cars.target }}</span>
+              <span class="detail">{{ Math.round(c.state.targetSoc * 100) }}%</span>
             </div>
+            <button v-if="c.tibberVehicleId" type="button" class="list-row" @click="asking = c">
+              <span class="title">{{ m.cars.departure.row }}</span>
+              <span class="detail row-end">{{ c.departure ? departureText(c.departure) : m.cars.departure.unset }}<AppIcon name="chevron" class="chev" /></span>
+            </button>
           </div>
-
-          <dl class="facts">
-            <div><dt>{{ m.cars.plug }}</dt><dd>{{ c.state.pluggedIn ? m.cars.pluggedIn : m.cars.unplugged }}</dd></div>
-            <div v-if="c.state.chargePowerW"><dt>{{ m.cars.power }}</dt><dd class="live">{{ watt(c.state.chargePowerW) }}</dd></div>
-            <div v-if="c.state.targetSoc != null"><dt>{{ m.cars.target }}</dt><dd>{{ Math.round(c.state.targetSoc * 100) }}%</dd></div>
-            <div v-if="c.state.ts"><dt>{{ m.cars.updated }}</dt><dd>{{ time(c.state.ts) }}</dd></div>
-            <div v-if="c.state.tibberSyncedAt"><dt>{{ m.cars.tibberSynced }}</dt><dd>{{ time(c.state.tibberSyncedAt) }}</dd></div>
-            <div v-if="c.departure"><dt>{{ m.cars.departure.fact }}</dt><dd>{{ departureText(c.departure) }}</dd></div>
-          </dl>
-
           <ChargePlan v-if="showPlan(c)" :plan="plans[c.id] ?? null" :error="planErrors[c.id]" />
-
-          <button v-if="c.tibberVehicleId" class="depart" @click="asking = c">{{ m.cars.departure.button }}</button>
-
-          <details class="edit">
-            <summary>{{ m.cars.edit }}</summary>
-            <div class="list">
-              <label class="list-row"><span class="title">{{ m.cars.name }}</span><input v-model="c.name" /></label>
-              <label class="list-row">
-                <span class="title">{{ m.cars.capacity }}</span>
-                <span class="unit-in"><input v-model.number="c.capacityKwh" type="number" step="0.5" inputmode="decimal" /> kWh</span>
-              </label>
-              <label v-if="tibberCars.length" class="list-row">
-                <span class="title">{{ m.cars.tibberCar }}</span>
-                <select v-model="c.tibberVehicleId">
-                  <option :value="null">{{ m.cars.tibberNone }}</option>
-                  <option v-for="t in tibberCars" :key="t.id" :value="t.id">{{ t.name }}</option>
-                </select>
-              </label>
-              <div class="list-row"><button class="plain" @click="saveCar(c)">{{ m.cars.save }}</button><span v-if="savedId === c.id" class="small pos">{{ m.cars.saved }}</span></div>
-            </div>
-          </details>
-          </div>
-          </div>
+          <p v-if="c.state.ts" class="stamps">{{ m.cars.stamps(time(c.state.ts), c.state.tibberSyncedAt ? time(c.state.tibberSyncedAt) : null) }}</p>
         </section>
-      </template>
       </div>
-
-      <section v-if="cars.some((c) => c.tibberVehicleId)" class="ere">
-        <label class="list-row">
-          <span class="title">{{ m.cars.ere.label }}<small>{{ m.cars.ere.help }}</small></span>
-          <span class="unit-in">€ <input v-model.number="ere" type="number" step="0.01" min="0" max="1" inputmode="decimal" @change="saveEre" /> /kWh</span>
-        </label>
-        <span v-if="ereSaved" class="small pos">{{ m.cars.saved }}</span>
-      </section>
 
       <p v-if="cars.length" class="foot">{{ m.cars.foot }}</p>
       <DepartureSheet :car="asking" @close="closeSheet" @saved="afterDeparture" />
@@ -103,10 +83,7 @@ const { m } = useLocale()
 const { carStatus } = useCarStatus()
 const cars = ref<any[] | null>(null)
 const busy = ref('')
-const savedId = ref<number | null>(null)
 const loadError = ref<any>(null)
-// The cars known in the Tibber app, when it is connected: pick which one each car is
-const tibberCars = ref<{ id: string; name: string }[]>([])
 // The car whose departure is being asked; ?departure=<id> (from the plug-in notification) opens it
 const route = useRoute()
 const router = useRouter()
@@ -129,6 +106,17 @@ function closeSheet() {
 }
 watch(() => route.query.departure, openFromRoute)
 
+// One car's part of the summary sentence: what it does, and where. A parked car away is just away
+function summary(c: any): { verb: string; where: string; cls: string } {
+  const t = m.value.cars.summary
+  const s = c.state ?? {}
+  const where = s.atHome ? t.home : t.away
+  if (s.soc == null) return { verb: t.asleep, where, cls: 'quiet' }
+  if (s.charging) return { verb: t.charging, where, cls: 'charging' }
+  if (s.pluggedIn) return { verb: t.plugged, where, cls: 'quiet' }
+  return s.atHome ? { verb: t.idle, where, cls: 'quiet' } : { verb: t.gone, where: '', cls: 'quiet' }
+}
+
 // The range on a full charge, extrapolated from the current one, to the nearest 10 km
 function fullRange(c: any) {
   const { rangeKm, soc } = c.state
@@ -137,18 +125,6 @@ function fullRange(c: any) {
 }
 async function load() {
   cars.value = await api('/api/vehicles')
-  if (ere.value === undefined) ere.value = cars.value?.[0]?.ereEurPerKwh ?? null
-}
-
-// What ERE certificates earn per kWh through the charger: the plan shows its cost after them
-const ere = ref<number | null | undefined>(undefined)
-const ereSaved = ref(false)
-async function saveEre() {
-  const v = typeof ere.value === 'number' && ere.value > 0 ? ere.value : null
-  await api('/api/vehicles/ere', { method: 'PUT', body: { eurPerKwh: v } })
-  ereSaved.value = true
-  setTimeout(() => (ereSaved.value = false), 2500)
-  loadPlans()
 }
 
 // Tibber's charging plan per car (only for cars linked to a car in Tibber)
@@ -175,15 +151,6 @@ async function afterDeparture() {
   // Tibber replans after a new departure time: look again shortly
   setTimeout(() => loadPlans(), 20_000)
 }
-async function loadTibberCars() {
-  const list: any[] = await api('/api/integrations')
-  tibberCars.value = (list.find((i) => i.provider === 'tibber_app')?.meta.vehicles as any[]) ?? []
-}
-async function saveCar(c: any) {
-  await api(`/api/vehicles/${c.id}`, { method: 'PUT', body: { name: c.name, capacityKwh: c.capacityKwh ?? null, ...(tibberCars.value.length ? { tibberVehicleId: c.tibberVehicleId ?? null } : {}) } })
-  savedId.value = c.id
-  setTimeout(() => (savedId.value = null), 2500)
-}
 async function safeLoad() {
   try {
     await load()
@@ -202,7 +169,6 @@ async function retryLoad() {
 let timer: ReturnType<typeof setInterval>
 let planTimer: ReturnType<typeof setInterval>
 onMounted(async () => {
-  loadTibberCars().catch(() => undefined)
   timer = setInterval(safeLoad, 60_000)
   planTimer = setInterval(loadPlans, 5 * 60_000)
   await safeLoad()
@@ -215,51 +181,41 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+.to-settings { display: inline-flex; align-items: center; gap: 2px; font-size: 14px; color: var(--text-2); text-decoration: none; }
+.to-settings svg { width: 14px; height: 14px; }
 .nothing { border-top: 1px solid var(--rule); padding-top: 18px; margin-bottom: 36px; }
 .nothing h2 { font-size: 21px; font-weight: 700; font-stretch: 112%; margin: 0 0 6px; }
 .nothing p { margin: 0 0 14px; color: var(--text-2); max-width: 46ch; }
 .go { font-weight: 600; }
 
+/* The status sentence, set wide like the one on Home: names in ink, what they do quieter, charging in its color */
+.summary { font-size: 21px; line-height: 1.3; font-weight: 600; font-stretch: 112%; letter-spacing: -0.005em; margin: 0 0 32px; max-width: 34ch; }
+.summary .quiet { color: var(--text-2); }
+.summary .charging { color: var(--cheap); }
+
 /* Each car is a section on the canvas, split by a rule like the blocks on Home */
-.car { border-top: 1px solid var(--rule); padding-top: 14px; margin-bottom: 44px; }
-.car-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; margin-bottom: 8px; }
+.car { border-top: 1px solid var(--rule); padding-top: 14px; margin-bottom: 36px; }
+.car-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
 .car-name { font-size: 21px; font-weight: 700; font-stretch: 112%; letter-spacing: -0.005em; margin: 0; }
-.where { display: inline-flex; align-items: center; gap: 5px; margin-left: auto; font-size: 14px; color: var(--text-2); }
+.where { display: inline-flex; align-items: center; gap: 5px; margin-top: 4px; font-size: 14px; color: var(--text-2); }
 .where svg { width: 16px; height: 16px; }
 .where.home { color: var(--text); }
-.sub { flex-basis: 100%; font-size: 14px; color: var(--text-2); }
-
-.readout { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-top: 16px; }
-.range { text-align: right; }
-.pct, .km { font-size: 48px; line-height: 1; font-weight: 650; font-stretch: 75%; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
-.pct small { font-size: 24px; font-weight: 500; color: var(--text-2); margin-left: 1px; }
-.km small { font-size: 18px; font-weight: 500; color: var(--text-2); }
-.status-line { margin: 6px 0 0; font-size: 14px; font-weight: 600; }
-.status-line.muted { font-weight: 400; color: var(--text-2); }
+.level { text-align: right; }
+.pct { font-size: 36px; line-height: 1; font-weight: 650; font-stretch: 75%; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+.pct small { font-size: 18px; font-weight: 500; color: var(--text-2); margin-left: 1px; }
+.status-line { margin: 4px 0 0; font-size: 14px; font-weight: 600; color: var(--text-2); }
 .status-line.charging { color: var(--cheap); }
 
-.facts { margin: 22px 0 0; border-top: 1px solid var(--rule); }
-.facts > div { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--rule); }
-.facts dt { color: var(--text-2); }
-.facts dd { margin: 0; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
-.facts dd.live { color: var(--cheap); }
-
-.depart { margin-top: 14px; width: 100%; }
-.edit { margin-top: 12px; }
-.edit summary { cursor: pointer; font-size: 14px; color: var(--text-2); padding: 6px 0; }
-.unit-in { display: inline-flex; align-items: center; justify-content: flex-end; gap: 4px; color: var(--text-2); width: 55%; }
-.unit-in input { width: 100%; }
-.ere { border-top: 1px solid var(--rule); padding-top: 10px; margin-bottom: 18px; }
-.ere .title small { display: block; font-size: 13px; color: var(--text-2); font-weight: 400; }
+.list { margin-bottom: 0; }
+.detail .full { display: block; font-size: 13px; }
+button.list-row { color: var(--text); }
+.row-end { display: inline-flex; align-items: center; gap: 4px; }
+.chev { width: 16px; height: 16px; color: var(--muted); }
+.stamps { font-size: 13px; color: var(--text-2); margin: 8px 16px 0; font-variant-numeric: tabular-nums; }
 .foot { font-size: 13px; color: var(--text-2); margin: 4px 2px 0; max-width: 60ch; }
 
-/* Large screens: cars side by side. A car with room for it puts the photo beside its numbers */
+/* Large screens: cars side by side */
 @media (min-width: 1024px) {
-  .cars { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 0 56px; }
-  .car { container-type: inline-size; }
-}
-@container (min-width: 760px) {
-  .car-body { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 0 56px; align-items: center; }
-  .car-info .readout { margin-top: 0; }
+  .cars { display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 0 56px; }
 }
 </style>

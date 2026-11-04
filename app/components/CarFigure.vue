@@ -1,7 +1,10 @@
 <template>
   <!-- The car, parked on its own charge: the floor under the tyres is the battery, filled with ink like the pack on Home -->
   <figure class="car-figure" role="img" :aria-label="label">
-    <img v-if="photo" class="photo" :src="photo.src" :width="photo.w" :height="photo.h" :style="{ width: `${photo.scale * SIZE * 100}%` }" alt="" decoding="async" />
+    <!-- Every car stands on the same ground line, in a stage as tall as the tallest photo -->
+    <div v-if="photo" class="stage">
+      <img class="photo" :src="photo.src" :width="photo.w" :height="photo.h" :style="{ width: `${photo.scale * SIZE * 100}%` }" alt="" decoding="async" />
+    </div>
     <div class="floor">
       <div class="charge" :class="{ charging }" :style="{ width: `${pct(soc)}%` }" />
       <!-- The charge limit, marked under the floor like the reserve under the batteries -->
@@ -14,13 +17,15 @@
 // soc and target are fractions (0–1); label is the spoken description
 const props = defineProps<{ soc: number | null; charging?: boolean | null; target?: number | null; model?: string | null; name?: string | null; label: string }>()
 
-// Product renders by Zeekr (zeekr.eu, zeekrlife.com), cut to the car. Each is drawn at its real length
-// against the longest, the 001 (4,970 mm), so the two cars keep their sizes next to each other.
-// The longest takes 60% of the width, so the car doesn't crowd the figures around it
+// Product renders by Zeekr (zeekr.eu, zeekrlife.com), cut to the car. They are three-quarter views from
+// different distances, so the length in the photo says little; the height does. Each is drawn at its
+// real height against the 001 (1,548 mm; the X is 1,572 mm), measured on the car in the photo
+// (474 of 495 px for the 001, 587 of 604 px for the X), so the two cars keep their sizes next to each other.
+// The 001 takes 60% of the width, so the car doesn't crowd the figures around it
 const SIZE = 0.6
 const PHOTOS = {
   '001': { src: '/cars/zeekr-001.webp', w: 1200, h: 495, scale: 1 },
-  x: { src: '/cars/zeekr-x.webp', w: 1200, h: 604, scale: 4450 / 4970 },
+  x: { src: '/cars/zeekr-x.webp', w: 1200, h: 604, scale: (1572 / 1548) * (474 / 587) },
 }
 const photo = computed(() => {
   const s = `${props.model ?? ''} ${props.name ?? ''}`
@@ -33,7 +38,9 @@ const pct = (f: number | null | undefined) => (f == null ? 0 : Math.min(1, Math.
 </script>
 
 <style scoped>
-.car-figure { margin: 20px 0 24px; display: flex; flex-direction: column; align-items: center; }
+.car-figure { margin: 24px 0; display: flex; flex-direction: column; align-items: center; }
+/* As tall as the 001 at 60% width (495/1200 of it); the X at its scale comes out just as tall */
+.stage { align-self: stretch; aspect-ratio: 1200 / 297; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; }
 .photo { display: block; max-width: 100%; height: auto; }
 /* The charge bar keeps some air under the tyres, so the car doesn't stand on it */
 .floor { position: relative; align-self: stretch; height: 8px; margin-top: 16px; border-radius: 2px; background: var(--fill); }
