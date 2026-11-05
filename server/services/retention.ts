@@ -36,12 +36,16 @@ export async function thinSamples(db: Db, site: Site, now = new Date()): Promise
   let days = 0
   for (let day = new Date(Math.floor(oldest.ts.getTime() / DAY_MS) * DAY_MS); day < until && days < MAX_DAYS_PER_RUN; day = addMs(day, DAY_MS)) {
     const dayEnd = addMs(day, DAY_MS)
+    // db.execute passes values to the driver as they are, without the column's mapping: postgres-js
+    // can't send a Date there (TypeError in Buffer.byteLength), so the bounds go as ISO strings.
+    const from = day.toISOString()
+    const to = dayEnd.toISOString()
     // One statement, so a day is either thinned completely or not at all
     await db.execute(sql`
       with gone as (
         delete from ${samples}
         -- Every kind spelled out, so the (site_id, kind, ts) index finds the day
-        where site_id = ${site.id} and kind in ('battery', 'grid', 'solar') and ts >= ${day} and ts < ${dayEnd}
+        where site_id = ${site.id} and kind in ('battery', 'grid', 'solar') and ts >= ${from}::timestamptz and ts < ${to}::timestamptz
         returning site_id, device_id, kind, ts, power_w, soc, pv_w
       )
       insert into ${samples} (site_id, device_id, kind, ts, power_w, soc, pv_w)
