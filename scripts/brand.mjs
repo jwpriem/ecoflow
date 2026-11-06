@@ -3,9 +3,9 @@
 // (see README). The house and bolt are cut out of the sun and battery with masks, so the mark works on any background.
 import { readFileSync, writeFileSync } from 'node:fs'
 
-const NIGHT = { house: '#E9F0F1', battery: '#4DBFA9', sun: '#F2BA30' }
-const DAY = { house: '#0F2229', battery: '#1B7062', sun: '#A87700' }
-const BG = '#16262E'
+const NIGHT = { house: '#F4EEE6', battery: '#5BC0DE', sun: '#D97706' }
+const DAY = { house: '#0B132B', battery: '#1D6E8C', sun: '#D97706' }
+const BG = '#0B132B'
 
 const HOUSE = 'M70 294L226 158L382 294 M122 258V426H330V258'
 // Bounding box of the mark, strokes included
@@ -49,7 +49,7 @@ writeFileSync('scripts/icon-apple.svg', icon(0, 0.78))
 writeFileSync('public/favicon.svg', icon(112, 1))
 // iOS app launch screen (ios/App/App/Assets.xcassets/Splash.imageset): the mark small in the middle of a square that the
 // launch screen crops to the phone, on the day canvas and, for dark mode, on the night canvas
-const CANVAS = { day: '#E6ECEE', night: BG }
+const CANVAS = { day: '#F6EFE4', night: BG }
 for (const [sky, c] of [['day', DAY], ['night', NIGHT]]) {
   const cx = BOX.x + BOX.w / 2, cy = BOX.y + BOX.h / 2
   writeFileSync(`scripts/splash-${sky}.svg`, `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2732 2732">

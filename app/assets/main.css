@@ -1,8 +1,9 @@
 /*
  * WattsWise design system.
  *
- * The canvas follows the sun over the house, not the phone: daylight grey (the STREAM's casing)
- * while the sun is up, polder-night blue after dusk. `plugins/sky.client.ts` sets
+ * The canvas follows the sun over the house, not the phone: sand (#F4D6B0, lightened) with navy ink
+ * while the sun is up, navy (#0B132B) with cream ink after dusk. The palette: #0B132B · #1C2541 ·
+ * #3A506B · #5BC0DE · #F4D6B0 · #D97706. `plugins/sky.client.ts` sets
  * <html data-sky="day|night">.
  *
  * Color carries meaning, never decoration, and the meaning is the price:
@@ -12,6 +13,7 @@
  *   own    = self-use
  *   hold   = holding / idle
  * The charge level itself is ink: the battery is neutral, what it does is colored.
+ * Orange (#D97706) is the call to action and nothing else: primary buttons and switches that are on.
  *
  * One typeface, Archivo, with its width axis doing the work: wide for the status sentence,
  * normal for reading, condensed + tabular for numbers and dense rows.
@@ -42,53 +44,56 @@
 :root,
 :root[data-sky='day'] {
   color-scheme: light;
-  --bg: #e6ecee;
-  --surface: #f2f5f6;
-  --surface-2: #dbe3e6;
-  --surface-3: #c9d4d8;
-  --rule: rgba(15, 34, 41, 0.14);
-  --text: #0f2229;
-  --text-2: #4a5f67;
-  --muted: #5c7077;
-  --fill: rgba(15, 34, 41, 0.1);
-  --fill-2: rgba(15, 34, 41, 0.055);
-  --grid: rgba(15, 34, 41, 0.09);
+  --bg: #f6efe4;
+  --surface: #fcf8f2;
+  --surface-2: #ede3d5;
+  --surface-3: #e0d3c1;
+  --rule: rgba(11, 19, 43, 0.14);
+  --text: #0b132b;
+  --text-2: #3a506b;
+  --muted: #5e6a80;
+  --fill: rgba(11, 19, 43, 0.1);
+  --fill-2: rgba(11, 19, 43, 0.055);
+  --grid: rgba(11, 19, 43, 0.09);
 
-  --cheap: #1b7062;
+  --cheap: #17765a;
   --dear: #a8325f;
-  --sun: #a87700;
+  --sun: #946200;
   --own: #5a4fc0;
-  --hold: #6c7f85;
-  --import: #2c6690;
+  --hold: #64748b;
+  --import: #1d6e8c;
   --alert: #b3372a;
 }
 
 :root[data-sky='night'] {
   color-scheme: dark;
-  --bg: #16262e;
-  --surface: #1c2f38;
-  --surface-2: #243a45;
-  --surface-3: #2f4753;
-  --rule: rgba(233, 240, 241, 0.13);
-  --text: #e9f0f1;
-  --text-2: #a2b4ba;
-  --muted: #74898f;
-  --fill: rgba(233, 240, 241, 0.12);
-  --fill-2: rgba(233, 240, 241, 0.065);
-  --grid: rgba(233, 240, 241, 0.08);
+  --bg: #0b132b;
+  --surface: #1c2541;
+  --surface-2: #26314f;
+  --surface-3: #3a506b;
+  --rule: rgba(244, 238, 230, 0.13);
+  --text: #f4eee6;
+  --text-2: #b0bacb;
+  --muted: #7f8ca3;
+  --fill: rgba(244, 238, 230, 0.12);
+  --fill-2: rgba(244, 238, 230, 0.065);
+  --grid: rgba(244, 238, 230, 0.08);
 
-  --cheap: #4dbfa9;
-  --dear: #ec6e9f;
-  --sun: #f2ba30;
-  --own: #a497f2;
-  --hold: #6f868e;
-  --import: #79aedd;
-  --alert: #f2786a;
+  --cheap: #5dcaa0;
+  --dear: #ee85a8;
+  --sun: #f5c451;
+  --own: #a9a1f5;
+  --hold: #7b8da8;
+  --import: #5bc0de;
+  --alert: #f47f6e;
 }
 
 :root {
   --separator: var(--rule);
   --accent: var(--text);
+  /* Call to action, the same in both skies: navy on orange is 5.8:1 (white on it would be 3.2:1) */
+  --cta: #d97706;
+  --on-cta: #0b132b;
 
   /* Older names, mapped onto the meanings above so every page follows the new palette */
   --sys-green: var(--cheap);
@@ -126,11 +131,11 @@
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
 /* Launched at night, iOS draws white status text over the page (see utils/skyBoot.ts).
-   Keep a polder-night band under it, so the text stays readable if the sun comes up meanwhile
+   Keep a navy band under it, so the text stays readable if the sun comes up meanwhile
    and content never scrolls beneath the clock. */
 html[data-statusbar='translucent'] body::before {
   content: ''; position: fixed; top: 0; left: 0; right: 0; z-index: 40;
-  height: env(safe-area-inset-top); background: #16262e;
+  height: env(safe-area-inset-top); background: #0b132b;
 }
 html, body {
   margin: 0;
@@ -216,7 +221,7 @@ h2 { font-size: 16px; font-weight: 600; margin: 0; }
 /* Swatch for a plan action or a series */
 .sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; flex: none; }
 
-/* Buttons: ink on the canvas, no tints */
+/* Buttons: ink on the canvas, no tints; the primary one is the orange call to action */
 button, .btn {
   font: 600 15px var(--font);
   border: 1px solid var(--rule); background: transparent; color: var(--text);
@@ -225,7 +230,7 @@ button, .btn {
 }
 button:hover { background: var(--fill-2); }
 button:active { transform: translateY(1px); }
-button.primary { background: var(--text); color: var(--bg); border-color: var(--text); }
+button.primary { background: var(--cta); color: var(--on-cta); border-color: var(--cta); }
 button.primary:hover { opacity: 0.88; }
 button.plain { border: 0; background: none; padding: 6px 2px; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--muted); }
 button.danger { color: var(--alert); }
@@ -288,8 +293,8 @@ label.field > span { display: block; font-size: 14px; color: var(--text-2); marg
 .switch input { opacity: 0; position: absolute; inset: 0; margin: 0; cursor: pointer; z-index: 1; }
 .switch span { position: absolute; inset: 0; border-radius: 99px; background: var(--fill); transition: background 0.2s; }
 .switch span::after { content: ''; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: var(--surface); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2); transition: transform 0.25s var(--ease-out); }
-.switch input:checked + span { background: var(--text); }
-.switch input:checked + span::after { transform: translateX(18px); background: var(--bg); }
+.switch input:checked + span { background: var(--cta); }
+.switch input:checked + span::after { transform: translateX(18px); background: #fff; }
 .switch input:focus-visible + span { outline: 2px solid var(--text); outline-offset: 2px; }
 
 /* Tables */

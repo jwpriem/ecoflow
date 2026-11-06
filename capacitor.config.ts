@@ -10,7 +10,7 @@ const config: CapacitorConfig = {
     // The page draws under the status bar and home indicator itself (env(safe-area-inset-*) in main.css)
     contentInset: 'never',
     // Before the page has painted: the day canvas, not white
-    backgroundColor: '#e6ecee',
+    backgroundColor: '#f6efe4',
   },
 }
 

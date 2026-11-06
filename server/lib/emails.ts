@@ -138,24 +138,24 @@ function text(c: Content, locale: Locale): string {
 
 /** Inline styles only: mail clients drop <style> blocks and most CSS. Colors from the app's light theme. */
 function html(c: Content, locale: Locale, appUrl: string): string {
-  const p = (s: string, style = 'margin:0 0 16px;font-size:16px;line-height:1.5;color:#0f2229') => `<p style="${style}">${esc(s)}</p>`
+  const p = (s: string, style = 'margin:0 0 16px;font-size:16px;line-height:1.5;color:#0b132b') => `<p style="${style}">${esc(s)}</p>`
   const button = c.button
-    ? `<p style="margin:24px 0"><a href="${esc(c.button.url)}" style="display:inline-block;padding:12px 20px;border-radius:10px;background:#0f2229;color:#ffffff;font-weight:600;text-decoration:none">${esc(c.button.label)}</a></p>
-<p style="margin:0 0 16px;font-size:13px;line-height:1.5;color:#4a5f67;word-break:break-all">${esc(c.button.url)}</p>`
+    ? `<p style="margin:24px 0"><a href="${esc(c.button.url)}" style="display:inline-block;padding:12px 20px;border-radius:10px;background:#d97706;color:#0b132b;font-weight:600;text-decoration:none">${esc(c.button.label)}</a></p>
+<p style="margin:0 0 16px;font-size:13px;line-height:1.5;color:#3a506b;word-break:break-all">${esc(c.button.url)}</p>`
     : ''
   return `<!doctype html>
 <html lang="${locale}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${esc(c.subject)}</title></head>
-<body style="margin:0;padding:24px 12px;background:#e6ecee;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif">
+<body style="margin:0;padding:24px 12px;background:#f6efe4;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#f4f7f8;border-radius:16px">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#fcf8f2;border-radius:16px">
 <tr><td style="padding:28px 28px 8px"><img src="${esc(appUrl)}/icon-192.png" width="40" height="40" alt="WattsWise" style="display:block;border-radius:10px"></td></tr>
 <tr><td style="padding:8px 28px 12px">
-<h1 style="margin:0 0 16px;font-size:22px;line-height:1.3;color:#0f2229">${esc(c.heading)}</h1>
+<h1 style="margin:0 0 16px;font-size:22px;line-height:1.3;color:#0b132b">${esc(c.heading)}</h1>
 ${c.paragraphs.map((x) => p(x)).join('\n')}
 ${button}
-${c.note ? p(c.note, 'margin:0 0 16px;font-size:14px;line-height:1.5;color:#4a5f67') : ''}
+${c.note ? p(c.note, 'margin:0 0 16px;font-size:14px;line-height:1.5;color:#3a506b') : ''}
 </td></tr>
-<tr><td style="padding:16px 28px 24px;border-top:1px solid #d5dee1;font-size:12px;color:#4a5f67">${esc(FOOTER[locale])}</td></tr>
+<tr><td style="padding:16px 28px 24px;border-top:1px solid #e0d3c1;font-size:12px;color:#3a506b">${esc(FOOTER[locale])}</td></tr>
 </table></td></tr></table>
 </body></html>`
 }

@@ -66,7 +66,7 @@
         <polygon points="236,120 286,170 286,229 236,229" fill="#cfc7bb" />
         <polygon points="236,120 286,170 236,170" fill="#ada395" />
         <polygon points="240,134 262,156 240,156" :fill="sky.horizon" />
-        <circle cx="266" cy="190" r="22" fill="#f2ba30" :opacity="0.12 + sky.darkness * 0.4" />
+        <circle cx="266" cy="190" r="22" fill="#f5c451" :opacity="0.12 + sky.darkness * 0.4" />
         <path d="M266 186V228" stroke="#fff" stroke-width="1.5" />
         <polygon points="260,178 272,178 274,188 258,188" fill="#fff6d6" />
         <rect x="238" y="212" width="22" height="16" rx="2" fill="#9d958c" />
@@ -86,9 +86,9 @@
         <!-- Charger light: breathes while charging, steady when plugged in, dim when idle -->
         <rect x="298.5" y="192" width="3" height="10" rx="1.5" :fill="car?.charging ? 'var(--cheap)' : car?.plugged ? '#f4f7fb' : '#5d636e'" :class="{ breathe: car?.charging && animate }" />
         <g v-if="car && car.soc != null" transform="translate(338 184)">
-          <rect width="22" height="9" rx="2.5" fill="rgba(22,38,46,0.8)" stroke="rgba(233,240,241,0.5)" stroke-width="1" />
-          <rect x="22.5" y="3" width="1.6" height="3" rx="0.6" fill="rgba(233,240,241,0.5)" />
-          <rect x="1.5" y="1.5" :width="Math.max(1, 19 * car.soc)" height="6" rx="1.4" :fill="car.charging ? 'var(--cheap)' : '#e9f0f1'" />
+          <rect width="22" height="9" rx="2.5" fill="rgba(11,19,43,0.8)" stroke="rgba(244,238,230,0.5)" stroke-width="1" />
+          <rect x="22.5" y="3" width="1.6" height="3" rx="0.6" fill="rgba(244,238,230,0.5)" />
+          <rect x="1.5" y="1.5" :width="Math.max(1, 19 * car.soc)" height="6" rx="1.4" :fill="car.charging ? 'var(--cheap)' : '#f4eee6'" />
         </g>
         <rect x="124" y="196" width="17" height="29" rx="3" fill="#e9edf2" />
         <rect x="129" y="193" width="7" height="3" rx="1" fill="#e9edf2" />
@@ -145,7 +145,7 @@ const sky = computed(() => skyFor(sun.value.altitude))
 const sunX = computed(() => Math.round(195 + Math.max(-1.2, Math.min(1.2, sun.value.hourAngle / 100)) * 160))
 const sunY = computed(() => Math.round(196 - sun.value.altitude * 4.2))
 // A low sun is warmer; fixed colors, so it never borrows a meaning from the price palette
-const sunColor = computed(() => (sun.value.altitude < 6 ? '#f2913a' : '#f2ba30'))
+const sunColor = computed(() => (sun.value.altitude < 6 ? '#d97706' : '#f5c451'))
 const sunLabel = computed(() => {
   const { sunrise, sunset } = nextSunEvents(now.value)
   const hhmm = (d: Date) => d.toLocaleTimeString('nl-NL', { timeZone: 'Europe/Amsterdam', hour: '2-digit', minute: '2-digit' })
@@ -226,8 +226,8 @@ const aria = computed(() => chips.value.map((c) => `${c.label} ${c.value}`).join
    does: chips, wires and their colors read the same over a blue noon sky and a starry one. */
 .scene {
   position: relative; border-radius: var(--radius); overflow: hidden; aspect-ratio: 390 / 290; transition: background 2s;
-  --bg: #16262e; --text: #e9f0f1; --text-2: #a2b4ba; --surface-3: #2f4753;
-  --cheap: #4dbfa9; --dear: #ec6e9f; --sun: #f2ba30; --import: #79aedd;
+  --bg: #0b132b; --text: #f4eee6; --text-2: #b0bacb; --surface-3: #3a506b;
+  --cheap: #5dcaa0; --dear: #ee85a8; --sun: #f5c451; --import: #5bc0de;
   color: var(--text);
 }
 /* Only the illustration fills the scene; icons inside chips and the legend flow normally */
@@ -242,9 +242,9 @@ const aria = computed(() => chips.value.map((c) => `${c.label} ${c.value}`).join
 
 .where, .chip {
   position: absolute;
-  background: rgba(22, 38, 46, 0.74);
+  background: rgba(11, 19, 43, 0.72);
   -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
-  box-shadow: inset 0 0 0 1px rgba(233, 240, 241, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(244, 238, 230, 0.12);
 }
 .where { top: 8px; right: 8px; padding: 3px 9px; border-radius: 4px; font-size: 12px; color: var(--text-2); font-variant-numeric: tabular-nums; }
 .chip { display: flex; align-items: center; gap: 7px; padding: 4px 10px 4px 5px; border-radius: 6px; }
