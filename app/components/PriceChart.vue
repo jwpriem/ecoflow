@@ -1,12 +1,12 @@
 <template>
-  <div class="price-chart">
+  <div class="price-chart" :class="{ compact }">
     <div
       ref="scroller" class="scroller" tabindex="0" role="group" :aria-label="aria" @scroll.passive="scrollX = scroller!.scrollLeft"
       @keydown.left.prevent="step(-1)" @keydown.right.prevent="step(1)" @keydown.home.prevent="emit('update:modelValue', nowIndex)"
     >
       <svg v-if="cw" :width="width" :height="H" @click="pick">
         <!-- price grid, every 10 ct -->
-        <line v-for="g in gridSteps" :key="g" :x1="0" :x2="width" :y1="py(g)" :y2="py(g)" class="grid" :class="{ zero: g === 0 }" />
+        <line v-for="g in compact ? [] : gridSteps" :key="g" :x1="0" :x2="width" :y1="py(g)" :y2="py(g)" class="grid" :class="{ zero: g === 0 }" />
 
         <!-- the selected slot gets a column behind it -->
         <rect v-if="sel" :x="sel.x - 1" :y="PT" :width="slotW + 1" :height="PH" class="sel-col" />
@@ -24,7 +24,7 @@
         <text v-if="showTodayLabel" x="2" y="15" class="day-t">{{ m.day.today }}</text>
 
         <!-- hour ticks along the bottom; labels every 3 hours -->
-        <g class="axis">
+        <g v-if="!compact" class="axis">
           <template v-for="t in hours" :key="t.x">
             <line :x1="t.x" :x2="t.x" :y1="PB" :y2="PB + (t.label ? 6 : 3)" />
             <text v-if="t.label" :x="t.x" :y="PB + 19" text-anchor="middle">{{ t.label }}</text>
@@ -41,7 +41,7 @@
       </svg>
     </div>
     <!-- price axis stays put while the bars scroll under it -->
-    <div class="y-axis" aria-hidden="true">
+    <div v-if="!compact" class="y-axis" aria-hidden="true">
       <span v-for="g in gridSteps.filter((g) => g !== 0 || minP < 0)" :key="g" :style="{ top: `${py(g)}px` }">{{ Math.round(g * 100) }}<template v-if="g === maxP"> ct</template></span>
     </div>
   </div>
@@ -49,7 +49,8 @@
 
 <script setup lang="ts">
 interface Slot { slotStart: string; total: number; action: string | null }
-const props = defineProps<{ slots: Slot[]; now: number; modelValue: number }>()
+/** compact: a slim strip that fits the width, without price axis or hour labels */
+const props = defineProps<{ slots: Slot[]; now: number; modelValue: number; compact?: boolean; label?: string }>()
 const emit = defineEmits<{ 'update:modelValue': [number] }>()
 
 const COLOR: Record<string, string> = {
@@ -60,10 +61,10 @@ const COLOR: Record<string, string> = {
 }
 const SLOT = 15 * 60_000
 const PT = 30
-const PH = 150
-const PB = PT + PH
-const H = PB + 26
-const AXIS = 36
+const PH = computed(() => (props.compact ? 44 : 150))
+const PB = computed(() => PT + PH.value)
+const H = computed(() => PB.value + (props.compact ? 4 : 26))
+const AXIS = computed(() => (props.compact ? 0 : 36))
 
 const scroller = ref<HTMLElement>()
 const cw = ref(0)
@@ -77,13 +78,13 @@ onBeforeUnmount(() => ro?.disconnect())
 
 const start = computed(() => (props.slots[0] ? new Date(props.slots[0].slotStart).getTime() : props.now))
 // At least 6 px per quarter so every bar stays readable; on a wide screen a single day fills the width
-const slotW = computed(() => Math.max(6, (cw.value - AXIS) / Math.max(1, props.slots.length)))
+const slotW = computed(() => Math.max(props.compact ? 0.5 : 6, (cw.value - AXIS.value) / Math.max(1, props.slots.length)))
 const barW = computed(() => Math.max(1, slotW.value - 1.5))
-const width = computed(() => props.slots.length * slotW.value + AXIS)
+const width = computed(() => props.slots.length * slotW.value + AXIS.value)
 
 const maxP = computed(() => Math.max(0.1, Math.ceil(Math.max(...props.slots.map((s) => s.total)) * 10) / 10))
 const minP = computed(() => Math.min(0, Math.floor(Math.min(...props.slots.map((s) => s.total)) * 10) / 10))
-const py = (p: number) => PT + ((maxP.value - p) / (maxP.value - minP.value)) * PH
+const py = (p: number) => PT + ((maxP.value - p) / (maxP.value - minP.value)) * PH.value
 const gridSteps = computed(() => {
   const out: number[] = []
   for (let g = minP.value; g <= maxP.value + 1e-9; g += 0.1) out.push(Math.round(g * 10) / 10)
@@ -118,7 +119,7 @@ const midnights = computed(() =>
       const x = i * slotW.value
       const label = dayName(d)
       // A label that would run under the price axis goes to the left of its line (about 7 px per character)
-      const flip = x + 6 + label.length * 7 > scrollX.value + cw.value - AXIS && x - 6 - label.length * 7 > scrollX.value
+      const flip = x + 6 + label.length * 7 > scrollX.value + cw.value - AXIS.value && x - 6 - label.length * 7 > scrollX.value
       return { x, label, flip }
     }),
 )
@@ -151,13 +152,14 @@ function reveal(i: number, force = false) {
   const el = scroller.value
   if (!el || i < 0) return
   const x = i * slotW.value
-  const visible = x > el.scrollLeft + 8 && x < el.scrollLeft + el.clientWidth - AXIS - 8
+  const visible = x > el.scrollLeft + 8 && x < el.scrollLeft + el.clientWidth - AXIS.value - 8
   if (force || !visible) el.scrollTo({ left: Math.max(0, x - el.clientWidth * 0.25), behavior: force ? 'auto' : 'smooth' })
 }
 watch(cw, (w, old) => !old && w && nextTick(() => reveal(props.modelValue, true)))
 watch(() => props.modelValue, (i) => reveal(i))
 
 const aria = computed(() => {
+  if (props.label) return props.label
   const up = props.slots.slice(Math.max(0, nowIndex.value))
   if (!up.length) return m.value.chart.prices
   const lo = up.reduce((a, b) => (b.total < a.total ? b : a))
