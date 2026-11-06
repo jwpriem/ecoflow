@@ -2,6 +2,7 @@ import type { Db } from '../db/client'
 import { samples, type sites } from '../db/schema'
 import { pulseGridW } from '../providers/tibberPulse'
 import { readEcoFlow } from './ecoflow'
+import { watchPulse } from './pulse'
 import { solarEdgeSolarW } from './solaredge'
 import { runSurplus } from './strategy'
 
@@ -68,6 +69,11 @@ export async function collect(db: Db, site: Site, key: string, now = new Date())
     } catch (err) {
       console.error(`[surplus] site ${site.id}:`, (err as Error).message)
     }
+  }
+  try {
+    await watchPulse(db, site, key, now)
+  } catch (err) {
+    console.error(`[pulse] site ${site.id}: watchdog:`, (err as Error).message)
   }
   return state
 }

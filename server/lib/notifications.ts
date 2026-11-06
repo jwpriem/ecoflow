@@ -100,3 +100,45 @@ export function dailyMessage(t: { savingNaive: number; dischargedKwh: number; ch
 /** Sent from Settings to check that notifications reach this device */
 export const testMessage: LocalizedPush = (l) =>
   l === 'nl' ? { title: 'WattsWise', body: 'Meldingen werken 🎉', url: '/settings', tag: 'test' } : { title: 'WattsWise', body: 'Notifications work 🎉', url: '/settings', tag: 'test' }
+
+const when = (d: Date, now: Date, timeZone: string, l: Locale) => {
+  const day = (x: Date) => x.toLocaleDateString('en-CA', { timeZone })
+  const time = hhmm(d, timeZone)
+  if (day(d) === day(now)) return time
+  const date = d.toLocaleDateString(l === 'nl' ? 'nl-NL' : 'en-GB', { timeZone, day: 'numeric', month: 'short' })
+  return l === 'nl' ? `${date} ${time}` : `${date}, ${time}`
+}
+
+const duration = (ms: number, l: Locale) => {
+  const min = Math.max(1, Math.round(ms / 60_000))
+  if (min < 60) return l === 'nl' ? `${min} min` : `${min} min`
+  const h = Math.round(min / 60)
+  if (h < 48) return l === 'nl' ? `${h} uur` : `${h} ${h === 1 ? 'hour' : 'hours'}`
+  const d = Math.round(h / 24)
+  return l === 'nl' ? `${d} dagen` : `${d} days`
+}
+
+/** The Tibber Pulse sent nothing for a while: the house load and solar surplus are blind until it's back */
+export function pulseDownMessage(since: Date, now: Date, timeZone: string): LocalizedPush {
+  return (l) =>
+    l === 'nl'
+      ? {
+          title: 'Tibber Pulse geeft geen data',
+          body: `Sinds ${when(since, now, timeZone, l)} komen er geen meterstanden binnen. Kijk of de Pulse nog brandt of haal hem even uit de meter. Je krijgt bericht als hij terug is.`,
+          url: '/settings',
+          tag: 'pulse',
+        }
+      : {
+          title: 'Tibber Pulse sends no data',
+          body: `No meter readings since ${when(since, now, timeZone, l)}. Check whether the Pulse is lit, or unplug it from the meter for a moment. You'll hear when it's back.`,
+          url: '/settings',
+          tag: 'pulse',
+        }
+}
+
+export function pulseUpMessage(downForMs: number): LocalizedPush {
+  return (l) =>
+    l === 'nl'
+      ? { title: 'Tibber Pulse is terug', body: `Na ${duration(downForMs, l)} zonder data komen de meterstanden weer binnen.`, url: '/', tag: 'pulse' }
+      : { title: 'Tibber Pulse is back', body: `Meter readings are coming in again after ${duration(downForMs, l)} without data.`, url: '/', tag: 'pulse' }
+}

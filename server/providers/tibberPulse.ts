@@ -19,6 +19,8 @@ interface Conn {
   timer?: ReturnType<typeof setTimeout>
   lastMessageAt: number
   ackAt: number
+  /** When this stream was started (boot or new Tibber settings) */
+  startedAt: number
 }
 
 const conns = new Map<number, Conn>()
@@ -29,6 +31,11 @@ export const PULSE_BACKOFF = { baseMs: 5_000, maxMs: 300_000 }
 export const PULSE_STABLE_MS = 60_000
 /** First connects are spread out by at least this much, so a restart doesn't open every stream at once */
 export const PULSE_STAGGER_MS = 1_000
+/**
+ * A Pulse sends a reading every few seconds. An open connection that stays silent this long is closed and
+ * reconnected: Tibber sometimes keeps the socket open without sending anything, which used to go unnoticed for days.
+ */
+export const PULSE_STALE_MS = 3 * 60_000
 let nextStartAt = 0
 
 /** When the next first connect may go: one slot every PULSE_STAGGER_MS */
@@ -40,8 +47,22 @@ export function staggerDelay(now = Date.now()): number {
 
 export function pulseStatus(siteId: number) {
   const c = conns.get(siteId)
-  if (!c) return { connected: false, lastMessageAt: null as number | null }
-  return { connected: c.ws?.readyState === WebSocket.OPEN, lastMessageAt: c.lastMessageAt || null }
+  if (!c) return { active: false, connected: false, lastMessageAt: null as number | null, startedAt: null as number | null }
+  return { active: true, connected: c.ws?.readyState === WebSocket.OPEN, lastMessageAt: c.lastMessageAt || null, startedAt: c.startedAt }
+}
+
+/**
+ * Called every collection tick: an open connection that has been silent for PULSE_STALE_MS is dropped,
+ * so the normal reconnect (with backoff) takes over. Returns true when it dropped one.
+ */
+export function pulseWatchdog(siteId: number, now = Date.now(), log = console): boolean {
+  const c = conns.get(siteId)
+  if (!c?.ws || c.ws.readyState !== WebSocket.OPEN || !c.ackAt) return false
+  const silentFor = now - Math.max(c.lastMessageAt, c.ackAt)
+  if (silentFor < PULSE_STALE_MS) return false
+  log.warn(`[pulse] site ${siteId}: no reading for ${Math.round(silentFor / 1000)} s, reconnecting`)
+  c.ws.terminate()
+  return true
 }
 
 /** Average grid power over the last windowMs, or undefined if there is no recent data */
@@ -65,7 +86,7 @@ export function stopPulse(siteId: number) {
 
 export function startPulse(siteId: number, creds: TibberCredentials, homeId: string, log = console, random = Math.random) {
   stopPulse(siteId)
-  const conn: Conn = { buffer: [], stopped: false, retry: 0, lastMessageAt: 0, ackAt: 0 }
+  const conn: Conn = { buffer: [], stopped: false, retry: 0, lastMessageAt: 0, ackAt: 0, startedAt: Date.now() }
   conns.set(siteId, conn)
 
   const connect = async () => {
@@ -108,8 +129,9 @@ export function startPulse(siteId: number, creds: TibberCredentials, homeId: str
   const schedule = () => {
     if (conn.stopped) return
     clearTimeout(conn.timer)
-    // Only a connection that stayed up starts the backoff over: one that Tibber drops right away keeps backing off
-    if (conn.ackAt && Date.now() - conn.ackAt >= PULSE_STABLE_MS) conn.retry = 0
+    // Only a connection that stayed up and delivered readings starts the backoff over: one that Tibber drops
+    // right away, or that stayed silent until the watchdog closed it, keeps backing off
+    if (conn.ackAt && conn.lastMessageAt > conn.ackAt && Date.now() - conn.ackAt >= PULSE_STABLE_MS) conn.retry = 0
     conn.ackAt = 0
     conn.timer = setTimeout(connect, backoffDelay(conn.retry++, { ...PULSE_BACKOFF, random }))
   }
