@@ -48,8 +48,8 @@ export default defineNuxtConfig({
         { rel: 'manifest', href: '/manifest.webmanifest' },
         // Archivo with its width axis, served by us (see main.css): no request to Google, so no visitor IP leaves for it
         { rel: 'preload', href: '/fonts/archivo-latin.woff2', as: 'font', type: 'font/woff2', crossorigin: '' },
-        { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg?v=4' },
-        { rel: 'icon', type: 'image/png', sizes: '32x32', href: '/favicon-32.png?v=4' },
+        { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg?v=5' },
+        { rel: 'icon', type: 'image/png', sizes: '32x32', href: '/favicon-32.png?v=5' },
         // PNG only: iOS can't use SVG for the Home Screen icon
         { rel: 'apple-touch-icon', sizes: '180x180', href: appleTouchIcon },
       ],

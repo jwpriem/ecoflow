@@ -23,5 +23,5 @@ h.dataset.sky=night?'night':'day';
 if(night)h.dataset.statusbar='translucent';
 function meta(n,c){var m=document.createElement('meta');m.setAttribute('name',n);m.setAttribute('content',c);document.head.appendChild(m)}
 meta('apple-mobile-web-app-status-bar-style',night?'black-translucent':'default');
-meta('theme-color',night?'#16262e':'#e6ecee');
+meta('theme-color',night?'#0b132b':'#f6efe4');
 }catch(_){}})()`

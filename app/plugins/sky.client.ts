@@ -2,7 +2,7 @@ import { sunPosition } from '~/utils/sun'
 
 // The canvas follows the sun over the house: daylight while the sun is above civil twilight
 // (-6°), polder night after that. Rechecked every minute and whenever the app comes back to the front.
-const THEME = { day: '#e6ecee', night: '#16262e' } as const
+const THEME = { day: '#f6efe4', night: '#0b132b' } as const
 
 export default defineNuxtPlugin(() => {
   const sky = useState<'day' | 'night'>('sky', () => 'day')

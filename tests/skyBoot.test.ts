@@ -32,7 +32,7 @@ describe('sky boot script', () => {
 
   it('launches translucent at night and default by day', () => {
     vi.useFakeTimers()
-    expect(boot(new Date('2026-10-21T21:00:00Z'))).toEqual({ sky: 'night', statusbar: 'translucent', style: 'black-translucent', theme: '#16262e' })
-    expect(boot(new Date('2026-10-21T11:00:00Z'))).toEqual({ sky: 'day', statusbar: undefined, style: 'default', theme: '#e6ecee' })
+    expect(boot(new Date('2026-10-21T21:00:00Z'))).toEqual({ sky: 'night', statusbar: 'translucent', style: 'black-translucent', theme: '#0b132b' })
+    expect(boot(new Date('2026-10-21T11:00:00Z'))).toEqual({ sky: 'day', statusbar: undefined, style: 'default', theme: '#f6efe4' })
   })
 })

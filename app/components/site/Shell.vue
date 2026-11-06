@@ -85,7 +85,7 @@ useSeoMeta({
 .site-nav { display: flex; align-items: center; gap: 14px; font-size: 15px; }
 .site-nav a { color: var(--text); text-decoration: none; }
 .site-nav .lang { color: var(--text-2); }
-.site-nav .start { padding: 8px 14px; border-radius: 999px; background: var(--text); color: var(--bg); font-weight: 600; white-space: nowrap; }
+.site-nav .start { padding: 8px 14px; border-radius: 999px; background: var(--cta); color: var(--on-cta); font-weight: 600; white-space: nowrap; }
 .site-pages { display: flex; flex-wrap: wrap; gap: 4px 20px; max-width: 1080px; width: 100%; margin: 0 auto; padding: 0 16px 8px; font-size: 15px; }
 .site-pages a { color: var(--text-2); text-decoration: none; padding: 6px 0; border-bottom: 2px solid transparent; }
 .site-pages a:hover { color: var(--text); }
