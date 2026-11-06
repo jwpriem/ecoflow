@@ -11,7 +11,7 @@ import {
   zeekrVehicleReading,
 } from '../providers/zeekr'
 import { getIntegration, markIntegration, updateIntegration } from './integrations'
-import { askDeparture, pushPluggedCarToTibber, rediscoverTibberApp, tibberPushStep } from './tibberEv'
+import { askDeparture, inPluginGrace, pushPluggedCarToTibber, rediscoverTibberApp, tibberPushStep } from './tibberEv'
 
 type Site = typeof sites.$inferSelect
 
@@ -23,6 +23,8 @@ export interface VehicleState extends VehicleReading {
   tibberSyncedAt?: string
   /** Set once the battery level was sent a second time, after Tibber's charging session started */
   tibberResyncedAt?: string
+  /** When the car was plugged in at home (first read that saw it), for the quiet retries after plug-in */
+  pluggedInAt?: string
 }
 
 /** A car counts as "at home" within this distance of home. */
@@ -143,12 +145,18 @@ export async function readZeekrVehicles(db: Db, site: Site, key: string, now = n
       if (state.atHome && state.pluggedIn && prev.ts && !(prev.atHome && prev.pluggedIn)) {
         await askDeparture(db, site, key, row).catch(() => undefined)
       }
+      if (state.atHome && state.pluggedIn) {
+        state.pluggedInAt = prev.atHome && prev.pluggedIn ? (prev.pluggedInAt ?? now.toISOString()) : now.toISOString()
+      }
       if (state.atHome && state.pluggedIn && state.soc != null) {
         const step = tibberPushStep(prev, now)
         if (step !== 'first') state.tibberSyncedAt = prev.tibberSyncedAt
         if (step === 'done') state.tibberResyncedAt = prev.tibberResyncedAt
-        if (step === 'first' && (await pushPluggedCarToTibber(db, site, key, row, state.soc, state.targetSoc))) state.tibberSyncedAt = now.toISOString()
-        if (step === 'again' && (await pushPluggedCarToTibber(db, site, key, row, state.soc, state.targetSoc))) state.tibberResyncedAt = now.toISOString()
+        // Tibber often refuses changes in the first minutes after plug-in: retry quietly then
+        const quiet = inPluginGrace(state.pluggedInAt, now)
+        if (step === 'first' && (await pushPluggedCarToTibber(db, site, key, row, state.soc, state.targetSoc, quiet))) state.tibberSyncedAt = now.toISOString()
+        // The second push is a bonus: a failure there never needs a notification
+        if (step === 'again' && (await pushPluggedCarToTibber(db, site, key, row, state.soc, state.targetSoc, true))) state.tibberResyncedAt = now.toISOString()
       }
       states.push(state)
       await db.update(vehicles).set({ state: state as unknown as Record<string, unknown> }).where(eq(vehicles.id, row.id))

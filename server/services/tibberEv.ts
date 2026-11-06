@@ -30,6 +30,8 @@ export interface TibberAppMeta {
   /** our vehicles.id -> Tibber vehicle id */
   map?: Record<string, string>
   lastPush?: { vehicleId: number; pct: number; at: string }
+  /** The last push that failed during the quiet retries after plug-in (cleared once one succeeds) */
+  lastPushError?: { vehicleId: number; error: string; at: string }
   /** our vehicles.id -> the departure last set from WattsWise */
   departures?: Record<string, { day: Weekday; time: string; at: string }>
   debug?: TibberAppDiscovery['debug']
@@ -150,8 +152,24 @@ export function tibberPushStep(
 }
 
 /**
+ * How long after plug-in a failed push is retried quietly. Tibber often refuses a change of car
+ * or battery level in the first minutes after plug-in (while it sets up its charging session), and
+ * the next 5-minute read usually gets through, so only a failure that lasts longer is reported.
+ */
+export const TIBBER_PLUGIN_GRACE_MS = 15 * 60 * 1000
+
+/** Whether a failed push should stay quiet: within the grace period after the car was plugged in. */
+export function inPluginGrace(pluggedInAt: string | undefined, now: Date): boolean {
+  if (!pluggedInAt) return false
+  const since = now.getTime() - new Date(pluggedInAt).getTime()
+  return since >= 0 && since < TIBBER_PLUGIN_GRACE_MS
+}
+
+/**
  * Called when a car is newly plugged in at home: tell Tibber which car is on the charger and its
  * battery level. Returns true when Tibber accepted both, so the caller can remember it was done.
+ * With `quiet`, a failure is kept in meta.lastPushError instead of marking the connection as broken
+ * (which sends an error notification); the caller retries on the next read.
  */
 export async function pushPluggedCarToTibber(
   db: Db,
@@ -160,6 +178,7 @@ export async function pushPluggedCarToTibber(
   car: VehicleRow,
   soc: number,
   targetSoc: number | null,
+  quiet = false,
 ): Promise<boolean> {
   const integ = await getIntegration<TibberAppCredentials>(db, site.id, 'tibber_app', key)
   if (!integ) return false
@@ -171,11 +190,17 @@ export async function pushPluggedCarToTibber(
     if (meta.chargerId) await tibberAppSetChargerVehicle(integ.creds, meta.homeId, meta.chargerId, vehicleId)
     await tibberAppSetBatteryLevel(integ.creds, meta.homeId, vehicleId, pct)
     const lastPush = { vehicleId: car.id, pct, at: new Date().toISOString() }
-    await updateIntegration(db, integ.row.id, { meta: { ...meta, lastPush } as Record<string, unknown> }, key)
+    await updateIntegration(db, integ.row.id, { meta: { ...meta, lastPush, lastPushError: undefined } as Record<string, unknown> }, key)
     await markIntegration(db, integ.row.id)
     return true
   } catch (err) {
-    await markIntegration(db, integ.row.id, (err as Error).message)
+    const error = (err as Error).message
+    if (quiet) {
+      const lastPushError = { vehicleId: car.id, error: error.slice(0, 500), at: new Date().toISOString() }
+      await updateIntegration(db, integ.row.id, { meta: { ...meta, lastPushError } as Record<string, unknown> }, key)
+    } else {
+      await markIntegration(db, integ.row.id, error)
+    }
     return false
   }
 }

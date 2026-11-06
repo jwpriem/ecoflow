@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { carSocFromTibber, chargeWindows, departureChanges, departureKey, departureSchedule, matchTibberVehicle, tibberBatteryLevel, tibberPushStep, withEre } from '../server/services/tibberEv'
+import { carSocFromTibber, chargeWindows, departureChanges, departureKey, departureSchedule, inPluginGrace, matchTibberVehicle, tibberBatteryLevel, tibberPushStep, withEre } from '../server/services/tibberEv'
 
 describe('battery level sent to Tibber', () => {
   it('is the state of charge when the car charges to 100%', () => {
@@ -164,5 +164,19 @@ describe('cost after ERE certificates', () => {
   it('leaves it out when no value is set', () => {
     expect(withEre(plan, null).netCost).toBeNull()
     expect(withEre(plan, 0).netCost).toBeNull()
+  })
+})
+
+describe('quiet retries right after plug-in', () => {
+  const at = '2026-11-06T11:50:00Z'
+
+  it('stays quiet in the first 15 minutes after plug-in', () => {
+    expect(inPluginGrace(at, new Date(at))).toBe(true)
+    expect(inPluginGrace(at, new Date('2026-11-06T12:04:59Z'))).toBe(true)
+  })
+
+  it('reports a failure that lasts longer, or when the plug-in time is unknown', () => {
+    expect(inPluginGrace(at, new Date('2026-11-06T12:05:00Z'))).toBe(false)
+    expect(inPluginGrace(undefined, new Date(at))).toBe(false)
   })
 })
