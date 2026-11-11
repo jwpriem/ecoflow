@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div v-stagger>
     <header class="page-head" :class="{ sub: detail }">
       <button v-if="detail" type="button" class="plain back" @click="detail = null"><AppIcon name="chevron" class="flip" />{{ m.savings.back }}</button>
       <h1>{{ detail ? m.savings.sources[detail] : m.savings.title }}</h1>

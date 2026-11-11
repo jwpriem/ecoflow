@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div v-stagger>
     <header class="page-head"><h1>{{ m.plan.title }}</h1></header>
 
     <template v-if="data">
@@ -19,7 +19,7 @@
         <NuxtLink to="/settings">{{ m.common.openSettings }}</NuxtLink>
       </section>
 
-      <div v-else class="cols">
+      <div v-else v-stagger class="cols">
         <div class="main">
           <!-- Today and tomorrow at a glance; picking a quarter finds its block below -->
           <div class="strip">
