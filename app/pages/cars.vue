@@ -31,7 +31,7 @@
               </span>
             </div>
             <div class="level">
-              <span class="pct">{{ c.state.soc == null ? '–' : Math.round(c.state.soc * 100) }}<small>%</small></span>
+              <span class="pct"><template v-if="c.state.soc == null">–</template><CountUp v-else :value="c.state.soc * 100" v-bind="RISE" /><small>%</small></span>
               <p class="status-line" :class="carStatus(c).cls">{{ carStatus(c).text }}</p>
             </div>
           </header>
