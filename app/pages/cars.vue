@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div v-stagger>
     <header class="page-head">
       <h1>{{ m.cars.title }}</h1>
       <!-- Name, capacity and the Tibber car are set in Settings -->
@@ -20,7 +20,7 @@
         <span v-for="c in cars" :key="c.id" class="summary-car">{{ carLabel(c) }} <span :class="summary(c).cls">{{ summary(c).verb }}</span>{{ summary(c).where ? ' ' : '' }}<span v-if="summary(c).where" class="quiet">{{ summary(c).where }}</span>.{{ " " }}</span>
       </p>
 
-      <div class="cars">
+      <div v-stagger class="cars">
         <section v-for="c in cars" :key="c.id" class="car">
           <header class="car-head">
             <div>

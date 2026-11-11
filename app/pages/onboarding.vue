@@ -1,5 +1,5 @@
 <template>
-  <div class="onboarding">
+  <div v-stagger class="onboarding">
     <p class="progress small muted" :aria-label="m.onboarding.progress(index + 1, ONBOARDING_STEPS.length)">
       <span v-for="(s, i) in ONBOARDING_STEPS" :key="s" class="pip" :class="{ on: i <= index }" />
       <span>{{ m.onboarding.progress(index + 1, ONBOARDING_STEPS.length) }}</span>

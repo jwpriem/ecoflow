@@ -1,5 +1,5 @@
 <template>
-  <div class="home">
+  <div v-stagger class="home">
     <header class="top">
       <img class="logo" :src="`/brand/wattswise-logo-${sky === 'night' ? 'dark' : 'light'}.svg`" alt="WattsWise" />
       <span v-if="d" class="clock"><span class="dot live" /> {{ time(d.now) }}</span>
@@ -12,7 +12,7 @@
       <!-- Three tiers: Now, Today, Around the house. On a phone one column in that order (set by order below);
            on a large screen Now and Today on the left, the flow and Around the house beside them -->
       <div class="cols">
-      <div class="main">
+      <div v-stagger class="main">
       <h2 class="tier first" style="--o: 1">{{ m.home.tiers.now }}</h2>
       <!-- No batteries yet: say what to do instead of showing a 0% pack -->
       <section v-if="!d.devices.length" class="status" style="--o: 2">
@@ -90,7 +90,7 @@
 
       </div>
 
-      <div class="side">
+      <div v-stagger class="side">
       <section v-if="d.devices.length || d.live" class="block flow-block" style="--o: 4">
         <div class="block-head">
           <h2>{{ m.home.energyFlow }}</h2>
@@ -316,7 +316,7 @@ onBeforeUnmount(() => clearInterval(timer))
 .cells { display: flex; gap: 14px; }
 .cell { flex: 1 1 0; min-width: 0; }
 .cell-body { position: relative; height: 40px; border: 1.5px solid var(--text); border-radius: 6px; padding: 3px; }
-.cell-fill { height: 100%; background: var(--text); border-radius: 2px; transition: width 1s var(--ease-out); position: relative; }
+.cell-fill { height: 100%; background: var(--text); border-radius: 2px; transition: width 1s var(--ease-out); position: relative; transform-origin: left; animation: fill-in 1.1s var(--ease-out) 200ms backwards; }
 /* The leading edge shows which way the energy goes */
 .cell-fill.charging { box-shadow: inset -4px 0 0 var(--cheap); }
 .cell-fill.discharging { box-shadow: inset -4px 0 0 var(--dear); }
@@ -332,8 +332,10 @@ onBeforeUnmount(() => clearInterval(timer))
 
 
 .block :deep(.flow) { max-width: 420px; margin: 0 auto; }
-.swap-enter-active, .swap-leave-active { transition: opacity 0.2s; }
-.swap-enter-from, .swap-leave-to { opacity: 0; }
+.swap-enter-active { transition: opacity var(--dur-3) var(--ease-out), transform var(--dur-3) var(--ease-out); }
+.swap-leave-active { transition: opacity 120ms ease-in; }
+.swap-enter-from { opacity: 0; transform: scale(0.985); }
+.swap-leave-to { opacity: 0; }
 
 /* Cars: one row each like a car on the Cars tab, name and place left, charge right; the whole row opens it */
 .car-row { display: grid; grid-template-columns: 1fr auto; align-items: start; gap: 12px 16px; padding: 14px 0 20px; color: inherit; text-decoration: none; }
@@ -349,7 +351,7 @@ onBeforeUnmount(() => clearInterval(timer))
 .cr-status.charging { color: var(--cheap); }
 /* The charge is ink like the car on the Cars tab; the leading edge shows energy going in */
 .cr-bar { grid-column: 1 / -1; height: 6px; border-radius: 3px; background: var(--fill); overflow: hidden; }
-.cr-fill { height: 100%; border-radius: 3px; background: var(--text); transition: width 1s var(--ease-out); }
+.cr-fill { height: 100%; border-radius: 3px; background: var(--text); transition: width 1s var(--ease-out); transform-origin: left; animation: fill-in 1s var(--ease-out) 300ms backwards; }
 .cr-fill.charging { box-shadow: inset -4px 0 0 var(--cheap); }
 
 .sources { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; color: var(--text-2); }

@@ -1,5 +1,5 @@
 <template>
-  <div class="login">
+  <div v-stagger class="login">
     <img class="mark" src="/favicon.svg" alt="WattsWise" width="64" height="64" />
     <h1>{{ signingUp ? m.login.welcome : m.login.welcomeBack }}</h1>
     <p class="muted lede">{{ signingUp ? m.login.signupLede : m.login.logInToSee }}</p>

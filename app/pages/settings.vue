@@ -1,12 +1,12 @@
 <template>
-  <div>
+  <div v-stagger>
     <header class="page-head"><h1>{{ m.settings.title }}</h1></header>
     <LoadError v-if="loadError" :error="loadError" :what="m.load.what.settings" :busy="busy === 'load'" @retry="retryLoad" />
 
     <!-- On a large screen: how WattsWise runs on the left, what it connects to (accounts, batteries, this device) on the right.
          On a phone the groups keep one column, in the order set by --o -->
     <div class="groups">
-      <div class="col">
+      <div v-stagger class="col">
       <!-- Who steers: one decision with three outcomes -->
       <section v-if="control && devs.length" class="group" style="--o: 2">
         <h3 class="section-title">{{ m.settings.whoSteers }}</h3>
@@ -107,7 +107,7 @@
         <SolarLocation />
       </section>
       </div>
-      <div class="col">
+      <div v-stagger class="col">
       <section class="group" style="--o: 5">
         <h3 class="section-title">{{ m.settings.connections }}</h3>
         <div class="list">
