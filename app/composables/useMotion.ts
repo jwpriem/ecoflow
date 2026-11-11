@@ -10,7 +10,7 @@ export function useReducedMotion() {
 }
 
 /** A number that springs to its new value (critically damped), for counters and ring sweeps. */
-export function useTweened(source: () => number, opts: { stiffness?: number } = {}) {
+export function useTweened(source: () => number, opts: { stiffness?: number; delay?: number } = {}) {
   const value = ref(0)
   const reduced = useReducedMotion()
   let raf = 0
@@ -44,8 +44,22 @@ export function useTweened(source: () => number, opts: { stiffness?: number } = 
     raf = requestAnimationFrame(step)
   }
 
-  onMounted(() => run(source()))
-  watch(source, run)
-  onBeforeUnmount(() => cancelAnimationFrame(raf))
+  // `delay` (ms) holds the first run back, so a figure that fades in with its section is seen counting
+  let wait: ReturnType<typeof setTimeout> | undefined
+  onMounted(() => {
+    if (opts.delay && !reduced.value) wait = setTimeout(() => run(source()), opts.delay)
+    else run(source())
+  })
+  watch(source, (target) => {
+    clearTimeout(wait)
+    run(target)
+  })
+  onBeforeUnmount(() => {
+    clearTimeout(wait)
+    cancelAnimationFrame(raf)
+  })
   return value
 }
+
+/** A charge level filling up from empty: slow enough to read, and it waits for its section to fade in. */
+export const RISE = { stiffness: 22, delay: 180 } as const
