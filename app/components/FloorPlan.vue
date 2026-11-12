@@ -10,7 +10,7 @@
       </div>
 
       <button
-        v-for="p in pins" :key="p.key" type="button" class="pin" :class="[p.kind, { lit: p.lit, dragging: drag?.key === p.key, pressing: pressing === p.key, off: !p.reachable }]"
+        v-for="p in pins" :key="p.key" type="button" class="pin" :class="[p.kind, { room: p.room, lit: p.lit, dragging: drag?.key === p.key, pressing: pressing === p.key, off: !p.reachable }]"
         :style="{ left: `${p.x * 100}%`, top: `${p.y * 100}%` }" :aria-label="p.name"
         @pointerdown="down($event, p)" @click="click(p)" @contextmenu.prevent
       >
@@ -22,12 +22,15 @@
 
     <!-- In edit mode: everything not on the plan yet, one tap puts it in the middle to drag from there -->
     <div v-if="editing" class="tray">
-      <p class="label">{{ unplaced.length ? m.lights.plan.tray : m.lights.plan.allPlaced }}</p>
-      <div class="chips">
-        <button v-for="u in unplaced" :key="u.key" type="button" @click="place(u)">
-          <span class="dot" :style="u.glow" />{{ u.name }}<small v-if="u.kind === 'group'">{{ u.count }}</small>
-        </button>
-      </div>
+      <p v-if="!unplaced.length" class="label">{{ m.lights.plan.allPlaced }}</p>
+      <section v-for="s in sections" :key="s.key">
+        <p class="label">{{ s.label }}</p>
+        <div class="chips">
+          <button v-for="u in s.items" :key="u.key" type="button" :class="{ room: u.room }" @click="place(u)">
+            <span class="dot" :style="u.glow" />{{ u.name }}<small v-if="u.kind === 'group'">{{ u.count }}</small>
+          </button>
+        </div>
+      </section>
     </div>
   </div>
 </template>
@@ -37,7 +40,7 @@ type Lamp = { id: string; name: string; on: boolean; brightness: number; mirek: 
 type Group = { id: string; kind: 'room' | 'zone'; name: string; groupedLightId: string | null; lightIds: string[] }
 type Placement = { kind: 'light' | 'group'; id: string; x: number; y: number }
 type Floor = { id: number; name: string; plan: string | null; placements: Placement[] }
-type Pin = Placement & { key: string; name: string; count: number; lit: boolean; reachable: boolean; glow: Record<string, string>; pool: Record<string, string> }
+type Pin = Placement & { key: string; name: string; room: boolean; count: number; lit: boolean; reachable: boolean; glow: Record<string, string>; pool: Record<string, string> }
 
 const props = defineProps<{ floor: Floor; lights: Lamp[]; groups: Group[]; editing: boolean }>()
 const emit = defineEmits<{ open: [Placement]; toggle: [Placement]; placements: [Placement[]] }>()
@@ -75,6 +78,8 @@ function describe(kind: 'light' | 'group', id: string) {
   const size = (kind === 'group' ? 26 : 16) + 22 * (bri / 100)
   return {
     name,
+    // A Hue room (living room, garden): drawn as a square so it stands apart from your own groups
+    room: kind === 'group' && groupById.value.get(id)?.kind === 'room',
     count: lamps.length,
     lit: lit.length > 0,
     reachable: lamps.some((l) => l.reachable),
@@ -115,6 +120,15 @@ const unplaced = computed(() => {
     return d ? [{ ...i, ...d, key: `${i.kind}:${i.id}` }] : []
   })
 })
+
+// The tray in three parts: whole rooms, your own groups, single lamps
+const sections = computed(() =>
+  [
+    { key: 'rooms', label: m.value.lights.plan.trayRooms, items: unplaced.value.filter((u) => u.room) },
+    { key: 'zones', label: m.value.lights.plan.trayGroups, items: unplaced.value.filter((u) => u.kind === 'group' && !u.room) },
+    { key: 'lamps', label: m.value.lights.plan.trayLamps, items: unplaced.value.filter((u) => u.kind === 'light') },
+  ].filter((s) => s.items.length),
+)
 
 function save() {
   emit('placements', local.value.map(({ kind, id, x, y }) => ({ kind, id, x, y })))
@@ -227,6 +241,7 @@ function click(p: Pin) {
 .pin.pressing .disc { transform: scale(1.3); transition: transform 450ms var(--ease-out); }
 .disc { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; box-shadow: 0 0 0 2px var(--surface); transition: background var(--dur-3) var(--ease-out), box-shadow var(--dur-3) var(--ease-out), transform var(--dur-3) var(--spring); }
 .pin.group .disc { width: 34px; height: 34px; }
+.pin.room .disc { width: 38px; height: 38px; border-radius: 11px; }
 .pin.off .disc { opacity: 0.5; }
 .count { font-size: 12px; font-weight: 700; color: var(--text); text-shadow: 0 0 3px var(--surface); }
 .pin.lit .count { color: #0b132b; text-shadow: none; }
@@ -249,4 +264,6 @@ function click(p: Pin) {
 .chips button { border-radius: 999px; padding: 6px 12px 6px 8px; display: inline-flex; align-items: center; gap: 6px; font-size: 14px; }
 .chips small { font-size: 12px; color: var(--text-2); }
 .chips .dot { width: 14px; height: 14px; }
+.chips .room .dot { border-radius: 4px; }
+.tray section + section { margin-top: 12px; }
 </style>
