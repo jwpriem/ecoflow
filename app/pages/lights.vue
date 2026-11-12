@@ -2,9 +2,12 @@
   <div v-stagger>
     <header class="page-head">
       <h1>{{ m.lights.title }}</h1>
-      <button v-if="state?.signedIn && state.lights.length" type="button" class="new" @click="editing = { group: null }">
-        <AppIcon name="plus" />{{ m.lights.newGroup }}
-      </button>
+      <template v-if="state?.signedIn && state.lights.length">
+        <button v-if="floor" type="button" class="new" :class="{ on: arranging }" @click="arranging = !arranging">
+          {{ arranging ? m.lights.plan.done : m.lights.plan.arrange }}
+        </button>
+        <button v-else type="button" class="new" @click="editing = { group: null }"><AppIcon name="plus" />{{ m.lights.newGroup }}</button>
+      </template>
     </header>
     <LoadError v-if="loadError" :error="loadError" :what="m.lights.what" :busy="busy" @retry="retryLoad" />
 
@@ -18,6 +21,24 @@
       <p v-else-if="!state.lights.length" class="foot">{{ m.lights.empty }}</p>
 
       <template v-else>
+        <!-- Floors with a plan, and the list of everything -->
+        <div class="views" role="tablist">
+          <button v-for="f in floors" :key="f.id" type="button" role="tab" :aria-selected="view === f.id" :class="{ on: view === f.id }" @click="setView(f.id)">{{ f.name }}</button>
+          <button type="button" role="tab" :aria-selected="view === 'list'" :class="{ on: view === 'list' }" @click="setView('list')">{{ m.lights.plan.list }}</button>
+          <button type="button" class="add" :aria-label="m.lights.plan.addFloor" @click="floorEdit = { floor: null }"><AppIcon name="plus" /><span v-if="!floors.length">{{ m.lights.plan.addFloor }}</span></button>
+        </div>
+
+        <section v-if="floor" class="floor">
+          <FloorPlan :floor="floor" :lights="state.lights" :groups="state.groups" :editing="arranging" @open="openPin" @placements="savePlacements" />
+          <div v-if="arranging" class="floor-actions">
+            <p class="hint">{{ m.lights.plan.arrangeHint }}</p>
+            <button type="button" class="plain" @click="floorEdit = { floor }">{{ m.lights.plan.editFloor }}</button>
+          </div>
+          <p v-if="floorError" class="error" role="status">{{ floorError }}</p>
+        </section>
+
+        <template v-else>
+        <p v-if="!floors.length" class="hint invite">{{ m.lights.plan.invite }}</p>
         <!-- The groups made here (Hue zones) first: these are the "one lamp" the person thinks in -->
         <section class="block">
           <div class="block-head"><h2>{{ m.lights.groups }}</h2></div>
@@ -70,10 +91,12 @@
           </div>
         </section>
         <p class="foot">{{ m.lights.foot }}</p>
+        </template>
         <p v-if="sendError" class="error" role="status">{{ sendError }}</p>
       </template>
 
       <LightSheet :target="sheet" :lights="state.lights" @close="sheetId = null" @change="(c) => sheet && change(sheet, c)" @member="(id, c) => changeLight(id, c)" @edit="editFromSheet" />
+      <FloorSheet :open="!!floorEdit" :floor="floorEdit?.floor ?? null" @close="floorEdit = null" @saved="afterFloor" />
       <GroupSheet :open="!!editing" :group="editing?.group ?? null" :lights="state.lights" :rooms="rooms" @close="editing = null" @saved="safeLoad" />
     </template>
 
@@ -103,6 +126,52 @@ const busy = ref(false)
 const sendError = ref('')
 const sheetId = ref<string | null>(null)
 const editing = ref<{ group: Group | null } | null>(null)
+
+// Floors: their plans and where the lamps are on them. The chosen view is remembered on this device
+type Floor = { id: number; name: string; sort: number; plan: string | null; placements: Placement[] }
+type Placement = { kind: 'light' | 'group'; id: string; x: number; y: number }
+const floors = ref<Floor[]>([])
+const view = ref<number | 'list'>('list')
+const arranging = ref(false)
+const floorEdit = ref<{ floor: Floor | null } | null>(null)
+const floorError = ref('')
+const floor = computed(() => (view.value === 'list' ? null : (floors.value.find((f) => f.id === view.value) ?? null)))
+const VIEW_KEY = 'lights.view'
+function setView(v: number | 'list') {
+  view.value = v
+  arranging.value = false
+  try {
+    localStorage.setItem(VIEW_KEY, String(v))
+  } catch {}
+}
+/** On first load: back to the view chosen last time, else the first floor */
+async function loadFloors() {
+  floors.value = await api<Floor[]>('/api/lights/floors')
+  let saved: string | null = null
+  try {
+    saved = localStorage.getItem(VIEW_KEY)
+  } catch {}
+  if (saved === 'list') view.value = 'list'
+  else if (saved && floors.value.some((f) => f.id === Number(saved))) view.value = Number(saved)
+  else view.value = floors.value[0]?.id ?? 'list'
+}
+async function afterFloor(id: number | null) {
+  floors.value = await api<Floor[]>('/api/lights/floors').catch(() => floors.value)
+  if (id) setView(id)
+  else setView(floors.value[0]?.id ?? 'list')
+}
+async function savePlacements(p: Placement[]) {
+  const f = floor.value
+  if (!f) return
+  f.placements = p
+  try {
+    await api(`/api/lights/floors/${f.id}`, { method: 'PUT', body: { placements: p } })
+    floorError.value = ''
+  } catch (e: any) {
+    floorError.value = serverText(e?.data?.statusMessage) || m.value.lights.failed
+  }
+}
+const openPin = (p: Placement) => (sheetId.value = p.id)
 
 const zones = computed(() => state.value?.groups.filter((g) => g.kind === 'zone') ?? [])
 const rooms = computed(() => state.value?.groups.filter((g) => g.kind === 'room') ?? [])
@@ -226,8 +295,9 @@ async function retryLoad() {
 let timer: ReturnType<typeof setInterval>
 onMounted(() => {
   safeLoad()
+  loadFloors().catch(() => undefined)
   timer = setInterval(() => {
-    if (document.visibilityState === 'visible' && Date.now() - lastTouch > 5000 && !editing.value) safeLoad()
+    if (document.visibilityState === 'visible' && Date.now() - lastTouch > 5000 && !editing.value && !arranging.value) safeLoad()
   }, 10_000)
 })
 onBeforeUnmount(() => {
@@ -239,6 +309,17 @@ onBeforeUnmount(() => {
 <style scoped>
 .new { display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; padding: 7px 14px 7px 10px; font-size: 14px; }
 .new svg { width: 16px; height: 16px; }
+.new.on { background: var(--text); color: var(--bg); border-color: var(--text); }
+.views { display: flex; gap: 8px; overflow-x: auto; margin: -8px 0 18px; padding: 2px; scrollbar-width: none; }
+.views::-webkit-scrollbar { display: none; }
+.views button { border-radius: 999px; padding: 7px 14px; font-size: 14px; white-space: nowrap; flex: none; display: inline-flex; align-items: center; gap: 6px; }
+.views button.on { background: var(--text); color: var(--bg); border-color: var(--text); font-weight: 600; }
+.views .add { padding: 7px 10px; }
+.views .add svg { width: 16px; height: 16px; }
+.floor { margin-bottom: 28px; }
+.floor-actions { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-top: 10px; }
+.floor-actions .hint { margin: 0; }
+.invite { margin: -6px 2px 18px; }
 .nothing { border-top: 1px solid var(--rule); padding-top: 18px; margin-bottom: 36px; }
 .nothing h2 { font-size: 21px; font-weight: 700; font-stretch: 112%; margin: 0 0 6px; }
 .nothing p { margin: 0 0 14px; color: var(--text-2); max-width: 46ch; }

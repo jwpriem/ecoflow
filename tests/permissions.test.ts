@@ -62,6 +62,10 @@ const ACCESS: Record<string, 'owner' | 'household' | 'account' | 'public' | 'adm
   'lights/zones/index.post.ts': 'household',
   'lights/zones/[id].put.ts': 'household',
   'lights/zones/[id].delete.ts': 'household',
+  // The floor plans and where the lamps are on them
+  'lights/floors/index.post.ts': 'household',
+  'lights/floors/[id].put.ts': 'household',
+  'lights/floors/[id].delete.ts': 'household',
   // Subscriptions belong to this device: anyone in the household can turn their own notifications on or off
   'push/index.put.ts': 'household',
   'push/index.delete.ts': 'household',
