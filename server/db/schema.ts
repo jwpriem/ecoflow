@@ -175,6 +175,31 @@ export const devices = pgTable(
 )
 
 /** Cars read through the Zeekr app API (read-only). State holds the last reading (see VehicleState). */
+/** A lamp or group placed on a floor plan; x and y are fractions (0-1) of the plan's width and height */
+export interface FloorPlacement {
+  kind: 'light' | 'group'
+  /** The Hue light id, or for a group its grouped_light id */
+  id: string
+  x: number
+  y: number
+}
+
+/** A floor of the house for the Lights tab: its plan (an image as a data URL) and where the lamps are on it */
+export const lightFloors = pgTable(
+  'light_floors',
+  {
+    id: serial('id').primaryKey(),
+    siteId: integer('site_id').notNull().references(() => sites.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    sort: integer('sort').notNull().default(0),
+    /** data:image/svg+xml, png, jpeg or webp; null until a plan is added */
+    plan: text('plan'),
+    placements: jsonb('placements').$type<FloorPlacement[]>().notNull().default([]),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [index('light_floors_site').on(t.siteId)],
+)
+
 export const vehicles = pgTable(
   'vehicles',
   {
