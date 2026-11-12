@@ -2,7 +2,8 @@ import { eq } from 'drizzle-orm'
 import { type Provider, vehicles } from '../../db/schema'
 import { type TibberHome, tibberHomes, type TibberCredentials } from '../../providers/tibber'
 import { forgetTibberApp } from '../../providers/tibberApp'
-import { getIntegration, markIntegration, saveIntegration } from '../../services/integrations'
+import { readHue } from '../../services/hue'
+import { getIntegration, markIntegration, saveIntegration, updateIntegration } from '../../services/integrations'
 import { locationFromTibber } from '../../services/location'
 import { assertExperimental } from '../../services/experimental'
 import { refreshPrices } from '../../services/prices'
@@ -21,6 +22,7 @@ const FIELDS: Record<Provider, string[]> = {
   ecoflow_official: ['accessKey', 'secretKey'],
   zeekr: ['username', 'password', 'hmacAccessKey', 'hmacSecretKey', 'passwordPublicKey', 'prodSecret', 'vinKey', 'vinIv'],
   tibber_app: ['email', 'password'],
+  hue: ['clientId', 'clientSecret'],
 }
 
 /**
@@ -43,6 +45,17 @@ export default defineEventHandler(async (event) => {
     return { ok: !error, error: error ?? null, meta }
   }
 
+  // Same for Hue: count the lamps through the stored sign-in
+  if (provider === 'hue' && !body.credentials) {
+    const r = await readHue(db, site, key).then(
+      (s) => ({ lights: s.lights.length }),
+      (err: Error) => ({ error: (err as any).statusMessage ?? err.message }),
+    )
+    const after = await getIntegration(db, site.id, 'hue', key)
+    if ('lights' in r && after) await updateIntegration(db, after.row.id, { meta: { ...after.meta, lights: r.lights } }, key)
+    return { ok: !('error' in r), error: 'error' in r ? r.error : null, meta: (await getIntegration(db, site.id, 'hue', key))?.meta ?? {} }
+  }
+
   const existing = await getIntegration<Record<string, string>>(db, site.id, provider, key)
   let creds = existing?.creds
   if (body.credentials) {
@@ -52,6 +65,8 @@ export default defineEventHandler(async (event) => {
       if (!v) throw createError({ statusCode: 400, statusMessage: `${f} is required` })
       creds[f] = v
     }
+    // The bridge's key for this app stays valid with a new client secret; keeping it avoids a second WattsWise on the bridge
+    if (provider === 'hue' && existing?.creds.appKey) creds.appKey = existing.creds.appKey
   }
   if (!creds) throw createError({ statusCode: 400, statusMessage: 'Credentials are required' })
   const meta: Record<string, unknown> = { ...(existing?.meta ?? {}), ...(body.meta ?? {}) }
@@ -68,7 +83,7 @@ export default defineEventHandler(async (event) => {
       tibberHome = home
       meta.realtime = home.features?.realTimeConsumptionEnabled ?? false
       meta.homes = homes.map((h) => ({ id: h.id, name: h.appNickname || h.address?.address1 || h.id }))
-    } else if (provider === 'solaredge' && body.credentials) {
+    } else if ((provider === 'solaredge' || provider === 'hue') && body.credentials) {
       // New client credentials have no tokens yet: the owner signs in next (GET .../solaredge/authorize)
       meta.authorized = false
     }

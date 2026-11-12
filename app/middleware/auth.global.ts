@@ -13,8 +13,8 @@ export default defineNuxtRouteMiddleware(async (to) => {
     const me = await loadMe().catch(() => null)
     if (me?.onboarding) return navigateTo('/onboarding')
   }
-  // The cars come from the experimental integrations: elsewhere the page doesn't exist
-  if (loggedIn.value && to.path.startsWith('/cars')) {
+  // The cars and the lights come from the experimental integrations: elsewhere the pages don't exist
+  if (loggedIn.value && (to.path.startsWith('/cars') || to.path.startsWith('/lights'))) {
     await loadMe().catch(() => undefined)
     if (!experimental.value) return navigateTo('/app')
   }

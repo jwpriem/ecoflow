@@ -5,9 +5,10 @@ import { ecoflowMqttStatus } from '../../providers/ecoflow/mqtt'
 import { pulseStatus } from '../../providers/tibberPulse'
 import { demoPulseStatus } from '../../services/demoData'
 import { visibleProviders } from '../../services/experimental'
+import { hueRedirectUri } from '../../services/hue'
 import { solarEdgeRedirectUri } from '../../services/solaredge'
 
-const PROVIDERS: Provider[] = ['tibber', 'solaredge', 'ecoflow_official', 'zeekr', 'tibber_app']
+const PROVIDERS: Provider[] = ['tibber', 'solaredge', 'ecoflow_official', 'zeekr', 'tibber_app', 'hue']
 
 /** Never returns secrets, only whether they are set and the non-secret settings. Experimental providers only for an experimental household. */
 export default defineEventHandler(async (event) => {
@@ -25,6 +26,7 @@ export default defineEventHandler(async (event) => {
       // The demo household has no live connections, but must not look broken
       ...(provider === 'tibber' ? { pulse: site.isDemo ? demoPulseStatus() : pulseStatus(site.id) } : {}),
       ...(provider === 'ecoflow_official' ? { mqtt: site.isDemo ? { connected: true } : ecoflowMqttStatus(site.id) } : {}),
+      ...(provider === 'hue' ? { redirectUri: hueRedirectUri(event) } : {}),
       ...(provider === 'solaredge'
         ? {
             redirectUri: solarEdgeRedirectUri(event),
