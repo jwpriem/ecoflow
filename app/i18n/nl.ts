@@ -119,6 +119,7 @@ export const nl: Messages = {
       tray: 'Nog niet op de plattegrond',
       allPlaced: 'Alles staat op de plattegrond.',
       remove: (name: string) => `${name} van de plattegrond halen`,
+      tapHint: 'Tik op een lamp of groep om hem aan of uit te zetten, houd hem vast voor helderheid en kleur.',
       invite: 'Voeg een verdieping met plattegrond toe om je lampen te zien waar ze in huis hangen.',
     },
   },

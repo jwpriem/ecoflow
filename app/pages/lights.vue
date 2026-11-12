@@ -29,7 +29,8 @@
         </div>
 
         <section v-if="floor" class="floor">
-          <FloorPlan :floor="floor" :lights="state.lights" :groups="state.groups" :editing="arranging" @open="openPin" @placements="savePlacements" />
+          <FloorPlan :floor="floor" :lights="state.lights" :groups="state.groups" :editing="arranging" @open="openPin" @toggle="togglePin" @placements="savePlacements" />
+          <p v-if="!arranging" class="hint">{{ m.lights.plan.tapHint }}</p>
           <div v-if="arranging" class="floor-actions">
             <p class="hint">{{ m.lights.plan.arrangeHint }}</p>
             <button type="button" class="plain" @click="floorEdit = { floor }">{{ m.lights.plan.editFloor }}</button>
@@ -172,6 +173,14 @@ async function savePlacements(p: Placement[]) {
   }
 }
 const openPin = (p: Placement) => (sheetId.value = p.id)
+/** A tap on the plan: on or off, for the lamp or the whole group */
+function togglePin(p: Placement) {
+  if (!state.value) return
+  const g = p.kind === 'group' ? state.value.groups.find((x) => x.groupedLightId === p.id) : undefined
+  const l = p.kind === 'light' ? state.value.lights.find((x) => x.id === p.id) : undefined
+  const t = g ? groupTarget(g) : l ? lightTarget(l) : null
+  if (t) change(t, { on: !t.on })
+}
 
 const zones = computed(() => state.value?.groups.filter((g) => g.kind === 'zone') ?? [])
 const rooms = computed(() => state.value?.groups.filter((g) => g.kind === 'room') ?? [])
