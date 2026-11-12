@@ -10,9 +10,9 @@
       </div>
 
       <button
-        v-for="p in pins" :key="p.key" type="button" class="pin" :class="[p.kind, { lit: p.lit, dragging: drag?.key === p.key, off: !p.reachable }]"
+        v-for="p in pins" :key="p.key" type="button" class="pin" :class="[p.kind, { lit: p.lit, dragging: drag?.key === p.key, pressing: pressing === p.key, off: !p.reachable }]"
         :style="{ left: `${p.x * 100}%`, top: `${p.y * 100}%` }" :aria-label="p.name"
-        @pointerdown="down($event, p)" @click="click(p)"
+        @pointerdown="down($event, p)" @click="click(p)" @contextmenu.prevent
       >
         <span class="disc" :style="p.glow"><span v-if="p.kind === 'group'" class="count">{{ p.count }}</span></span>
         <span class="pin-label">{{ p.name }}</span>
@@ -40,7 +40,7 @@ type Floor = { id: number; name: string; plan: string | null; placements: Placem
 type Pin = Placement & { key: string; name: string; count: number; lit: boolean; reachable: boolean; glow: Record<string, string>; pool: Record<string, string> }
 
 const props = defineProps<{ floor: Floor; lights: Lamp[]; groups: Group[]; editing: boolean }>()
-const emit = defineEmits<{ open: [Placement]; placements: [Placement[]] }>()
+const emit = defineEmits<{ open: [Placement]; toggle: [Placement]; placements: [Placement[]] }>()
 const { m } = useLocale()
 const sky = useState<'day' | 'night'>('sky', () => 'day')
 
@@ -130,11 +130,47 @@ function remove(p: Pin) {
   save()
 }
 
-// Dragging a pin in edit mode; outside edit mode a tap opens the lamp
+// Outside edit mode a tap switches the lamp or group on or off and holding it opens its controls
+const HOLD_MS = 450
+const pressing = ref<string | null>(null)
+let holdTimer: ReturnType<typeof setTimeout> | undefined
+let held = false
+function hold(e: PointerEvent, p: Pin) {
+  held = false
+  pressing.value = p.key
+  const x0 = e.clientX
+  const y0 = e.clientY
+  const el = e.currentTarget as HTMLElement
+  const stop = () => {
+    clearTimeout(holdTimer)
+    pressing.value = null
+    el.removeEventListener('pointermove', move)
+    el.removeEventListener('pointerup', stop)
+    el.removeEventListener('pointercancel', stop)
+    el.removeEventListener('pointerleave', stop)
+  }
+  // Scrolling the page is not a hold
+  const move = (ev: PointerEvent) => {
+    if (Math.hypot(ev.clientX - x0, ev.clientY - y0) > 10) stop()
+  }
+  holdTimer = setTimeout(() => {
+    held = true
+    stop()
+    haptic('success')
+    emit('open', { kind: p.kind, id: p.id, x: p.x, y: p.y })
+  }, HOLD_MS)
+  el.addEventListener('pointermove', move)
+  el.addEventListener('pointerup', stop)
+  el.addEventListener('pointercancel', stop)
+  el.addEventListener('pointerleave', stop)
+}
+onBeforeUnmount(() => clearTimeout(holdTimer))
+
+// Dragging a pin in edit mode
 const drag = ref<{ key: string; moved: boolean } | null>(null)
 let justDragged = false
 function down(e: PointerEvent, p: Pin) {
-  if (!props.editing) return
+  if (!props.editing) return hold(e, p)
   e.preventDefault()
   const el = e.currentTarget as HTMLElement
   el.setPointerCapture(e.pointerId)
@@ -162,7 +198,9 @@ function down(e: PointerEvent, p: Pin) {
 }
 function click(p: Pin) {
   if (justDragged) return void (justDragged = false)
-  if (!props.editing) emit('open', { kind: p.kind, id: p.id, x: p.x, y: p.y })
+  // The hold already opened the controls
+  if (held) return void (held = false)
+  if (!props.editing) emit('toggle', { kind: p.kind, id: p.id, x: p.x, y: p.y })
 }
 </script>
 
@@ -183,7 +221,10 @@ function click(p: Pin) {
   display: flex; flex-direction: column; align-items: center; gap: 3px; color: var(--text); cursor: pointer; z-index: 1;
 }
 .pin:hover, .pin:active { background: none; }
+.pin { -webkit-touch-callout: none; }
 .pin:active { transform: translate(-50%, -50%) scale(0.94); }
+/* Holding grows the disc until the controls open */
+.pin.pressing .disc { transform: scale(1.3); transition: transform 450ms var(--ease-out); }
 .disc { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; box-shadow: 0 0 0 2px var(--surface); transition: background var(--dur-3) var(--ease-out), box-shadow var(--dur-3) var(--ease-out), transform var(--dur-3) var(--spring); }
 .pin.group .disc { width: 34px; height: 34px; }
 .pin.off .disc { opacity: 0.5; }

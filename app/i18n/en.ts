@@ -120,6 +120,7 @@ export const en = {
       tray: 'Not on the plan yet',
       allPlaced: 'Everything is on the plan.',
       remove: (name: string) => `Take ${name} off the plan`,
+      tapHint: 'Tap a lamp or group to switch it on or off, hold it for brightness and colour.',
       invite: 'Add a floor with its plan to see your lamps where they are in the house.',
     },
   },
