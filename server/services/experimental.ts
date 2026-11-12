@@ -6,10 +6,10 @@ import { experimentalEnabled } from './members'
 
 /**
  * Integrations only the owner's own household uses: Zeekr and the Tibber app, with the cars and Tibber's
- * EV charging behind them. A household without experimental on never sees or calls them; switching it off
+ * EV charging behind them, and Philips Hue for the Lights tab. A household without experimental on never sees or calls them; switching it off
  * keeps their credentials and data, they are just no longer used.
  */
-export const EXPERIMENTAL_PROVIDERS: readonly Provider[] = ['zeekr', 'tibber_app']
+export const EXPERIMENTAL_PROVIDERS: readonly Provider[] = ['zeekr', 'tibber_app', 'hue']
 
 export const isExperimentalProvider = (provider: Provider) => EXPERIMENTAL_PROVIDERS.includes(provider)
 

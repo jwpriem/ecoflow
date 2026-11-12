@@ -346,7 +346,7 @@ details.disclosure[open] > :not(summary) { animation: settle var(--dur-3) var(--
 nav.tabs {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
   padding: 0 8px env(safe-area-inset-bottom);
-  display: grid; grid-template-columns: repeat(5, 1fr);
+  display: grid; grid-template-columns: repeat(var(--tabs, 5), 1fr);
   background: var(--bg); border-top: 1px solid var(--rule);
   transition: background-color 1.2s;
 }

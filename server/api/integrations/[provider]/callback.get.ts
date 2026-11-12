@@ -1,4 +1,5 @@
 import { eq } from 'drizzle-orm'
+import type { H3Event } from 'h3'
 import { appReturnUrl } from '../../../../shared/appReturn'
 import { sites } from '../../../db/schema'
 import {
@@ -7,6 +8,7 @@ import {
   recordSolarEdgeCallback,
   solarEdgeRedirectUri,
 } from '../../../services/solaredge'
+import { completeHueAuth } from '../../../services/hue'
 import { verifyState } from '../../../utils/crypto'
 
 /**
@@ -15,6 +17,7 @@ import { verifyState } from '../../../utils/crypto'
  * we accept the one sign-in started from Settings in the last 15 minutes.
  */
 export default defineEventHandler(async (event) => {
+  if (getRouterParam(event, 'provider') === 'hue') return hueCallback(event)
   if (getRouterParam(event, 'provider') !== 'solaredge') throw createError({ statusCode: 404, statusMessage: 'Not found' })
   const q = getQuery(event) as Record<string, string | undefined>
   const params = Object.keys(q).sort()
@@ -52,3 +55,27 @@ export default defineEventHandler(async (event) => {
   const back = site?.onboarding ? '/onboarding' : '/settings'
   return sendRedirect(event, `${back}?solaredge=${encodeURIComponent(error ?? 'ok')}`)
 })
+
+/** Hue sends ?code&state back. The state must be ours: the sign-in always starts from Settings. */
+async function hueCallback(event: H3Event) {
+  const q = getQuery(event) as Record<string, string | undefined>
+  const key = encryptionKey()
+  const db = useDb()
+  const fromState = q.state ? verifyState<{ site: number; app?: boolean }>(q.state, key) : null
+  let error: string | undefined
+  if (q.error) error = String(q.error_description ?? q.error)
+  else if (!fromState) error = 'Sign-in link expired, try again'
+  else if (!q.code) error = 'Hue did not return a code'
+  const [site] = fromState ? await db.select().from(sites).where(eq(sites.id, fromState.site)) : []
+  if (!error && !site) error = 'Unknown site'
+  if (!error) {
+    try {
+      error = (await completeHueAuth(db, site!, key, q.code!)).error
+    } catch (err) {
+      error = (err as Error).message
+    }
+  }
+  console.log(`[hue] callback state=${fromState ? 'ok' : 'invalid'} result=${error ?? 'ok'}`)
+  if (fromState?.app) return sendRedirect(event, appReturnUrl('hue', error ?? 'ok'))
+  return sendRedirect(event, `/settings?hue=${encodeURIComponent(error ?? 'ok')}`)
+}

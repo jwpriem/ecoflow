@@ -70,6 +70,13 @@
       <path d="M3 13.5h18V18a1 1 0 0 1-1 1h-1.5a1 1 0 0 1-1-1v-1H6.5v1a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1Z" />
       <path d="M6.5 16h0M17.5 16h0" />
     </template>
+    <template v-else-if="name === 'bulb'">
+      <path d="M9 18h6M10 21h4" />
+      <path d="M12 3a6 6 0 0 0-3.6 10.8c.7.5 1.1 1.3 1.1 2.2h5c0-.9.4-1.7 1.1-2.2A6 6 0 0 0 12 3Z" />
+    </template>
+    <template v-else-if="name === 'plus'">
+      <path d="M12 5v14M5 12h14" />
+    </template>
     <template v-else-if="name === 'plug'">
       <path d="M9 2v6M15 2v6" />
       <path d="M6 8h12v3a6 6 0 0 1-12 0Z" />
