@@ -25,7 +25,7 @@ export default defineEventHandler(async (event) => {
     console.error(`[nest] event for site ${siteId}:`, (err as Error).message)
     return { notified: null }
   })
-  if (r.notified) console.log(`[nest] site ${siteId} ${r.notified}`)
+  if (r.notified) console.log(`[nest] site ${siteId} ${r.notified} sent=${r.sent}`)
   setResponseStatus(event, 204)
   return null
 })

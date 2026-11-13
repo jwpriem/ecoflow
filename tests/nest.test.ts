@@ -183,3 +183,12 @@ describe('Nest events', () => {
     expect(nestEventMessage('person', { id: 'C', name: 'Tuin' }, new Date(at), 'Europe/Amsterdam')('en')).toMatchObject({ title: 'Person at Tuin', tag: 'nest-C' })
   })
 })
+
+describe('push topic defaults', () => {
+  it('sends doorbell notifications to devices that already had notifications on', async () => {
+    const { readFileSync } = await import('node:fs')
+    const sql = readFileSync('server/db/migrations/0024_push_doorbell.sql', 'utf8')
+    expect(sql).toMatch(/SET DEFAULT '\["plan","prices","errors","daily","doorbell"\]'/)
+    expect(sql).toMatch(/UPDATE "push_subscriptions" SET "topics" = "topics" \|\| '\["doorbell"\]'::jsonb WHERE NOT \("topics" \? 'doorbell'\)/)
+  })
+})
