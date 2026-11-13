@@ -434,7 +434,9 @@ onBeforeUnmount(() => {
 .tile-name { font-size: 16px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tile-sub { font-size: 13px; font-weight: 400; color: var(--text-2); }
 
-.rooms { display: grid; gap: 22px; }
+/* minmax(0, 1fr): a room's scene chips scroll sideways instead of stretching the room past the screen */
+.rooms { display: grid; grid-template-columns: minmax(0, 1fr); gap: 22px; }
+.room { min-width: 0; }
 .room-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0 2px 8px; }
 .room-name { border: 0; background: none; padding: 0; font-size: 16px; font-weight: 600; color: var(--text); text-align: left; display: inline-flex; align-items: baseline; gap: 8px; }
 .room-name:hover { background: none; }
@@ -448,6 +450,6 @@ onBeforeUnmount(() => {
 .dot-glow { width: 18px; height: 18px; border-radius: 50%; flex: none; transition: background var(--dur-3) var(--ease-out), box-shadow var(--dur-3) var(--ease-out); }
 .foot { font-size: 13px; color: var(--text-2); margin: 4px 2px 0; max-width: 60ch; }
 @media (min-width: 1024px) {
-  .rooms { grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 28px 40px; }
+  .rooms { grid-template-columns: repeat(auto-fill, minmax(min(380px, 100%), 1fr)); gap: 28px 40px; }
 }
 </style>

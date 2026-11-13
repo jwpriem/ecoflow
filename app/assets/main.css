@@ -154,6 +154,9 @@ html, body {
   color: var(--text);
   font: 400 16px/1.45 var(--font);
   -webkit-font-smoothing: antialiased;
+  /* iOS enlarges text in anything wider than the screen; the app sets its own sizes */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
   -moz-osx-font-smoothing: grayscale;
   font-optical-sizing: auto;
 }
