@@ -15,11 +15,14 @@
       <p v-else-if="!state.cameras.length" class="foot">{{ m.security.empty }}</p>
 
       <template v-else>
-        <!-- The doorbell first: it's the one you open when someone's at the door. Every camera starts live by itself. -->
+        <p v-if="state.lastRing" class="rang"><AppIcon name="bell" />{{ rang(state.lastRing.at) }}</p>
+        <!-- The doorbell first: it's the one you open when someone's at the door. Wired cameras start live by themselves,
+             battery ones wait behind Watch live (utils/cameras.ts). -->
         <div v-stagger class="cams" :class="{ single: state.cameras.length === 1 }">
-          <CameraLive v-for="(c, i) in state.cameras" :id="`cam-${c.id}`" :key="c.id" :camera="c" autostart :style="{ '--o': i }" />
+          <CameraLive v-for="(c, i) in state.cameras" :id="`cam-${c.id}`" :key="c.id" :camera="c" :autostart="auto.includes(c.id)" :style="{ '--o': i }" />
         </div>
         <p class="foot">{{ m.security.foot }}</p>
+        <NuxtLink v-if="state.chime && me?.member === 'owner'" to="/settings#doorbell" class="to-chime">{{ m.security.chime }}<AppIcon name="chevron" /></NuxtLink>
       </template>
     </template>
 
@@ -33,15 +36,18 @@
 <script setup lang="ts">
 import type { Camera } from '~/components/CameraLive.vue'
 
-type State = { connected: boolean; signedIn: boolean; cameras: Camera[] }
+type State = { connected: boolean; signedIn: boolean; cameras: Camera[]; lastRing?: { at: string; cameraId: string; name: string | null } | null; chime?: boolean }
 
 const api = useApi()
 const { m } = useLocale()
 const route = useRoute()
+const { me } = useAuth()
+const rang = useRingText()
 
 const state = ref<State | null>(null)
 const loadError = ref<any>(null)
 const busy = ref(false)
+const auto = computed(() => autostartCameras(state.value?.cameras ?? [], typeof route.query.live === 'string' ? route.query.live : null))
 
 // The camera list barely changes, so one load per visit; a stream lives in its own card
 async function safeLoad() {
@@ -70,6 +76,10 @@ onMounted(async () => {
 .nothing h2 { font-size: 21px; font-weight: 700; font-stretch: 112%; margin: 0 0 6px; }
 .nothing p { margin: 0 0 14px; color: var(--text-2); max-width: 46ch; }
 .go { font-weight: 600; }
+.rang { display: flex; align-items: center; gap: 8px; margin: -8px 2px 16px; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.rang svg { width: 18px; height: 18px; flex: none; }
+.to-chime { display: inline-flex; align-items: center; gap: 4px; margin: 14px 2px 0; font-weight: 600; }
+.to-chime svg { width: 16px; height: 16px; }
 .cams { display: grid; gap: 22px; margin-bottom: 18px; }
 .foot { font-size: 13px; color: var(--text-2); margin: 4px 2px 0; max-width: 60ch; }
 @media (min-width: 1024px) {

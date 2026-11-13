@@ -155,6 +155,7 @@ export const nl: Messages = {
     kind: { doorbell: 'Deurbel', camera: 'Camera', display: 'Nest Hub Max' },
     timeLeft: (min: number) => (min <= 1 ? 'stopt over een minuut' : `stopt over ${min} minuten`),
     foot: 'Live beeld gaat rechtstreeks van Google naar je toestel, niet via WattsWise. Opnames blijven in de Google Home-app; meldingen bij aanbellen en beweging zet je aan bij Instellingen.',
+    chime: 'Deurbelgeluid en speaker',
   },
   mode: { self_use: 'Eigen verbruik', solar_only: 'Vasthouden', charge_grid: 'Laden van net', discharge: 'Ontladen' },
   modeHelp: {
@@ -669,6 +670,8 @@ export const nl: Messages = {
     sonosNotSignedIn: 'Nog niet ingelogd bij Sonos.',
     sonosSpeakers: (n: number) => `Ingelogd, ${n === 1 ? '1 box' : `${n} boxen`} gevonden.`,
     nowSignInSonos: 'Opgeslagen. Log nu in bij Sonos',
+    doorbellTitle: 'Deurbel',
+    doorbellBelow: 'Het deurbelgeluid en de speaker staan hieronder, bij Deurbel.',
     sonosDoorbell: {
       enabled: 'Deurbel op Sonos',
       enabledHelp: 'Als iemand op je Nest-deurbel drukt, speelt deze box het belgeluid. Daarna gaan het volume en de muziek vanzelf terug.',

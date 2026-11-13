@@ -177,7 +177,7 @@ const error = ref<any>(null)
 const loading = ref(false)
 const sky = useState<'day' | 'night'>('sky', () => 'day')
 const { view, animate } = useFlowView()
-const { m, locale } = useLocale()
+const { m } = useLocale()
 const { carStatus } = useCarStatus()
 const { loadMe } = useAuth()
 const viewOptions = computed(() => [
@@ -253,15 +253,8 @@ async function allOff() {
 
 // The last ring at the door, kept by the server from Nest's events
 const ring = computed<{ at: string; cameraId: string; name: string | null } | null>(() => d.value?.around?.doorbell ?? null)
-const ringText = computed(() => {
-  if (!ring.value) return ''
-  const at = new Date(ring.value.at)
-  const day = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime()
-  const days = Math.round((day(new Date(d.value.now)) - day(at)) / 86_400_000)
-  if (days <= 0) return m.value.home.rangToday(time(at))
-  if (days === 1) return m.value.home.rangYesterday(time(at))
-  return m.value.home.rangOn(at.toLocaleDateString(locale.value === 'nl' ? 'nl-NL' : 'en-GB', { day: 'numeric', month: 'short' }))
-})
+const rang = useRingText()
+const ringText = computed(() => (ring.value ? rang(ring.value.at, d.value.now) : ''))
 
 const capacityKwh = computed(() => (d.value?.devices ?? []).reduce((s: number, b: any) => s + b.capacityWh, 0) / 1000)
 const storedKwh = computed(() => (d.value?.devices ?? []).reduce((s: number, b: any) => s + (b.soc ?? 0) * b.capacityWh, 0) / 1000)

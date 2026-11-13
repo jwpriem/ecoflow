@@ -156,6 +156,7 @@ export const en = {
     kind: { doorbell: 'Doorbell', camera: 'Camera', display: 'Nest Hub Max' },
     timeLeft: (min: number) => (min <= 1 ? 'stops in a minute' : `stops in ${min} minutes`),
     foot: 'Live video goes straight from Google to your device, not through WattsWise. Recordings stay in the Google Home app; turn on doorbell and motion alerts in Settings.',
+    chime: 'Doorbell sound and speaker',
   },
   mode: { self_use: 'Self-use', solar_only: 'Hold', charge_grid: 'Charge from grid', discharge: 'Discharge' } as Record<string, string>,
   modeHelp: {
@@ -672,6 +673,8 @@ export const en = {
     sonosNotSignedIn: 'Not signed in with Sonos yet.',
     sonosSpeakers: (n: number) => `Signed in, ${n === 1 ? '1 speaker' : `${n} speakers`} found.`,
     nowSignInSonos: 'Saved. Now sign in with Sonos',
+    doorbellTitle: 'Doorbell',
+    doorbellBelow: 'The doorbell sound and its speaker are under Doorbell, below.',
     sonosDoorbell: {
       enabled: 'Doorbell on Sonos',
       enabledHelp: 'When someone presses your Nest doorbell, this speaker plays the bell. Its volume and music then go back by themselves.',
