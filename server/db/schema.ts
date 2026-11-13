@@ -134,7 +134,7 @@ export const householdInvites = pgTable(
   (t) => [index('household_invites_site').on(t.siteId)],
 )
 
-export type Provider = 'tibber' | 'solaredge' | 'ecoflow_official' | 'zeekr' | 'tibber_app' | 'hue' | 'nest'
+export type Provider = 'tibber' | 'solaredge' | 'ecoflow_official' | 'zeekr' | 'tibber_app' | 'hue' | 'nest' | 'sonos'
 
 export const integrations = pgTable(
   'integrations',

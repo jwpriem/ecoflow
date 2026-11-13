@@ -111,7 +111,7 @@
       <section class="group" style="--o: 5">
         <h3 class="section-title">{{ m.settings.connections }}</h3>
         <div class="list">
-          <details v-for="i in integrations" :key="i.provider" class="conn" :open="['solaredge', 'hue', 'nest'].includes(i.provider) && !!results[i.provider]">
+          <details v-for="i in integrations" :key="i.provider" class="conn" :open="['solaredge', 'hue', 'nest', 'sonos'].includes(i.provider) && !!results[i.provider]">
             <summary class="list-row indent">
               <div class="lead">
                 <span class="icon-tile"><AppIcon :name="INFO[i.provider]!.icon" /></span>
@@ -155,6 +155,46 @@
                   <template v-if="(i.meta.lastEvent as any)?.outcome">{{ m.settings.nestOutcome[(i.meta.lastEvent as any).outcome]?.((i.meta.lastEvent as any).sent) }}</template>
                 </p>
               </template>
+              <template v-if="i.provider === 'sonos'">
+                <p class="small muted">{{ m.settings.sonosCallback }} <code class="copy">{{ i.redirectUri }}</code></p>
+                <p v-if="i.configured" class="small muted">{{ i.meta.authorized ? m.settings.sonosSpeakers(sonosSpeakerList(i.meta).length) : m.settings.sonosNotSignedIn }}</p>
+                <!-- The doorbell on a speaker: saved as it changes, like the other settings -->
+                <div v-if="i.configured && i.meta.authorized && isOwner" class="doorbell">
+                  <label class="field-row">
+                    <span class="stack-text"><span class="title">{{ m.settings.sonosDoorbell.enabled }}</span><span class="small muted">{{ m.settings.sonosDoorbell.enabledHelp }}</span></span>
+                    <span class="switch"><input v-model="doorbell.enabled" type="checkbox" :disabled="!doorbell.playerId" @change="saveDoorbell({ enabled: doorbell.enabled })" /><span /></span>
+                  </label>
+                  <label class="field">
+                    <span>{{ m.settings.sonosDoorbell.speaker }}</span>
+                    <select v-model="doorbell.playerId" @change="saveDoorbell({ playerId: doorbell.playerId })">
+                      <option :value="null">{{ m.settings.sonosDoorbell.pick }}</option>
+                      <option v-for="s in sonosSpeakerList(i.meta)" :key="s.id" :value="s.id" :disabled="!s.audioClip">
+                        {{ s.audioClip ? s.name : m.settings.sonosDoorbell.cannot(s.name) }}
+                      </option>
+                    </select>
+                  </label>
+                  <label class="field">
+                    <span>{{ m.settings.sonosDoorbell.volume(doorbell.volume) }}</span>
+                    <input
+                      v-model.number="doorbell.volume" type="range" min="5" max="100" step="5" class="range" :style="{ '--p': (doorbell.volume - 5) / 95 }"
+                      @change="saveDoorbell({ volume: doorbell.volume })"
+                    />
+                  </label>
+                  <label class="field">
+                    <span>{{ m.settings.sonosDoorbell.sound }}</span>
+                    <select v-model="doorbell.sound" @change="saveDoorbell({ sound: doorbell.sound })">
+                      <option v-for="s in ['dingdong', 'chime']" :key="s" :value="s">{{ m.settings.sonosDoorbell.sounds[s] }}</option>
+                    </select>
+                  </label>
+                  <div class="row">
+                    <button type="button" :disabled="!doorbell.playerId || busy === 'sonos-test'" @click="testDoorbell">
+                      {{ busy === 'sonos-test' ? m.settings.sonosDoorbell.testing : m.settings.sonosDoorbell.test }}
+                    </button>
+                    <span v-if="doorbellMsg" class="small" :class="doorbellMsg.ok ? 'pos' : 'error'" role="status">{{ doorbellMsg.text }}</span>
+                  </div>
+                  <p v-if="i.meta.lastRing" class="small muted">{{ lastRingText(i.meta.lastRing as any) }}</p>
+                </div>
+              </template>
               <p v-if="i.provider === 'tibber_app' && i.configured" class="small muted">
                 {{ m.settings.tibberApp((i.meta.vehicles as any[])?.length ?? 0, (i.meta.chargers as any[])?.length ?? 0) }}
               </p>
@@ -179,6 +219,9 @@
                   </button>
                   <button v-if="i.provider === 'nest' && i.configured" type="button" :disabled="busy === 'nest-auth'" @click="signInNest">
                     {{ i.meta.authorized ? m.settings.signInAgain : m.settings.nestSignIn }}
+                  </button>
+                  <button v-if="i.provider === 'sonos' && i.configured" type="button" :disabled="busy === 'sonos-auth'" @click="signInSonos">
+                    {{ i.meta.authorized ? m.settings.signInAgain : m.settings.sonosSignIn }}
                   </button>
                   <button v-if="i.configured" type="button" class="danger" @click="remove(i.provider)">{{ m.settings.disconnect }}</button>
                   <span v-if="results[i.provider]" class="small" :class="results[i.provider]!.ok ? 'pos' : 'error'">{{ results[i.provider]!.text }}</span>
@@ -383,10 +426,11 @@ const INFO: Record<string, { icon: string; tile: string; fields: Field[] }> = {
   tibber_app: { icon: 'plug', tile: 'var(--sys-blue)', fields: [{ key: 'email' }, { key: 'password', secret: true }] },
   hue: { icon: 'bulb', tile: 'var(--surface-3)', fields: [{ key: 'clientId' }, { key: 'clientSecret', secret: true }] },
   nest: { icon: 'camera', tile: 'var(--surface-3)', fields: [{ key: 'projectId' }, { key: 'clientId' }, { key: 'clientSecret', secret: true }] },
+  sonos: { icon: 'speaker', tile: 'var(--surface-3)', fields: [{ key: 'clientId' }, { key: 'clientSecret', secret: true }] },
 }
 
 const integrations = ref<any[]>([])
-const forms = reactive<Record<string, Record<string, string>>>({ tibber: {}, solaredge: {}, ecoflow_official: {}, zeekr: {}, tibber_app: {}, hue: {}, nest: {} })
+const forms = reactive<Record<string, Record<string, string>>>({ tibber: {}, solaredge: {}, ecoflow_official: {}, zeekr: {}, tibber_app: {}, hue: {}, nest: {}, sonos: {} })
 const results = reactive<Record<string, { ok: boolean; text: string } | undefined>>({})
 const busy = ref('')
 const homeId = ref('')
@@ -460,6 +504,7 @@ async function load() {
   integrations.value = await api('/api/integrations')
   const t = integrations.value.find((i) => i.provider === 'tibber')
   homeId.value = (t?.meta.homeId as string) ?? ''
+  setDoorbell(integrations.value.find((i) => i.provider === 'sonos')?.meta)
   devs.value = await api('/api/devices')
   const plan: any = await api('/api/plan')
   control.value = { steering: plan.steering, controlMode: plan.controlMode }
@@ -488,7 +533,9 @@ async function save(provider: string) {
               ? m.value.settings.nowSignInHue
               : !r.meta.authorized && provider === 'nest'
                 ? m.value.settings.nowSignInNest
-                : m.value.settings.connected,
+                : !r.meta.authorized && provider === 'sonos'
+                  ? m.value.settings.nowSignInSonos
+                  : m.value.settings.connected,
         }
     forms[provider] = {}
     await load()
@@ -542,6 +589,63 @@ async function signInNest() {
   if (results.nest) haptic(results.nest.ok ? 'success' : 'error')
   busy.value = ''
 }
+const sonosSignIn = useSolarEdgeSignIn('sonos')
+// Sonos signs in the same way: away to Sonos on the web (back with ?sonos), in a sheet in the iOS app
+async function signInSonos() {
+  busy.value = 'sonos-auth'
+  try {
+    const r = await sonosSignIn()
+    await safeLoad()
+    if (r) results.sonos = seResult(r)
+  } catch (e: any) {
+    results.sonos = { ok: false, text: serverText(e?.data?.statusMessage) || m.value.common.failed }
+  }
+  if (results.sonos) haptic(results.sonos.ok ? 'success' : 'error')
+  busy.value = ''
+}
+
+// The doorbell on Sonos: which speaker, how loud, which sound
+type Speaker = { id: string; name: string; audioClip: boolean }
+const sonosSpeakerList = (meta: Record<string, any>): Speaker[] => (Array.isArray(meta.speakers) ? meta.speakers : [])
+const doorbell = reactive<{ enabled: boolean; playerId: string | null; volume: number; sound: string }>({ enabled: false, playerId: null, volume: 45, sound: 'dingdong' })
+const doorbellMsg = ref<Msg>(null)
+function setDoorbell(meta: Record<string, any> | undefined) {
+  const d = meta?.doorbell ?? {}
+  Object.assign(doorbell, { enabled: d.enabled === true, playerId: d.playerId ?? null, volume: Number(d.volume ?? 45), sound: d.sound ?? 'dingdong' })
+}
+async function saveDoorbell(patch: Partial<typeof doorbell>) {
+  doorbellMsg.value = null
+  // Picking no speaker switches the doorbell off too
+  const body = patch.playerId === null ? { ...patch, enabled: false } : patch
+  try {
+    const r: any = await api('/api/sonos/doorbell', { method: 'PUT', body })
+    Object.assign(doorbell, { enabled: r.enabled, playerId: r.playerId, volume: r.volume, sound: r.sound })
+    doorbellMsg.value = { ok: true, text: m.value.settings.sonosDoorbell.saved }
+  } catch (e: any) {
+    doorbellMsg.value = { ok: false, text: whyNot(e) }
+    setDoorbell(integrations.value.find((i) => i.provider === 'sonos')?.meta)
+  }
+}
+async function testDoorbell() {
+  busy.value = 'sonos-test'
+  doorbellMsg.value = null
+  try {
+    const r: any = await api('/api/sonos/doorbell/test', { method: 'POST' })
+    doorbellMsg.value = r.outcome === 'played' ? { ok: true, text: m.value.settings.sonosDoorbell.played } : { ok: false, text: serverText(r.error) || m.value.settings.sonosDoorbell.outcome[r.outcome] || m.value.common.failed }
+    await safeLoad()
+  } catch (e: any) {
+    doorbellMsg.value = { ok: false, text: serverText(e?.data?.statusMessage) || m.value.common.failed }
+  }
+  haptic(doorbellMsg.value?.ok ? 'success' : 'error')
+  busy.value = ''
+}
+/** "Laatste keer: 13-11-2026 10:42, afgespeeld" */
+function lastRingText(r: { at: string; outcome: string; test: boolean; error?: string }) {
+  const when = new Date(r.at).toLocaleString(m.value.dateLocale, { dateStyle: 'short', timeStyle: 'short' })
+  const what = r.outcome === 'failed' && r.error ? r.error : m.value.settings.sonosDoorbell.outcome[r.outcome] ?? r.outcome
+  return m.value.settings.sonosDoorbell.last(when, r.test, what)
+}
+
 /** "13-11-2026 09:43 (aanbellen)": when the last Nest event came in, and what it was */
 function lastEventText(meta: Record<string, any>) {
   const when = new Date(String(meta.lastEventAt)).toLocaleString(m.value.dateLocale, { dateStyle: 'short', timeStyle: 'short' })
@@ -700,6 +804,11 @@ onMounted(async () => {
     results.hue = seResult(route.query.hue)
     navigateTo({ query: {} }, { replace: true })
   }
+  // And from Sonos: ?sonos=ok or ?sonos=<error>
+  if (typeof route.query.sonos === 'string') {
+    results.sonos = seResult(route.query.sonos)
+    navigateTo({ query: {} }, { replace: true })
+  }
   // And from Google: ?nest=ok or ?nest=<error>
   if (typeof route.query.nest === 'string') {
     results.nest = seResult(route.query.nest)
@@ -749,6 +858,10 @@ function onVisible() {
 .admin-link { color: var(--text); text-decoration: none; }
 .danger-fill { background: var(--alert); border-color: var(--alert); color: #fff; }
 .copy { user-select: all; word-break: break-all; }
+.doorbell { display: flex; flex-direction: column; gap: 4px; margin: 4px 0 16px; padding: 12px 0 0; border-top: 1px solid var(--rule); }
+.doorbell .field-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+.doorbell .range { width: 100%; }
+.doorbell p { margin: 4px 0 0; }
 .foot { font-size: 13px; color: var(--text-2); margin: -4px 2px 0; max-width: 60ch; }
 .wide { width: 100%; margin-top: 4px; padding: 13px; }
 .stack-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding-right: 12px; }

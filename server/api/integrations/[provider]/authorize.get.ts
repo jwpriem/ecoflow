@@ -4,16 +4,18 @@ import { assertExperimental } from '../../../services/experimental'
 import { hueRedirectUri } from '../../../services/hue'
 import { nestRedirectUri } from '../../../services/nest'
 import { nestAuthorizeUrl, type NestCredentials } from '../../../providers/nest'
+import { sonosAuthorizeUrl, type SonosCredentials } from '../../../providers/sonos'
+import { sonosRedirectUri } from '../../../services/sonos'
 import { getIntegration } from '../../../services/integrations'
 import { markSolarEdgeAuthStarted, solarEdgeRedirectUri } from '../../../services/solaredge'
 import { assertVerified } from '../../../services/verify'
 import { signState } from '../../../utils/crypto'
 
-/** URL of the SolarEdge Connect (or Hue, or Google Nest) consent screen. The browser goes there; it sends the browser back to the callback. */
+/** URL of the SolarEdge Connect (or Hue, Google Nest or Sonos) consent screen. The browser goes there; it sends the browser back to the callback. */
 export default defineEventHandler(async (event) => {
   // Lives under [provider]/ because a static solaredge/ folder would shadow PUT/DELETE /api/integrations/solaredge
   const provider = getRouterParam(event, 'provider')
-  if (provider !== 'solaredge' && provider !== 'hue' && provider !== 'nest') throw createError({ statusCode: 404, statusMessage: 'Not found' })
+  if (provider !== 'solaredge' && provider !== 'hue' && provider !== 'nest' && provider !== 'sonos') throw createError({ statusCode: 404, statusMessage: 'Not found' })
   const { user, site, experimental } = await requireOwner(event)
   assertVerified(user)
   const key = encryptionKey()
@@ -27,6 +29,14 @@ export default defineEventHandler(async (event) => {
     // Google sends the browser back here; the OAuth client must list exactly this URI
     const redirectUri = nestRedirectUri(event)
     return { url: nestAuthorizeUrl(nest.creds, redirectUri, signState({ site: site.id, ...(app ? { app: true } : {}) }, key)), redirectUri }
+  }
+  if (provider === 'sonos') {
+    assertExperimental(experimental, 'sonos')
+    const sonos = await getIntegration<SonosCredentials>(db, site.id, 'sonos', key)
+    if (!sonos) throw createError({ statusCode: 400, statusMessage: 'Save the Sonos key and secret first' })
+    // Sonos checks this against the redirect URIs of the integration's key
+    const redirectUri = sonosRedirectUri(event)
+    return { url: sonosAuthorizeUrl(sonos.creds.clientId, redirectUri, signState({ site: site.id, ...(app ? { app: true } : {}) }, key)), redirectUri }
   }
   if (provider === 'hue') {
     assertExperimental(experimental, 'hue')

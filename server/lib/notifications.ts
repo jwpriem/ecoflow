@@ -25,6 +25,7 @@ const PROVIDER_NAME: Record<string, Record<Locale, string>> = {
   tibber_app: { en: 'Tibber app (charging)', nl: 'Tibber-app (laden)' },
   hue: { en: 'Philips Hue', nl: 'Philips Hue' },
   nest: { en: 'Google Nest', nl: 'Google Nest' },
+  sonos: { en: 'Sonos', nl: 'Sonos' },
 }
 
 /** Only grid charging and discharging are worth a notification; the other modes are the quiet default. */
