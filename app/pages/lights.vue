@@ -6,7 +6,6 @@
         <button v-if="floor" type="button" class="new" :class="{ on: arranging }" @click="arranging = !arranging">
           {{ arranging ? m.lights.plan.done : m.lights.plan.arrange }}
         </button>
-        <button v-else type="button" class="new" @click="editing = { group: null }"><AppIcon name="plus" />{{ m.lights.newGroup }}</button>
       </template>
     </header>
     <LoadError v-if="loadError" :error="loadError" :what="m.lights.what" :busy="busy" @retry="retryLoad" />
@@ -28,16 +27,23 @@
           <button type="button" class="add" :aria-label="m.lights.plan.addFloor" @click="floorEdit = { floor: null }"><AppIcon name="plus" /><span v-if="!floors.length">{{ m.lights.plan.addFloor }}</span></button>
         </div>
 
+        <!-- The whole house in one line, on every view: what is on, and all of it off in one tap -->
+        <div v-if="!arranging" class="summary">
+          <span role="status">{{ sum.on ? m.home.lightsOn(sum.on, '') : m.home.lightsOff }}</span>
+          <button v-if="sum.on && state.allId" type="button" class="plain" :aria-label="m.home.allOffLabel" @click="allOff">{{ m.home.allOff }}</button>
+        </div>
+
         <section v-if="floor" class="floor">
-          <label v-if="!arranging" class="layer">
-            <span>{{ m.lights.plan.showRooms }}</span>
-            <span class="switch"><input v-model="showRooms" type="checkbox" /><span /></span>
-          </label>
+          <!-- One layer at a time on the plan: your lamps and groups, or the Hue rooms -->
+          <div v-if="!arranging" class="layer"><Segmented v-model="layer" :options="layerOptions" /></div>
           <FloorPlan :floor="floor" :lights="state.lights" :groups="state.groups" :editing="arranging" :rooms="showRooms" @open="openPin" @toggle="togglePin" @placements="savePlacements" />
           <p v-if="!arranging" class="hint">{{ m.lights.plan.tapHint }}</p>
           <div v-if="arranging" class="floor-actions">
             <p class="hint">{{ m.lights.plan.arrangeHint }}</p>
-            <button type="button" class="plain" @click="floorEdit = { floor }">{{ m.lights.plan.editFloor }}</button>
+            <span class="floor-btns">
+              <button type="button" class="plain" @click="editing = { group: null }">{{ m.lights.newGroup }}</button>
+              <button type="button" class="plain" @click="floorEdit = { floor }">{{ m.lights.plan.editFloor }}</button>
+            </span>
           </div>
           <p v-if="floorError" class="error" role="status">{{ floorError }}</p>
         </section>
@@ -46,7 +52,10 @@
         <p v-if="!floors.length" class="hint invite">{{ m.lights.plan.invite }}</p>
         <!-- The groups made here (Hue zones) first: these are the "one lamp" the person thinks in -->
         <section class="block">
-          <div class="block-head"><h2>{{ m.lights.groups }}</h2></div>
+          <div class="block-head">
+            <h2>{{ m.lights.groups }}</h2>
+            <button type="button" class="new" @click="editing = { group: null }"><AppIcon name="plus" />{{ m.lights.newGroup }}</button>
+          </div>
           <p v-if="!zones.length" class="hint">{{ m.lights.groupsHint }}</p>
           <div v-stagger class="tiles">
             <div v-for="g in zones" :key="g.id" class="tile" :class="{ lit: g.on }">
@@ -82,14 +91,14 @@
               <!-- Scenes straight in the list only where there is colour to set (the garden); other rooms have them in their sheet -->
               <SceneChips v-if="hasColor(r) && scenesOf(r.id).length" class="room-scenes" :scenes="scenesOf(r.id)" @pick="recall" />
               <div class="list">
-                <div v-for="l in lampsOf(r)" :key="l.id" class="list-row lamp">
+                <div v-for="l in lampsOf(r)" :key="l.id" class="list-row lamp" :class="{ unreachable: !l.reachable }">
                   <button type="button" class="lead lamp-btn" @click="openLight(l)">
                     <span class="dot-glow" :style="glow(lampRgb(l), l.on ? l.brightness : 0)" aria-hidden="true" />
                     <span class="title">{{ l.name }}</span>
                     <span class="detail">{{ !l.reachable ? m.lights.unreachable : l.on ? `${l.brightness}%` : '' }}</span>
                   </button>
                   <label class="switch">
-                    <input type="checkbox" :checked="l.on" :aria-label="m.lights.toggle(l.name)" @change="change(lightTarget(l), { on: ($event.target as HTMLInputElement).checked })" />
+                    <input type="checkbox" :checked="l.on" :disabled="!l.reachable" :aria-label="m.lights.toggle(l.name)" @change="change(lightTarget(l), { on: ($event.target as HTMLInputElement).checked })" />
                     <span />
                   </label>
                 </div>
@@ -123,7 +132,7 @@ type Lamp = {
   supports: { dim: boolean; temperature: boolean; color: boolean }; mirekMin: number; mirekMax: number; reachable: boolean
 }
 type Group = { id: string; kind: 'room' | 'zone'; name: string; archetype: string | null; groupedLightId: string | null; lightIds: string[]; on: boolean; brightness: number }
-type State = { connected: boolean; signedIn: boolean; lights: Lamp[]; groups: Group[] }
+type State = { connected: boolean; signedIn: boolean; lights: Lamp[]; groups: Group[]; allId?: string | null }
 
 const api = useApi()
 const { m, serverText } = useLocale()
@@ -153,6 +162,11 @@ onMounted(() => {
     showRooms.value = localStorage.getItem(ROOMS_KEY) === '1'
   } catch {}
 })
+const layer = computed({ get: () => (showRooms.value ? 'rooms' : 'lamps'), set: (v) => (showRooms.value = v === 'rooms') })
+const layerOptions = computed(() => [
+  { value: 'lamps' as const, label: m.value.lights.plan.layerLamps },
+  { value: 'rooms' as const, label: m.value.lights.plan.layerRooms },
+])
 watch(showRooms, (v) => {
   try {
     localStorage.setItem(ROOMS_KEY, v ? '1' : '0')
@@ -334,6 +348,13 @@ function change(t: SheetTarget, c: LightChange) {
   endScenes(t.lightIds)
   send(t, c)
 }
+// The whole house: what is on, and everything off through the bridge's own group
+const sum = computed(() => lightsSummary(state.value ?? { lights: [], groups: [] }))
+function allOff() {
+  const s = state.value
+  if (!s?.allId) return
+  change({ kind: 'group', id: s.allId, name: '', on: true, brightness: 0, lightIds: s.lights.map((l) => l.id) }, { on: false })
+}
 function changeLight(id: string, c: LightChange) {
   const l = state.value?.lights.find((x) => x.id === id)
   if (l) change(lightTarget(l), c)
@@ -389,7 +410,11 @@ onBeforeUnmount(() => {
 .views .add { padding: 7px 10px; }
 .views .add svg { width: 16px; height: 16px; }
 .floor { margin-bottom: 28px; }
-.layer { display: flex; align-items: center; justify-content: flex-end; gap: 10px; margin: -6px 2px 10px; font-size: 14px; color: var(--text-2); cursor: pointer; }
+.summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 32px; margin: -6px 2px 14px; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.summary .plain { font-weight: 600; }
+.layer { display: flex; justify-content: flex-end; margin: 0 0 10px; }
+.floor-btns { display: inline-flex; gap: 16px; flex: none; }
+.lamp.unreachable .title { color: var(--text-2); }
 .floor-actions { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-top: 10px; }
 .floor-actions .hint { margin: 0; }
 .invite { margin: -6px 2px 18px; }

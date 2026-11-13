@@ -308,6 +308,8 @@ label.field > span { display: block; font-size: 14px; color: var(--text-2); marg
 .switch input:checked + span { background: var(--cta); }
 .switch input:checked + span::after { transform: translateX(18px); background: #fff; }
 /* Held down, the thumb stretches toward where it will go */
+.switch input:disabled { cursor: default; }
+.switch input:disabled + span { opacity: 0.45; }
 .switch input:active + span::after { width: 27px; }
 .switch input:checked:active + span::after { transform: translateX(13px); }
 .switch input:focus-visible + span { outline: 2px solid var(--text); outline-offset: 2px; }
