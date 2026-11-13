@@ -29,7 +29,11 @@
         </div>
 
         <section v-if="floor" class="floor">
-          <FloorPlan :floor="floor" :lights="state.lights" :groups="state.groups" :editing="arranging" @open="openPin" @toggle="togglePin" @placements="savePlacements" />
+          <label v-if="!arranging" class="layer">
+            <span>{{ m.lights.plan.showRooms }}</span>
+            <span class="switch"><input v-model="showRooms" type="checkbox" /><span /></span>
+          </label>
+          <FloorPlan :floor="floor" :lights="state.lights" :groups="state.groups" :editing="arranging" :rooms="showRooms" @open="openPin" @toggle="togglePin" @placements="savePlacements" />
           <p v-if="!arranging" class="hint">{{ m.lights.plan.tapHint }}</p>
           <div v-if="arranging" class="floor-actions">
             <p class="hint">{{ m.lights.plan.arrangeHint }}</p>
@@ -138,6 +142,19 @@ const floorEdit = ref<{ floor: Floor | null } | null>(null)
 const floorError = ref('')
 const floor = computed(() => (view.value === 'list' ? null : (floors.value.find((f) => f.id === view.value) ?? null)))
 const VIEW_KEY = 'lights.view'
+// On the plan: the Hue rooms, or your groups and single lamps. Remembered on this device.
+const ROOMS_KEY = 'lights.rooms'
+const showRooms = ref(false)
+onMounted(() => {
+  try {
+    showRooms.value = localStorage.getItem(ROOMS_KEY) === '1'
+  } catch {}
+})
+watch(showRooms, (v) => {
+  try {
+    localStorage.setItem(ROOMS_KEY, v ? '1' : '0')
+  } catch {}
+})
 function setView(v: number | 'list') {
   view.value = v
   arranging.value = false
@@ -326,6 +343,7 @@ onBeforeUnmount(() => {
 .views .add { padding: 7px 10px; }
 .views .add svg { width: 16px; height: 16px; }
 .floor { margin-bottom: 28px; }
+.layer { display: flex; align-items: center; justify-content: flex-end; gap: 10px; margin: -6px 2px 10px; font-size: 14px; color: var(--text-2); cursor: pointer; }
 .floor-actions { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-top: 10px; }
 .floor-actions .hint { margin: 0; }
 .invite { margin: -6px 2px 18px; }

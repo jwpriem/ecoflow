@@ -3,6 +3,7 @@
     <div ref="box" class="plan" :class="{ editing, night: sky === 'night', raster: !isSvg }" :style="{ aspectRatio: ratio }">
       <img v-if="floor.plan" :src="floor.plan" alt="" draggable="false" @load="onLoad" />
       <div v-else class="no-plan">{{ m.lights.plan.noPlan }}</div>
+      <p v-if="floor.plan && !editing && !pins.length && local.length" class="layer-empty">{{ rooms ? m.lights.plan.noRooms : m.lights.plan.noLamps }}</p>
 
       <!-- Light falling on the floor around each lamp that is on: the plan shows what the room looks like -->
       <div class="pools" aria-hidden="true">
@@ -42,7 +43,8 @@ type Placement = { kind: 'light' | 'group'; id: string; x: number; y: number }
 type Floor = { id: number; name: string; plan: string | null; placements: Placement[] }
 type Pin = Placement & { key: string; name: string; room: boolean; count: number; lit: boolean; reachable: boolean; glow: Record<string, string>; pool: Record<string, string> }
 
-const props = defineProps<{ floor: Floor; lights: Lamp[]; groups: Group[]; editing: boolean }>()
+// rooms: outside edit mode, show only the Hue rooms (true) or only your groups and single lamps (false)
+const props = defineProps<{ floor: Floor; lights: Lamp[]; groups: Group[]; editing: boolean; rooms?: boolean }>()
 const emit = defineEmits<{ open: [Placement]; toggle: [Placement]; placements: [Placement[]] }>()
 const { m } = useLocale()
 const sky = useState<'day' | 'night'>('sky', () => 'day')
@@ -94,6 +96,8 @@ const pins = computed<Pin[]>(() =>
   local.value.flatMap((p) => {
     const d = describe(p.kind, p.id)
     if (!d) return []
+    // While arranging everything shows; otherwise one layer: the rooms, or the groups and lamps
+    if (!props.editing && d.room !== !!props.rooms) return []
     // The pool is sized in % of the plan's width and centred on the pin
     const pool = { ...d.pool, left: `${p.x * 100}%`, top: `${p.y * 100}%` }
     return [{ ...p, ...d, pool, key: `${p.kind}:${p.id}` }]
@@ -258,6 +262,10 @@ function click(p: Pin) {
 }
 .pin.group .remove { right: -4px; }
 
+.layer-empty {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); margin: 0; max-width: 80%; text-align: center;
+  padding: 10px 14px; border-radius: var(--radius-sm); background: var(--surface); color: var(--text-2); font-size: 14px; box-shadow: 0 1px 6px rgba(0, 0, 0, 0.12);
+}
 .tray { margin-top: 14px; }
 .tray .label { margin: 0 2px 8px; font-size: 14px; color: var(--text-2); }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
