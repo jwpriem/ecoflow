@@ -6,7 +6,7 @@ import { pulseStatus } from '../../providers/tibberPulse'
 import { demoPulseStatus } from '../../services/demoData'
 import { visibleProviders } from '../../services/experimental'
 import { hueRedirectUri } from '../../services/hue'
-import { nestRedirectUri } from '../../services/nest'
+import { nestEventsUrl, nestRedirectUri } from '../../services/nest'
 import { solarEdgeRedirectUri } from '../../services/solaredge'
 
 const PROVIDERS: Provider[] = ['tibber', 'solaredge', 'ecoflow_official', 'zeekr', 'tibber_app', 'hue', 'nest']
@@ -28,7 +28,7 @@ export default defineEventHandler(async (event) => {
       ...(provider === 'tibber' ? { pulse: site.isDemo ? demoPulseStatus() : pulseStatus(site.id) } : {}),
       ...(provider === 'ecoflow_official' ? { mqtt: site.isDemo ? { connected: true } : ecoflowMqttStatus(site.id) } : {}),
       ...(provider === 'hue' ? { redirectUri: hueRedirectUri(event) } : {}),
-      ...(provider === 'nest' ? { redirectUri: nestRedirectUri(event) } : {}),
+      ...(provider === 'nest' ? { redirectUri: nestRedirectUri(event), eventsUrl: nestEventsUrl(event, site.id, encryptionKey()) } : {}),
       ...(provider === 'solaredge'
         ? {
             redirectUri: solarEdgeRedirectUri(event),

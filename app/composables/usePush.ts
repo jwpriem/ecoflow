@@ -1,8 +1,8 @@
-export type PushTopic = 'plan' | 'prices' | 'errors' | 'daily' | 'car'
+export type PushTopic = 'plan' | 'prices' | 'errors' | 'daily' | 'car' | 'doorbell' | 'camera'
 export type PushState = 'loading' | 'unsupported' | 'install' | 'denied' | 'off' | 'on'
 
 /** The topics; their texts are in m.push.topics */
-export const PUSH_TOPICS: readonly PushTopic[] = ['plan', 'prices', 'errors', 'daily', 'car']
+export const PUSH_TOPICS: readonly PushTopic[] = ['plan', 'prices', 'errors', 'daily', 'car', 'doorbell', 'camera']
 
 function isIos() {
   return /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)

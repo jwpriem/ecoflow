@@ -15,9 +15,9 @@
       <p v-else-if="!state.cameras.length" class="foot">{{ m.security.empty }}</p>
 
       <template v-else>
-        <!-- The doorbell first and wide: it's the one you open when someone's at the door -->
+        <!-- The doorbell first: it's the one you open when someone's at the door. Every camera starts live by itself. -->
         <div v-stagger class="cams" :class="{ single: state.cameras.length === 1 }">
-          <CameraLive v-for="(c, i) in state.cameras" :key="c.id" :camera="c" :style="{ '--o': i }" />
+          <CameraLive v-for="(c, i) in state.cameras" :id="`cam-${c.id}`" :key="c.id" :camera="c" autostart :style="{ '--o': i }" />
         </div>
         <p class="foot">{{ m.security.foot }}</p>
       </template>
@@ -37,6 +37,7 @@ type State = { connected: boolean; signedIn: boolean; cameras: Camera[] }
 
 const api = useApi()
 const { m } = useLocale()
+const route = useRoute()
 
 const state = ref<State | null>(null)
 const loadError = ref<any>(null)
@@ -56,7 +57,12 @@ async function retryLoad() {
   await safeLoad()
   busy.value = false
 }
-onMounted(safeLoad)
+// From a notification (/security?live=<camera>): bring that camera into view
+onMounted(async () => {
+  await safeLoad()
+  const live = route.query.live
+  if (typeof live === 'string') nextTick(() => document.getElementById(`cam-${live}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' }))
+})
 </script>
 
 <style scoped>

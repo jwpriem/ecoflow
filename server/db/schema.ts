@@ -372,7 +372,7 @@ export const commandsLog = pgTable(
   (t) => [index('commands_device_ts').on(t.deviceId, t.ts)],
 )
 
-export type PushTopic = 'plan' | 'prices' | 'errors' | 'daily' | 'car'
+export type PushTopic = 'plan' | 'prices' | 'errors' | 'daily' | 'car' | 'doorbell' | 'camera'
 
 /** One row per browser/phone that allowed notifications (Web Push). */
 export const pushSubscriptions = pgTable(

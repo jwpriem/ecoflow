@@ -45,7 +45,7 @@ export type Camera = {
 }
 type Session = { answerSdp?: string; mediaSessionId: string; expiresAt: string }
 
-const props = defineProps<{ camera: Camera }>()
+const props = defineProps<{ camera: Camera; autostart?: boolean }>()
 const api = useApi()
 const { m, serverText } = useLocale()
 
@@ -191,11 +191,16 @@ function fullscreen() {
   else v.webkitEnterFullscreen?.()
 }
 
-// Nobody watching a hidden page: stop, so the camera doesn't stream to nobody, and offer to carry on
+// Nobody watching a hidden page: stop, so the camera doesn't stream to nobody. Back on the page it picks up again
+// by itself when the page started it by itself, otherwise it offers to carry on.
 function onVisibility() {
   if (document.visibilityState === 'hidden' && (phase.value === 'live' || phase.value === 'connecting')) stop('paused')
+  else if (document.visibilityState === 'visible' && phase.value === 'paused' && props.autostart) start()
 }
-onMounted(() => document.addEventListener('visibilitychange', onVisibility))
+onMounted(() => {
+  document.addEventListener('visibilitychange', onVisibility)
+  if (props.autostart && props.camera.live && document.visibilityState === 'visible') start()
+})
 onBeforeUnmount(() => {
   document.removeEventListener('visibilitychange', onVisibility)
   teardown()

@@ -150,7 +150,7 @@ export const nl: Messages = {
     failed: 'Kon de stream niet starten. Probeer het opnieuw.',
     kind: { doorbell: 'Deurbel', camera: 'Camera', display: 'Nest Hub Max' },
     timeLeft: (min: number) => (min <= 1 ? 'stopt over een minuut' : `stopt over ${min} minuten`),
-    foot: 'Live beeld gaat rechtstreeks van Google naar je toestel, niet via WattsWise. Opnames en meldingen blijven in de Google Home-app.',
+    foot: 'Live beeld gaat rechtstreeks van Google naar je toestel, niet via WattsWise. Opnames blijven in de Google Home-app; meldingen bij aanbellen en beweging zet je aan bij Instellingen.',
   },
   mode: { self_use: 'Eigen verbruik', solar_only: 'Vasthouden', charge_grid: 'Laden van net', discharge: 'Ontladen' },
   modeHelp: {
@@ -639,6 +639,9 @@ export const nl: Messages = {
     nestNotSignedIn: 'Nog niet ingelogd bij Google.',
     nestCameras: (n: number) => `Ingelogd, ${n === 1 ? '1 camera' : `${n} camera’s`} gedeeld.`,
     nowSignInNest: 'Opgeslagen. Log nu in bij Google',
+    nestEvents: 'Eindpunt-URL voor je Pub/Sub-pushabonnement (voor meldingen):',
+    nestLastEvent: (when: string) => `Laatste event ontvangen: ${when}.`,
+    nestNoEvents: 'Nog geen events ontvangen.',
     connected: 'Verbonden',
     info: {
       tibber: { title: 'Tibber', help: 'Persoonlijk toegangstoken van developer.tibber.com. Voor de kwartierprijzen en de live meter van de Pulse.' },
@@ -764,6 +767,8 @@ export const nl: Messages = {
       errors: { label: 'Verbindingsproblemen', help: 'Als Tibber of SolarEdge niet meer werkt' },
       daily: { label: 'Dagelijkse besparing', help: 'Overzicht om 21:00' },
       car: { label: 'Auto aangesloten', help: 'Vraagt wanneer je weg moet als je thuis de stekker in de auto steekt' },
+      doorbell: { label: 'Aanbellen', help: 'Als iemand op je Nest-deurbel drukt' },
+      camera: { label: 'Beweging en personen', help: 'Als een Nest-camera beweging of een persoon ziet, hooguit eens per 3 minuten per camera' },
     },
     enableFailed: 'Kon meldingen niet aanzetten',
     testFailed: 'Test mislukt',

@@ -149,6 +149,10 @@
               <template v-if="i.provider === 'nest'">
                 <p class="small muted">{{ m.settings.nestCallback }} <code class="copy">{{ i.redirectUri }}</code></p>
                 <p v-if="i.configured" class="small muted">{{ i.meta.authorized ? m.settings.nestCameras(Number(i.meta.cameras ?? 0)) : m.settings.nestNotSignedIn }}</p>
+                <p v-if="i.configured && isOwner" class="small muted">{{ m.settings.nestEvents }} <code class="copy">{{ i.eventsUrl }}</code></p>
+                <p v-if="i.configured && i.meta.authorized" class="small muted">
+                  {{ i.meta.lastEventAt ? m.settings.nestLastEvent(new Date(String(i.meta.lastEventAt)).toLocaleString(m.dateLocale, { dateStyle: 'short', timeStyle: 'short' })) : m.settings.nestNoEvents }}
+                </p>
               </template>
               <p v-if="i.provider === 'tibber_app' && i.configured" class="small muted">
                 {{ m.settings.tibberApp((i.meta.vehicles as any[])?.length ?? 0, (i.meta.chargers as any[])?.length ?? 0) }}
@@ -347,7 +351,7 @@ const push = usePush()
 // Steering and the connections are the owner's; a member sees them but can't change them
 const isOwner = computed(() => me.value?.member === 'owner')
 // Car notifications only exist with the experimental integrations
-const pushTopics = computed(() => PUSH_TOPICS.filter((t) => t !== 'car' || experimental.value))
+const pushTopics = computed(() => PUSH_TOPICS.filter((t) => !['car', 'doorbell', 'camera'].includes(t) || experimental.value))
 
 function pickLocale(l: Locale) {
   setLocale(l)

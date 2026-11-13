@@ -46,6 +46,8 @@ const ACCESS: Record<string, 'owner' | 'household' | 'account' | 'public' | 'adm
   'integrations/[provider].delete.ts': 'owner',
   // A GET, but it starts the SolarEdge sign-in and stores its state
   'integrations/[provider]/authorize.get.ts': 'owner',
+  // Google Pub/Sub pushes Nest events here: no session, a per-household token in the URL instead
+  'integrations/[provider]/events.post.ts': 'public',
   'ecoflow/steering.put.ts': 'owner',
   // Overrides are for the household; its controlMode field (steering on or off) is checked for the owner inside
   'plan/override.post.ts': 'household',
