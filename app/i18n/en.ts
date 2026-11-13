@@ -656,6 +656,32 @@ export const en = {
       other: () => 'Nothing to notify about.',
     } as Record<string, (n: number) => string>,
     nestNoEvents: 'No events received yet.',
+    sonosSignIn: 'Sign in with Sonos',
+    sonosCallback: 'Redirect URI for your Sonos integration key:',
+    sonosNotSignedIn: 'Not signed in with Sonos yet.',
+    sonosSpeakers: (n: number) => `Signed in, ${n === 1 ? '1 speaker' : `${n} speakers`} found.`,
+    nowSignInSonos: 'Saved. Now sign in with Sonos',
+    sonosDoorbell: {
+      enabled: 'Doorbell on Sonos',
+      enabledHelp: 'When someone presses your Nest doorbell, this speaker plays the bell. Its volume and music then go back by themselves.',
+      speaker: 'Speaker',
+      pick: 'Pick a speaker',
+      cannot: (name: string) => `${name} (can’t play a sound over its music)`,
+      volume: (v: number) => `Bell volume: ${v}`,
+      sound: 'Sound',
+      sounds: { dingdong: 'Ding-dong', chime: 'Sonos chime (short)' } as Record<string, string>,
+      test: 'Test now',
+      testing: 'Playing…',
+      played: 'Played',
+      saved: 'Saved',
+      outcome: {
+        played: 'played',
+        off: 'off',
+        'no-speaker': 'no speaker picked',
+        failed: 'failed',
+      } as Record<string, string>,
+      last: (when: string, test: boolean, what: string) => `Last time${test ? ' (test)' : ''}: ${when}, ${what}.`,
+    },
     connected: 'Connected',
     info: {
       tibber: { title: 'Tibber', help: 'Personal access token from developer.tibber.com. Used for 15-minute prices and the Pulse live meter.' },
@@ -678,6 +704,10 @@ export const en = {
       hue: {
         title: 'Philips Hue',
         help: 'Remote Hue API: create an app on developers.meethue.com with the callback URL below, save its client ID and secret here and then sign in with your Hue account. WattsWise reaches your bridge through Philips’ cloud, so the Lights tab also works away from home.',
+      },
+      sonos: {
+        title: 'Sonos',
+        help: 'Control API: create a control integration on developer.sonos.com with a key and the redirect URI below, save the key and secret here and then sign in with your Sonos account. Then pick a speaker to play the bell when the Nest doorbell rings.',
       },
       nest: {
         title: 'Google Nest',

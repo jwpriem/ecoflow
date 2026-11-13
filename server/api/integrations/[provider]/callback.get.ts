@@ -10,6 +10,7 @@ import {
 } from '../../../services/solaredge'
 import { completeHueAuth } from '../../../services/hue'
 import { completeNestAuth, nestRedirectUri } from '../../../services/nest'
+import { completeSonosAuth, sonosRedirectUri } from '../../../services/sonos'
 import { verifyState } from '../../../utils/crypto'
 
 /**
@@ -20,6 +21,7 @@ import { verifyState } from '../../../utils/crypto'
 export default defineEventHandler(async (event) => {
   if (getRouterParam(event, 'provider') === 'hue') return hueCallback(event)
   if (getRouterParam(event, 'provider') === 'nest') return nestCallback(event)
+  if (getRouterParam(event, 'provider') === 'sonos') return sonosCallback(event)
   if (getRouterParam(event, 'provider') !== 'solaredge') throw createError({ statusCode: 404, statusMessage: 'Not found' })
   const q = getQuery(event) as Record<string, string | undefined>
   const params = Object.keys(q).sort()
@@ -104,4 +106,28 @@ async function nestCallback(event: H3Event) {
   console.log(`[nest] callback state=${fromState ? 'ok' : 'invalid'} result=${error ?? 'ok'}`)
   if (fromState?.app) return sendRedirect(event, appReturnUrl('nest', error ?? 'ok'))
   return sendRedirect(event, `/settings?nest=${encodeURIComponent(error ?? 'ok')}`)
+}
+
+/** Sonos sends ?code&state back (or ?error when the owner said no) */
+async function sonosCallback(event: H3Event) {
+  const q = getQuery(event) as Record<string, string | undefined>
+  const key = encryptionKey()
+  const db = useDb()
+  const fromState = q.state ? verifyState<{ site: number; app?: boolean }>(q.state, key) : null
+  let error: string | undefined
+  if (q.error) error = String(q.error_description ?? q.error)
+  else if (!fromState) error = 'Sign-in link expired, try again'
+  else if (!q.code) error = 'Sonos did not return a code'
+  const [site] = fromState ? await db.select().from(sites).where(eq(sites.id, fromState.site)) : []
+  if (!error && !site) error = 'Unknown site'
+  if (!error) {
+    try {
+      error = (await completeSonosAuth(db, site!, key, q.code!, sonosRedirectUri(event))).error
+    } catch (err) {
+      error = (err as Error).message
+    }
+  }
+  console.log(`[sonos] callback state=${fromState ? 'ok' : 'invalid'} result=${error ?? 'ok'}`)
+  if (fromState?.app) return sendRedirect(event, appReturnUrl('sonos', error ?? 'ok'))
+  return sendRedirect(event, `/settings?sonos=${encodeURIComponent(error ?? 'ok')}`)
 }

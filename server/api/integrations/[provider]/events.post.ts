@@ -21,11 +21,11 @@ export default defineEventHandler(async (event) => {
     return null
   }
   const body = await readBody(event).catch(() => null)
-  const r = await handleNestEvent(db, site, key, body).catch((err) => {
+  const r = await handleNestEvent(db, site, key, body, { baseUrl: appBaseUrl(event) }).catch((err) => {
     console.error(`[nest] event for site ${siteId}:`, (err as Error).message)
-    return { notified: null }
+    return { notified: null, sent: 0, sonos: null }
   })
-  if (r.notified) console.log(`[nest] site ${siteId} ${r.notified} sent=${r.sent}`)
+  if (r.notified) console.log(`[nest] site ${siteId} ${r.notified} sent=${r.sent}${r.sonos ? ` sonos=${r.sonos}` : ''}`)
   setResponseStatus(event, 204)
   return null
 })

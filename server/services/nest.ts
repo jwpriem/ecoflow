@@ -6,6 +6,7 @@ import type { sites } from '../db/schema'
 import { checkOffer, isDeviceId, type NestCamera, nestCameras, NestEventGate, parseNestEvent, withNewline } from '../lib/nest'
 import { nestEventMessage } from '../lib/notifications'
 import { notify } from './push'
+import { ringDoorbell, type SonosLastRing } from './sonos'
 import { type NestCredentials, nestCommand, nestDevices, NestError, nestExchangeCode, nestRefresh, nestTokenNeedsRefresh } from '../providers/nest'
 import { getIntegration, markIntegration, updateIntegration } from './integrations'
 
@@ -134,20 +135,28 @@ export function nestEventsUrl(event: H3Event, siteId: number, key: string): stri
 
 const gate = new NestEventGate()
 
-/** One Pub/Sub push: a ring, person or motion becomes a notification on the devices that want it */
-export async function handleNestEvent(db: Db, site: Site, key: string, body: unknown, now = Date.now()) {
+/**
+ * One Pub/Sub push: a ring, person or motion becomes a notification on the devices that want it. A ring also plays
+ * the doorbell sound on the Sonos speaker picked in Settings (if any); baseUrl is where that speaker fetches it.
+ */
+export async function handleNestEvent(db: Db, site: Site, key: string, body: unknown, opts: { now?: number; baseUrl?: string } = {}) {
+  const now = opts.now ?? Date.now()
   const ev = parseNestEvent(body)
   const nest = await getIntegration<NestCredentials>(db, site.id, 'nest', key)
-  if (!nest) return { notified: null }
+  if (!nest) return { notified: null, sent: null, sonos: null }
   const kind = ev ? gate.decide(site.id, ev, now) : null
   let sent: number | null = null
   let failed = 0
+  let sonos: SonosLastRing | null = null
   if (ev && kind) {
+    // Started first and not awaited before the push: the kitchen should sound as soon as possible
+    const ring = kind === 'chime' && opts.baseUrl ? ringDoorbell(db, site, key, opts.baseUrl, { now }).catch(() => null) : Promise.resolve(null)
     const names = (nest.meta.cameraNames ?? {}) as Record<string, string>
     const camera = { id: ev.deviceId, name: names[ev.deviceId] ?? (kind === 'chime' ? 'Voordeur' : 'Camera') }
     const r = await notify(db, site.id, kind === 'chime' ? 'doorbell' : 'camera', nestEventMessage(kind, camera, ev.at, site.timezone))
     sent = r.sent
     failed = r.failed
+    sonos = await ring
   }
   // Shown in Settings: what came in last and what became of it, so a missing notification can be explained
   const lastEvent: NestLastEvent = {
@@ -157,7 +166,7 @@ export async function handleNestEvent(db: Db, site: Site, key: string, body: unk
     sent: sent ?? 0,
   }
   await updateIntegration(db, nest.row.id, { meta: { ...nest.meta, lastEventAt: lastEvent.at, lastEvent } }, key)
-  return { notified: kind, sent }
+  return { notified: kind, sent, sonos: sonos?.outcome ?? null }
 }
 
 /** The last Pub/Sub event: its kinds (empty for a trait update) and whether it became a notification */

@@ -4,6 +4,7 @@ import { type TibberHome, tibberHomes, type TibberCredentials } from '../../prov
 import { forgetTibberApp } from '../../providers/tibberApp'
 import { readHue } from '../../services/hue'
 import { readCameras } from '../../services/nest'
+import { readSpeakers } from '../../services/sonos'
 import { getIntegration, markIntegration, saveIntegration, updateIntegration } from '../../services/integrations'
 import { locationFromTibber } from '../../services/location'
 import { assertExperimental } from '../../services/experimental'
@@ -25,6 +26,7 @@ const FIELDS: Record<Provider, string[]> = {
   tibber_app: ['email', 'password'],
   hue: ['clientId', 'clientSecret'],
   nest: ['projectId', 'clientId', 'clientSecret'],
+  sonos: ['clientId', 'clientSecret'],
 }
 
 /**
@@ -69,6 +71,15 @@ export default defineEventHandler(async (event) => {
     return { ok: !('error' in r), error: 'error' in r ? r.error : null, meta: (await getIntegration(db, site.id, 'nest', key))?.meta ?? {} }
   }
 
+  // And for Sonos: list the speakers through the stored sign-in
+  if (provider === 'sonos' && !body.credentials) {
+    const r = await readSpeakers(db, site, key).then(
+      (s) => ({ speakers: s.length }),
+      (err: Error) => ({ error: (err as any).statusMessage ?? err.message }),
+    )
+    return { ok: !('error' in r), error: 'error' in r ? r.error : null, meta: (await getIntegration(db, site.id, 'sonos', key))?.meta ?? {} }
+  }
+
   const existing = await getIntegration<Record<string, string>>(db, site.id, provider, key)
   let creds = existing?.creds
   if (body.credentials) {
@@ -96,7 +107,7 @@ export default defineEventHandler(async (event) => {
       tibberHome = home
       meta.realtime = home.features?.realTimeConsumptionEnabled ?? false
       meta.homes = homes.map((h) => ({ id: h.id, name: h.appNickname || h.address?.address1 || h.id }))
-    } else if ((provider === 'solaredge' || provider === 'hue' || provider === 'nest') && body.credentials) {
+    } else if ((provider === 'solaredge' || provider === 'hue' || provider === 'nest' || provider === 'sonos') && body.credentials) {
       // New client credentials have no tokens yet: the owner signs in next (GET .../solaredge/authorize)
       meta.authorized = false
     }
