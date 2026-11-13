@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { glow, hexToRgb, lampRgb, mirekToRgb, mixRgb, rgbCss, rgbToHex, rgbToXy, sceneSwatch, xyToRgb } from '../app/utils/hue'
+import { glow, hexToRgb, lampRgb, lightsSummary, mirekToRgb, mixRgb, rgbCss, rgbToHex, rgbToXy, sceneSwatch, xyToRgb } from '../app/utils/hue'
 import { hueCommand, hueScenes, hueState, type HueRaw } from '../server/lib/hue'
 import { hueAuthorizeUrl, hueCreateAppKey, hueExchangeCode, hueTokenNeedsRefresh } from '../server/providers/hue'
 import { resetProviders } from '../server/providers/http'
@@ -147,6 +147,34 @@ describe('Hue Remote API', () => {
     expect(hueTokenNeedsRefresh(undefined, now)).toBe(true)
     expect(hueTokenNeedsRefresh(now + 3 * 86_400_000, now)).toBe(false)
     expect(hueTokenNeedsRefresh(now + 3_600_000, now)).toBe(true)
+  })
+})
+
+describe('the whole house', () => {
+  it('finds the grouped light of the bridge itself, to switch everything at once', () => {
+    const raw = bridge()
+    expect(hueState(raw).allId).toBeNull()
+    raw.groupedLights.push({ id: id(399), type: 'grouped_light', owner: { rid: id(1), rtype: 'bridge_home' }, on: { on: true } })
+    expect(hueState(raw).allId).toBe(id(399))
+  })
+})
+
+describe('lightsSummary', () => {
+  const s = hueState(bridge())
+
+  it('counts the lamps that are on and names their rooms, not your own groups', () => {
+    const sum = lightsSummary(s)
+    expect(sum.on).toBe(2)
+    expect(sum.total).toBe(3)
+    // Spot 1 is on in the living room; Spot 3 is on but in no room
+    expect(sum.rooms).toEqual(['Woonkamer'])
+    expect(sum.brightness).toBe(50)
+    expect(sum.rgb).not.toBeNull()
+  })
+
+  it('is quiet when everything is off', () => {
+    const off = { ...s, lights: s.lights.map((l) => ({ ...l, on: false })) }
+    expect(lightsSummary(off)).toMatchObject({ on: 0, rooms: [], rgb: null, brightness: 0 })
   })
 })
 

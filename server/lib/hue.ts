@@ -32,6 +32,8 @@ export interface HueGroup {
 export interface HueState {
   lights: HueLight[]
   groups: HueGroup[]
+  /** The grouped_light of the bridge itself: every lamp in the house at once. Null on a bridge that has none. */
+  allId: string | null
 }
 
 export interface HueRaw {
@@ -101,6 +103,7 @@ export function hueState(raw: HueRaw): HueState {
   return {
     lights: lights.sort(byName),
     groups: [...raw.rooms.map((r) => group(r, 'room')).sort(byName), ...raw.zones.map((z) => group(z, 'zone')).sort(byName)],
+    allId: raw.groupedLights.find((g) => g.owner?.rtype === 'bridge_home')?.id ?? null,
   }
 }
 

@@ -125,6 +125,29 @@
         </NuxtLink>
       </section>
 
+      <!-- The house itself, one line each: which lamps are on (and all off in one tap), and the last ring at the door -->
+      <section v-if="lightsSum || d.around?.security" class="block house" style="--o: 9">
+        <div v-if="lightsSum" class="house-row">
+          <NuxtLink to="/lights" class="hr-main">
+            <span class="hr-glow" :style="glow(lightsSum.rgb, lightsSum.brightness)" aria-hidden="true" />
+            <span class="hr-text">
+              <span class="hr-title">{{ m.tabs.lights }}</span>
+              <span class="hr-detail" :class="{ error: lightsError }" role="status">{{ lightsError || lightsText }}</span>
+            </span>
+          </NuxtLink>
+          <button v-if="lightsSum.on && house?.allId" type="button" class="hr-act" :aria-label="m.home.allOffLabel" @click="allOff">{{ m.home.allOff }}</button>
+        </div>
+        <div v-if="d.around?.security" class="house-row">
+          <NuxtLink :to="ring ? `/security?live=${encodeURIComponent(ring.cameraId)}` : '/security'" class="hr-main">
+            <span class="hr-icon" aria-hidden="true"><AppIcon name="bell" /></span>
+            <span class="hr-text">
+              <span class="hr-title">{{ ring?.name ?? m.tabs.security }}</span>
+              <span class="hr-detail">{{ ring ? ringText : m.home.watchLive }}</span>
+            </span>
+          </NuxtLink>
+        </div>
+      </section>
+
       <footer class="sources" style="--o: 10">
         <span class="sources-clock"><span class="dot live" /> {{ time(d.now) }}</span>
         <span><span class="dot" :class="d.sources.pulse.connected ? 'ok' : ''" /> Tibber Pulse</span>
@@ -154,14 +177,14 @@ const error = ref<any>(null)
 const loading = ref(false)
 const sky = useState<'day' | 'night'>('sky', () => 'day')
 const { view, animate } = useFlowView()
-const { m } = useLocale()
+const { m, locale } = useLocale()
 const { carStatus } = useCarStatus()
 const { loadMe } = useAuth()
 const viewOptions = computed(() => [
   { value: 'clean' as const, label: m.value.home.viewClean },
   { value: 'detailed' as const, label: m.value.home.viewHouse },
 ])
-const PROVIDER: Record<string, string> = { tibber: 'Tibber', solaredge: 'SolarEdge', ecoflow_official: 'EcoFlow', zeekr: 'Zeekr', tibber_app: 'Tibber app' }
+const PROVIDER: Record<string, string> = { tibber: 'Tibber', solaredge: 'SolarEdge', ecoflow_official: 'EcoFlow', zeekr: 'Zeekr', tibber_app: 'Tibber app', hue: 'Philips Hue', nest: 'Google Nest', sonos: 'Sonos' }
 const cents = (p: number) => `${num(p * 100, 1)} ct`
 
 async function load() {
@@ -179,12 +202,66 @@ async function load() {
     if (p) plan.value = p
     if (v) cars.value = v as any[]
     error.value = null
+    loadLights()
   } catch (e) {
     error.value = e
   } finally {
     loading.value = false
   }
 }
+
+// The lamps for the line under Around the house. Hue is reached through Philips' cloud, so not on every refresh
+// of Home: on opening it and every two minutes after.
+type House = Parameters<typeof lightsSummary>[0] & { signedIn: boolean; allId: string | null }
+const house = ref<House | null>(null)
+const lightsError = ref('')
+let lightsAt = 0
+async function loadLights(force = false) {
+  if (!d.value?.around?.lights || (!force && Date.now() - lightsAt < 120_000)) return
+  lightsAt = Date.now()
+  try {
+    house.value = await api<House>('/api/lights')
+  } catch {
+    // Home stays as it is; the Lights tab says what is wrong with Hue
+  }
+}
+const lightsSum = computed(() => (d.value?.around?.lights && house.value?.signedIn && house.value.lights.length ? lightsSummary(house.value) : null))
+const lightsText = computed(() => {
+  const s = lightsSum.value
+  if (!s?.on) return m.value.home.lightsOff
+  const rooms = s.rooms.length > 3 ? [...s.rooms.slice(0, 2), m.value.home.moreRooms(s.rooms.length - 2)] : s.rooms
+  return m.value.home.lightsOn(s.on, rooms.join(', '))
+})
+let offTimer: ReturnType<typeof setTimeout> | undefined
+/** Every lamp off through the bridge's own group: one call, shown straight away */
+async function allOff() {
+  const h = house.value
+  if (!h?.allId) return
+  for (const l of h.lights) l.on = false
+  lightsError.value = ''
+  try {
+    await api(`/api/lights/group/${h.allId}`, { method: 'PUT', body: { on: false } })
+    haptic('success')
+    clearTimeout(offTimer)
+    offTimer = setTimeout(() => loadLights(true), 2000)
+  } catch (e: any) {
+    lightsError.value = m.value.home.lightsFailed
+    haptic('error')
+    loadLights(true)
+  }
+}
+
+// The last ring at the door, kept by the server from Nest's events
+const ring = computed<{ at: string; cameraId: string; name: string | null } | null>(() => d.value?.around?.doorbell ?? null)
+const ringText = computed(() => {
+  if (!ring.value) return ''
+  const at = new Date(ring.value.at)
+  const day = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime()
+  const days = Math.round((day(new Date(d.value.now)) - day(at)) / 86_400_000)
+  if (days <= 0) return m.value.home.rangToday(time(at))
+  if (days === 1) return m.value.home.rangYesterday(time(at))
+  return m.value.home.rangOn(at.toLocaleDateString(locale.value === 'nl' ? 'nl-NL' : 'en-GB', { day: 'numeric', month: 'short' }))
+})
 
 const capacityKwh = computed(() => (d.value?.devices ?? []).reduce((s: number, b: any) => s + b.capacityWh, 0) / 1000)
 const storedKwh = computed(() => (d.value?.devices ?? []).reduce((s: number, b: any) => s + (b.soc ?? 0) * b.capacityWh, 0) / 1000)
@@ -275,7 +352,10 @@ onMounted(() => {
   load()
   timer = setInterval(load, 30_000)
 })
-onBeforeUnmount(() => clearInterval(timer))
+onBeforeUnmount(() => {
+  clearInterval(timer)
+  clearTimeout(offTimer)
+})
 </script>
 
 <style scoped>
@@ -354,6 +434,20 @@ onBeforeUnmount(() => clearInterval(timer))
 .cr-fill { height: 100%; border-radius: 3px; background: var(--text); transition: width 1s var(--ease-out); transform-origin: left; animation: fill-in 1s var(--ease-out) 300ms backwards; }
 .cr-fill.charging { box-shadow: inset -4px 0 0 var(--cheap); }
 
+/* The house: one line each, a glow or mark left, what is going on beside it; the line opens its tab */
+.house-row { display: flex; align-items: center; gap: 12px; padding: 12px 0; }
+.house-row + .house-row { border-top: 1px solid var(--rule); }
+.hr-main { flex: 1; min-width: 0; display: flex; align-items: center; gap: 14px; color: inherit; text-decoration: none; }
+.hr-glow, .hr-icon { width: 36px; height: 36px; border-radius: 50%; flex: none; }
+.hr-glow { transition: background var(--dur-3) var(--ease-out), box-shadow var(--dur-3) var(--ease-out); }
+.hr-icon { display: grid; place-items: center; background: var(--fill); color: var(--text-2); }
+.hr-icon svg { width: 18px; height: 18px; }
+.hr-text { display: flex; flex-direction: column; min-width: 0; }
+.hr-title { font-weight: 600; line-height: 1.25; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hr-detail { margin-top: 2px; font-size: 14px; color: var(--text-2); font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hr-detail.error { color: var(--dear); }
+.hr-act { flex: none; border-radius: 999px; padding: 7px 14px; font-size: 14px; }
+
 .sources { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; color: var(--text-2); }
 .sources > span { display: inline-flex; align-items: center; gap: 6px; }
 .sources > .sources-clock { display: none; }
@@ -363,6 +457,7 @@ onBeforeUnmount(() => clearInterval(timer))
   .status { margin-bottom: 36px; }
 }
 @media (hover: hover) {
+  .hr-main:hover .hr-title { text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--muted); }
   .car-row:hover .cr-name { text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--muted); }
 }
 /* The rail carries the logo; the flow sits beside the headline, where the eye lands first */

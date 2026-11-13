@@ -2,6 +2,7 @@ import { and, asc, desc, eq, gte } from 'drizzle-orm'
 import { batteryPool, devices, integrations, plans, samples } from '../db/schema'
 import type { DeviceState } from '../providers/ecoflow'
 import { slotStartOf, startOfLocalDay } from '../lib/time'
+import { lastRing } from '../lib/nest'
 import { liveState } from '../services/collector'
 import { isExperimentalProvider } from '../services/experimental'
 import { getPrices } from '../services/prices'
@@ -33,7 +34,7 @@ export default defineEventHandler(async (event) => {
     db.select().from(plans).where(and(eq(plans.siteId, site.id), gte(plans.slotStart, slot))).orderBy(asc(plans.slotStart)).limit(16),
     savingsByPeriod(db, site, 'day', dayStart, now),
     solarByPeriod(db, site, 'day', dayStart, now),
-    db.select({ provider: integrations.provider, status: integrations.status }).from(integrations).where(eq(integrations.siteId, site.id)),
+    db.select({ provider: integrations.provider, status: integrations.status, meta: integrations.meta }).from(integrations).where(eq(integrations.siteId, site.id)),
     // The last stored readings, only when the collector has no live state in memory (just after a restart)
     cached ? undefined : latest('grid'),
     cached ? undefined : latest('solar'),
@@ -75,7 +76,15 @@ export default defineEventHandler(async (event) => {
     sources: {
       pulse: site.isDemo ? demoPulseStatus() : pulseStatus(site.id),
       // Experimental connections stay invisible to a household without them, even with credentials still stored
-      integrations: experimental ? ints : ints.filter((i) => !isExperimentalProvider(i.provider)),
+      integrations: (experimental ? ints : ints.filter((i) => !isExperimentalProvider(i.provider))).map(({ provider, status }) => ({ provider, status })),
     },
+    // Around the house on Home: whether there are lights and cameras to show, and the last ring at the door
+    around: experimental
+      ? {
+          lights: !!ints.find((i) => i.provider === 'hue')?.meta.authorized,
+          security: !!ints.find((i) => i.provider === 'nest')?.meta.authorized,
+          doorbell: lastRing(ints.find((i) => i.provider === 'nest')?.meta ?? {}),
+        }
+      : null,
   }
 })

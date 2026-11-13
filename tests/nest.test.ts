@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { checkOffer, isDeviceId, nestCameras, NestEventGate, parseNestEvent, withNewline } from '../server/lib/nest'
+import { checkOffer, isDeviceId, lastRing, nestCameras, NestEventGate, nextLastRing, parseNestEvent, withNewline } from '../server/lib/nest'
 import { nestEventMessage } from '../server/lib/notifications'
 import { resetProviders } from '../server/providers/http'
 import { nestAuthorizeUrl, nestCommand, nestExchangeCode, nestRefresh, nestTokenNeedsRefresh, type SdmDevice } from '../server/providers/nest'
@@ -190,5 +190,28 @@ describe('push topic defaults', () => {
     const sql = readFileSync('server/db/migrations/0024_push_doorbell.sql', 'utf8')
     expect(sql).toMatch(/SET DEFAULT '\["plan","prices","errors","daily","doorbell"\]'/)
     expect(sql).toMatch(/UPDATE "push_subscriptions" SET "topics" = "topics" \|\| '\["doorbell"\]'::jsonb WHERE NOT \("topics" \? 'doorbell'\)/)
+  })
+})
+
+describe('the last ring at the door, for Home', () => {
+  const ev = (kinds: Array<'chime' | 'person' | 'motion'>, at: string) => ({ deviceId: 'cam-1', kinds, sessionId: null, at: new Date(at) })
+
+  it('remembers a ring with its camera', () => {
+    expect(nextLastRing(undefined, ev(['chime', 'person'], '2026-11-13T14:32:00Z'), { 'cam-1': 'Voordeur' })).toEqual({ at: '2026-11-13T14:32:00.000Z', cameraId: 'cam-1', name: 'Voordeur' })
+  })
+
+  it('keeps the earlier ring on motion, on a trait update and on an older ring delivered late', () => {
+    const prev = { at: '2026-11-13T14:32:00.000Z', cameraId: 'cam-1', name: 'Voordeur' }
+    expect(nextLastRing(prev, ev(['motion'], '2026-11-13T15:00:00Z'), {})).toBe(prev)
+    expect(nextLastRing(prev, null, {})).toBe(prev)
+    expect(nextLastRing(prev, ev(['chime'], '2026-11-13T14:00:00Z'), {})).toBe(prev)
+  })
+
+  it('reads it back from the stored meta, or nothing when it is missing or broken', () => {
+    const ring = { at: '2026-11-13T14:32:00.000Z', cameraId: 'cam-1', name: 'Voordeur' }
+    expect(lastRing({ authorized: true, lastRing: ring })).toEqual(ring)
+    expect(lastRing({ authorized: true })).toBeNull()
+    expect(lastRing({ authorized: true, lastRing: { at: 'nonsense', cameraId: 'cam-1' } })).toBeNull()
+    expect(lastRing({ authorized: false, lastRing: ring })).toBeNull()
   })
 })

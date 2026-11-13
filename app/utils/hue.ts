@@ -111,6 +111,23 @@ export function glow(rgb: Rgb | null, brightness: number): Record<string, string
   }
 }
 
+/** The lights in one line for Home: how many are on, in which rooms, and their glow */
+export function lightsSummary(state: {
+  lights: Array<{ id: string; on: boolean; brightness: number; mirek: number | null; xy: Xy | null }>
+  groups: Array<{ kind: 'room' | 'zone'; name: string; lightIds: string[] }>
+}): { on: number; total: number; rooms: string[]; rgb: Rgb | null; brightness: number } {
+  const lit = state.lights.filter((l) => l.on)
+  const ids = new Set(lit.map((l) => l.id))
+  return {
+    on: lit.length,
+    total: state.lights.length,
+    // Rooms only: your own groups overlap them and would name the same lamps twice
+    rooms: state.groups.filter((g) => g.kind === 'room' && g.lightIds.some((id) => ids.has(id))).map((g) => g.name),
+    rgb: mixRgb(lit.map(lampRgb).filter((c): c is Rgb => !!c)),
+    brightness: lit.length ? Math.round(lit.reduce((s, l) => s + l.brightness, 0) / lit.length) : 0,
+  }
+}
+
 /** One colour of a Hue scene: a colour point or a white tone */
 export type SceneColor = { xy: Xy } | { mirek: number }
 
