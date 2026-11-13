@@ -30,7 +30,7 @@ const route = useRoute()
 const d = useState<any>('dashboard', () => null)
 const wide = ref(false)
 
-const shown = computed(() => wide.value && route.path !== '/' && d.value?.devices?.length)
+const shown = computed(() => wide.value && route.path !== '/app' && d.value?.devices?.length)
 const capacity = computed(() => (d.value?.devices ?? []).reduce((s: number, b: any) => s + b.capacityWh, 0))
 const pct = computed(() => (capacity.value ? Math.round(((d.value?.devices ?? []).reduce((s: number, b: any) => s + (b.soc ?? 0) * b.capacityWh, 0) / capacity.value) * 100) : 0))
 const power = computed(() => (d.value?.devices ?? []).reduce((s: number, b: any) => s + b.powerW, 0))
