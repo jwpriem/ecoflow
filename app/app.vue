@@ -15,6 +15,7 @@
       <div class="rail-only rail-gap" />
       <RailNow />
     </nav>
+    <UserMenu v-if="tabsOn" />
   </div>
 </template>
 
@@ -29,11 +30,10 @@ useHead({ htmlAttrs: { lang: () => (isSite.value ? undefined : locale.value) } }
 const ALL_TABS = [
   { to: '/app', key: 'home', icon: 'house' },
   { to: '/savings', key: 'savings', icon: 'chart' },
-  { to: '/plan', key: 'plan', icon: 'calendar' },
   { to: '/cars', key: 'cars', icon: 'car', experimental: true },
   { to: '/lights', key: 'lights', icon: 'bulb', experimental: true },
-  { to: '/settings', key: 'settings', icon: 'gear' },
 ] as const
+// Plan opens from Home, Settings from the account menu (components/UserMenu.vue)
 // The Cars and Lights tabs only for a household with the experimental integrations on
 const tabs = computed(() => ALL_TABS.filter((t) => !('experimental' in t) || experimental.value))
 // No tab bar while a new household is set up
