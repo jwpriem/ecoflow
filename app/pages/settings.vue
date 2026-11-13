@@ -632,12 +632,7 @@ async function deleteAccount() {
   }
 }
 
-async function logout() {
-  await push.disable().catch(() => undefined)
-  await api('/api/auth/logout', { method: 'POST' }).catch(() => undefined)
-  setToken(null)
-  await navigateTo('/login')
-}
+const logout = useLogout()
 
 const loadError = ref<any>(null)
 async function safeLoad() {

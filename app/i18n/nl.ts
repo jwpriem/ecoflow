@@ -2,6 +2,7 @@ import type { Messages } from './en'
 
 /** Nederlandse teksten, in dezelfde vorm als en.ts */
 export const nl: Messages = {
+  account: { menu: 'Accountmenu', settings: 'Instellingen', logOut: 'Uitloggen' },
   tabs: { home: 'Thuis', savings: 'Besparing', plan: 'Plan', cars: 'Auto', lights: 'Licht', settings: 'Instellingen', main: 'Hoofdmenu' },
   cars: {
     title: 'Auto',

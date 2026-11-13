@@ -81,6 +81,8 @@ export function usePush() {
 
   async function disable() {
     error.value = ''
+    // Called from the account menu too, where init() hasn't run: look the subscription up here
+    if (!sub && supported()) sub = (await (await navigator.serviceWorker.getRegistration())?.pushManager.getSubscription()) ?? null
     const endpoint = sub?.endpoint
     await sub?.unsubscribe().catch(() => undefined)
     sub = null

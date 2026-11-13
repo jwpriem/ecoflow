@@ -3,6 +3,7 @@
  * Texts with values are functions; WattsWise, Tibber, SolarEdge and EcoFlow are names and stay as they are.
  */
 export const en = {
+  account: { menu: 'Account menu', settings: 'Settings', logOut: 'Log out' },
   tabs: { home: 'Home', savings: 'Savings', plan: 'Plan', cars: 'Cars', lights: 'Lights', settings: 'Settings', main: 'Main' },
   cars: {
     title: 'Cars',

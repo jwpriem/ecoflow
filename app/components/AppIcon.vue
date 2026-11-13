@@ -61,6 +61,10 @@
       <circle cx="16" cy="7" r="2" />
       <circle cx="10" cy="17" r="2" />
     </template>
+    <template v-else-if="name === 'logout'">
+      <path d="M14 4h3.5A2.5 2.5 0 0 1 20 6.5v11a2.5 2.5 0 0 1-2.5 2.5H14" />
+      <path d="M10 8l-4 4 4 4M6 12h9" />
+    </template>
     <template v-else-if="name === 'person'">
       <circle cx="12" cy="8" r="4" />
       <path d="M4 21c1-4.5 4.5-6.5 8-6.5s7 2 8 6.5" />
