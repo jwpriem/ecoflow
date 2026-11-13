@@ -183,9 +183,26 @@
                   <label class="field">
                     <span>{{ m.settings.sonosDoorbell.sound }}</span>
                     <select v-model="doorbell.sound" @change="saveDoorbell({ sound: doorbell.sound })">
-                      <option v-for="s in ['dingdong', 'chime']" :key="s" :value="s">{{ m.settings.sonosDoorbell.sounds[s] }}</option>
+                      <option v-for="s in BUILTIN_SOUNDS" :key="s" :value="s">{{ m.settings.sonosDoorbell.sounds[s] }}</option>
+                      <option v-for="s in sounds" :key="s.id" :value="`custom:${s.id}`">{{ s.name }}</option>
                     </select>
                   </label>
+                  <label class="field-row">
+                    <span class="stack-text"><span class="title">{{ m.settings.sonosDoorbell.seasonal }}</span><span class="small muted">{{ m.settings.sonosDoorbell.seasonalHelp }}</span></span>
+                    <span class="switch"><input v-model="doorbell.seasonal" type="checkbox" @change="saveDoorbell({ seasonal: doorbell.seasonal })" /><span /></span>
+                  </label>
+                  <!-- Own sounds: MP3 or WAV, sent as base64 and kept on the server, where the speaker fetches them -->
+                  <div v-if="sounds.length" class="sounds">
+                    <div v-for="s in sounds" :key="s.id" class="sound-row">
+                      <span class="small">{{ s.name }} <span class="muted">· {{ s.mime === 'audio/wav' ? 'WAV' : 'MP3' }}, {{ Math.max(1, Math.round(s.bytes / 1000)) }} kB</span></span>
+                      <button type="button" class="plain danger small" @click="removeSound(s.id)">{{ m.settings.sonosDoorbell.remove }}</button>
+                    </div>
+                  </div>
+                  <label class="upload">
+                    <input type="file" accept="audio/mpeg,audio/mp3,audio/wav,audio/x-wav,.mp3,.wav" :disabled="busy === 'sound-upload'" @change="uploadSound" />
+                    <span class="small">{{ busy === 'sound-upload' ? m.settings.sonosDoorbell.uploading : m.settings.sonosDoorbell.upload }}</span>
+                  </label>
+                  <p class="small muted">{{ m.settings.sonosDoorbell.uploadHelp }}</p>
                   <div class="row">
                     <button type="button" :disabled="!doorbell.playerId || busy === 'sonos-test'" @click="testDoorbell">
                       {{ busy === 'sonos-test' ? m.settings.sonosDoorbell.testing : m.settings.sonosDoorbell.test }}
@@ -505,6 +522,7 @@ async function load() {
   const t = integrations.value.find((i) => i.provider === 'tibber')
   homeId.value = (t?.meta.homeId as string) ?? ''
   setDoorbell(integrations.value.find((i) => i.provider === 'sonos')?.meta)
+  await loadSounds()
   devs.value = await api('/api/devices')
   const plan: any = await api('/api/plan')
   control.value = { steering: plan.steering, controlMode: plan.controlMode }
@@ -607,11 +625,18 @@ async function signInSonos() {
 // The doorbell on Sonos: which speaker, how loud, which sound
 type Speaker = { id: string; name: string; audioClip: boolean }
 const sonosSpeakerList = (meta: Record<string, any>): Speaker[] => (Array.isArray(meta.speakers) ? meta.speakers : [])
-const doorbell = reactive<{ enabled: boolean; playerId: string | null; volume: number; sound: string }>({ enabled: false, playerId: null, volume: 45, sound: 'dingdong' })
+const BUILTIN_SOUNDS = ['dingdong', 'westminster', 'drie-tonen', 'ouderwets', 'vrolijk', 'halloween', 'kerst', 'chime']
+const doorbell = reactive<{ enabled: boolean; playerId: string | null; volume: number; sound: string; seasonal: boolean }>({
+  enabled: false,
+  playerId: null,
+  volume: 45,
+  sound: 'dingdong',
+  seasonal: true,
+})
 const doorbellMsg = ref<Msg>(null)
 function setDoorbell(meta: Record<string, any> | undefined) {
   const d = meta?.doorbell ?? {}
-  Object.assign(doorbell, { enabled: d.enabled === true, playerId: d.playerId ?? null, volume: Number(d.volume ?? 45), sound: d.sound ?? 'dingdong' })
+  Object.assign(doorbell, { enabled: d.enabled === true, playerId: d.playerId ?? null, volume: Number(d.volume ?? 45), sound: d.sound ?? 'dingdong', seasonal: d.seasonal !== false })
 }
 async function saveDoorbell(patch: Partial<typeof doorbell>) {
   doorbellMsg.value = null
@@ -619,11 +644,55 @@ async function saveDoorbell(patch: Partial<typeof doorbell>) {
   const body = patch.playerId === null ? { ...patch, enabled: false } : patch
   try {
     const r: any = await api('/api/sonos/doorbell', { method: 'PUT', body })
-    Object.assign(doorbell, { enabled: r.enabled, playerId: r.playerId, volume: r.volume, sound: r.sound })
+    Object.assign(doorbell, { enabled: r.enabled, playerId: r.playerId, volume: r.volume, sound: r.sound, seasonal: r.seasonal })
     doorbellMsg.value = { ok: true, text: m.value.settings.sonosDoorbell.saved }
   } catch (e: any) {
     doorbellMsg.value = { ok: false, text: whyNot(e) }
     setDoorbell(integrations.value.find((i) => i.provider === 'sonos')?.meta)
+  }
+}
+// The owner's own sounds, loaded with the rest when Sonos is signed in
+type Sound = { id: number; name: string; mime: string; bytes: number }
+const sounds = ref<Sound[]>([])
+async function loadSounds() {
+  const sonos = integrations.value.find((i) => i.provider === 'sonos')
+  sounds.value = sonos?.meta.authorized ? await api<Sound[]>('/api/sonos/sounds').catch(() => []) : []
+}
+async function uploadSound(e: Event) {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file) return
+  doorbellMsg.value = null
+  if (file.size > 1_000_000) {
+    doorbellMsg.value = { ok: false, text: serverText('The sound file is larger than 1 MB') }
+    return
+  }
+  busy.value = 'sound-upload'
+  try {
+    const data = await new Promise<string>((resolve, reject) => {
+      const r = new FileReader()
+      r.onload = () => resolve(String(r.result))
+      r.onerror = () => reject(r.error)
+      r.readAsDataURL(file)
+    })
+    const s: any = await api('/api/sonos/sounds', { method: 'POST', body: { name: file.name, data } })
+    await loadSounds()
+    // A new sound is what the owner wants to hear: pick it straight away
+    await saveDoorbell({ sound: `custom:${s.id}` })
+  } catch (e: any) {
+    doorbellMsg.value = { ok: false, text: serverText(e?.data?.statusMessage) || m.value.common.failed }
+  }
+  busy.value = ''
+}
+async function removeSound(id: number) {
+  doorbellMsg.value = null
+  try {
+    await api(`/api/sonos/sounds/${id}`, { method: 'DELETE' })
+    if (doorbell.sound === `custom:${id}`) doorbell.sound = 'dingdong'
+    await loadSounds()
+  } catch (e: any) {
+    doorbellMsg.value = { ok: false, text: serverText(e?.data?.statusMessage) || m.value.common.failed }
   }
 }
 async function testDoorbell() {
@@ -640,9 +709,12 @@ async function testDoorbell() {
   busy.value = ''
 }
 /** "Laatste keer: 13-11-2026 10:42, afgespeeld" */
-function lastRingText(r: { at: string; outcome: string; test: boolean; error?: string }) {
+function lastRingText(r: { at: string; outcome: string; test: boolean; sound?: string; error?: string }) {
   const when = new Date(r.at).toLocaleString(m.value.dateLocale, { dateStyle: 'short', timeStyle: 'short' })
-  const what = r.outcome === 'failed' && r.error ? r.error : m.value.settings.sonosDoorbell.outcome[r.outcome] ?? r.outcome
+  const own = sounds.value.find((s) => r.sound === `custom:${s.id}`)?.name
+  const name = r.sound ? (own ?? m.value.settings.sonosDoorbell.sounds[r.sound]) : undefined
+  const outcome = m.value.settings.sonosDoorbell.outcome[r.outcome] ?? r.outcome
+  const what = r.outcome === 'failed' && r.error ? r.error : name ? `${outcome} (${name})` : outcome
   return m.value.settings.sonosDoorbell.last(when, r.test, what)
 }
 
@@ -862,6 +934,11 @@ function onVisible() {
 .doorbell .field-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
 .doorbell .range { width: 100%; }
 .doorbell p { margin: 4px 0 0; }
+.sounds { display: flex; flex-direction: column; gap: 2px; margin: 0 0 6px; }
+.sound-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.sound-row .plain { padding: 4px 0; }
+.upload { position: relative; display: inline-flex; align-self: flex-start; padding: 8px 14px; border: 1px solid var(--rule); border-radius: 999px; cursor: pointer; }
+.upload input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 .foot { font-size: 13px; color: var(--text-2); margin: -4px 2px 0; max-width: 60ch; }
 .wide { width: 100%; margin-top: 4px; padding: 13px; }
 .stack-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding-right: 12px; }

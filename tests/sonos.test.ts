@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { DEFAULT_DOORBELL, doorbellSettings, findSpeaker, isPlayerId, sonosSpeakers } from '../server/lib/sonos'
+import { existsSync } from 'node:fs'
+import { customSoundId, DEFAULT_DOORBELL, DOORBELL_SOUNDS, doorbellSettings, findSpeaker, isDoorbellSound, isPlayerId, seasonOn, sniffAudio, SOUND_FILES, sonosSpeakers } from '../server/lib/sonos'
 import { resetProviders } from '../server/providers/http'
 import { sonosAudioClip, sonosAuthorizeUrl, SonosError, sonosExchangeCode, sonosPlayersOf, sonosRefresh, sonosTokenNeedsRefresh } from '../server/providers/sonos'
 
@@ -46,6 +47,7 @@ describe('doorbellSettings', () => {
       playerName: 'Keuken',
       volume: 100,
       sound: 'chime',
+      seasonal: true,
     })
     expect(doorbellSettings({ doorbell: { volume: 'x', sound: 'airhorn' } })).toMatchObject({ volume: 45, sound: 'dingdong' })
   })
@@ -136,5 +138,47 @@ describe('audioClip', () => {
     vi.stubGlobal('fetch', fetch)
     expect(await sonosPlayersOf(auth, 'Sonos_HH.1')).toHaveLength(1)
     expect((fetch.mock.calls[0] as unknown as [string])[0]).toBe('https://api.ws.sonos.com/control/api/v1/households/Sonos_HH.1/groups')
+  })
+})
+
+describe('doorbell sounds', () => {
+  it('has a file in public/ for every built-in sound but Sonos’ own chime', () => {
+    for (const s of DOORBELL_SOUNDS) {
+      if (s === 'chime') continue
+      const path = SOUND_FILES[s]
+      expect(path, s).toBeTruthy()
+      expect(existsSync(`public${path}`), path).toBe(true)
+    }
+  })
+
+  it('takes built-in names and custom:<id>, nothing else', () => {
+    expect(isDoorbellSound('kerst')).toBe(true)
+    expect(isDoorbellSound('custom:12')).toBe(true)
+    expect(isDoorbellSound('custom:0')).toBe(false)
+    expect(isDoorbellSound('custom:x')).toBe(false)
+    expect(isDoorbellSound('airhorn')).toBe(false)
+    expect(customSoundId('custom:12')).toBe(12)
+    expect(customSoundId('kerst')).toBeNull()
+    expect(doorbellSettings({ doorbell: { sound: 'custom:3', seasonal: false } })).toMatchObject({ sound: 'custom:3', seasonal: false })
+  })
+
+  it('knows MP3 and WAV by their bytes, not their name', () => {
+    expect(sniffAudio(Buffer.from('ID3\x04\x00\x00\x00\x00\x00\x00\x00\x00', 'latin1'))).toBe('audio/mpeg')
+    expect(sniffAudio(Buffer.from([0xff, 0xfb, 0x90, 0x64, 0, 0, 0, 0, 0, 0, 0, 0]))).toBe('audio/mpeg')
+    expect(sniffAudio(Buffer.from('RIFF\x24\x00\x00\x00WAVEfmt ', 'latin1'))).toBe('audio/wav')
+    expect(sniffAudio(Buffer.from('\x00\x00\x00\x20ftypM4A \x00\x00', 'latin1'))).toBeNull()
+    expect(sniffAudio(Buffer.from('ID3'))).toBeNull()
+  })
+
+  it('picks the season in the household’s own date', () => {
+    const tz = 'Europe/Amsterdam'
+    expect(seasonOn(new Date('2026-10-23T12:00:00Z'), tz)).toBeNull()
+    // 23 Oct 22:30 UTC is already the 24th in Amsterdam
+    expect(seasonOn(new Date('2026-10-23T22:30:00Z'), tz)).toBe('halloween')
+    expect(seasonOn(new Date('2026-10-31T20:00:00Z'), tz)).toBe('halloween')
+    expect(seasonOn(new Date('2026-11-13T10:00:00Z'), tz)).toBeNull()
+    expect(seasonOn(new Date('2026-12-01T08:00:00Z'), tz)).toBe('kerst')
+    expect(seasonOn(new Date('2026-12-26T20:00:00Z'), tz)).toBe('kerst')
+    expect(seasonOn(new Date('2026-12-27T08:00:00Z'), tz)).toBeNull()
   })
 })

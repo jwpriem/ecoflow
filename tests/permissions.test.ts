@@ -74,6 +74,8 @@ const ACCESS: Record<string, 'owner' | 'household' | 'account' | 'public' | 'adm
   'security/[id]/stop.post.ts': 'household',
   'sonos/doorbell.put.ts': 'owner',
   'sonos/doorbell/test.post.ts': 'owner',
+  'sonos/sounds/index.post.ts': 'owner',
+  'sonos/sounds/[id].delete.ts': 'owner',
   // Subscriptions belong to this device: anyone in the household can turn their own notifications on or off
   'push/index.put.ts': 'household',
   'push/index.delete.ts': 'household',
