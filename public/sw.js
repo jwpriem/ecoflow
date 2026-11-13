@@ -14,6 +14,8 @@ self.addEventListener('push', (event) => {
     self.registration.showNotification(data.title || 'WattsWise', {
       body: data.body || '',
       tag: data.tag,
+      // A camera notification that replaces the last one for that camera should still sound
+      renotify: !!data.tag && data.tag.startsWith('nest-'),
       icon: '/icon-192.png',
       badge: '/icon-192.png',
       data: { url: data.url || '/app' },

@@ -73,3 +73,88 @@ export function checkOffer(sdp: string): string | null {
 
 /** Google wants the offer to end on a newline */
 export const withNewline = (sdp: string) => (sdp.endsWith('\n') ? sdp : `${sdp}\r\n`)
+
+export type NestEventKind = 'chime' | 'person' | 'motion'
+
+/** One camera event out of a Pub/Sub push, reduced to what a notification needs */
+export interface NestEvent {
+  deviceId: string
+  kinds: NestEventKind[]
+  /** Links the motion, person and clip events of one occurrence */
+  sessionId: string | null
+  /** When the camera saw it */
+  at: Date
+}
+
+const EVENT_KINDS: Record<string, NestEventKind> = {
+  'sdm.devices.events.DoorbellChime.Chime': 'chime',
+  'sdm.devices.events.CameraPerson.Person': 'person',
+  'sdm.devices.events.CameraMotion.Motion': 'motion',
+}
+
+/**
+ * Pub/Sub pushes { message: { data: base64(json) } }. The JSON is an SDM event: resourceUpdate.name is the device,
+ * resourceUpdate.events the events in it. Trait updates (no events) and clip previews give nothing to notify.
+ */
+export function parseNestEvent(body: unknown): NestEvent | null {
+  const data = (body as { message?: { data?: unknown } })?.message?.data
+  if (typeof data !== 'string') return null
+  let ev: any
+  try {
+    ev = JSON.parse(Buffer.from(data, 'base64').toString('utf8'))
+  } catch {
+    return null
+  }
+  const name = ev?.resourceUpdate?.name
+  const events = ev?.resourceUpdate?.events
+  if (typeof name !== 'string' || !events || typeof events !== 'object') return null
+  const kinds: NestEventKind[] = []
+  let sessionId: string | null = null
+  for (const [key, value] of Object.entries(events as Record<string, any>)) {
+    const kind = EVENT_KINDS[key]
+    sessionId ??= typeof value?.eventSessionId === 'string' ? value.eventSessionId : null
+    if (kind && !kinds.includes(kind)) kinds.push(kind)
+  }
+  if (!kinds.length) return null
+  const at = new Date(ev.timestamp ?? Date.now())
+  return { deviceId: deviceId(name), kinds, sessionId, at: Number.isNaN(at.getTime()) ? new Date() : at }
+}
+
+/** Ringing beats a person beats motion */
+const RANK: Record<NestEventKind, number> = { chime: 3, person: 2, motion: 1 }
+
+/**
+ * Decides which events become a notification. A ring always does (once per session). Motion and people at most
+ * once per camera per few minutes, except that a person seen after the motion of the same session still comes
+ * through, replacing the motion notification. Old events (Pub/Sub retrying after downtime) are dropped.
+ */
+export class NestEventGate {
+  private sessions = new Map<string, { rank: number; at: number }>()
+  private lastByCamera = new Map<string, number>()
+
+  constructor(
+    private readonly quietMs = 3 * 60_000,
+    private readonly maxAgeMs = 2 * 60_000,
+  ) {}
+
+  decide(siteId: number, ev: NestEvent, now = Date.now()): NestEventKind | null {
+    if (now - ev.at.getTime() > this.maxAgeMs) return null
+    this.prune(now)
+    const kind = [...ev.kinds].sort((a, b) => RANK[b] - RANK[a])[0]!
+    const cam = `${siteId}:${ev.deviceId}`
+    const key = `${cam}:${ev.sessionId ?? ev.at.getTime()}`
+    const seen = this.sessions.get(key)
+    // Already told about this occurrence at this level or higher
+    if (seen && seen.rank >= RANK[kind]) return null
+    const upgrade = !!seen
+    if (kind !== 'chime' && !upgrade && now - (this.lastByCamera.get(cam) ?? -Infinity) < this.quietMs) return null
+    this.sessions.set(key, { rank: RANK[kind], at: now })
+    if (kind !== 'chime') this.lastByCamera.set(cam, now)
+    return kind
+  }
+
+  private prune(now: number) {
+    if (this.sessions.size < 500) return
+    for (const [k, v] of this.sessions) if (now - v.at > 60 * 60_000) this.sessions.delete(k)
+  }
+}

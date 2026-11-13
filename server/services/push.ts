@@ -7,7 +7,7 @@ import { experimentalSite } from './experimental'
 import { ownerEmail } from './members'
 import { decryptJson, encryptJson } from '../utils/crypto'
 
-export const PUSH_TOPICS: PushTopic[] = ['plan', 'prices', 'errors', 'daily', 'car']
+export const PUSH_TOPICS: PushTopic[] = ['plan', 'prices', 'errors', 'daily', 'car', 'doorbell', 'camera']
 
 export interface PushMessage {
   title: string
@@ -60,8 +60,9 @@ export function sendOptions(endpoint: string, topic: PushTopic | null, tag: stri
   const header = tag?.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 32)
   return {
     vapidDetails,
-    TTL: 6 * 3600,
-    urgency: topic === 'errors' ? ('high' as const) : ('normal' as const),
+    // Someone at the door an hour ago is no news: camera notifications expire after 10 minutes
+    TTL: topic === 'doorbell' || topic === 'camera' ? 600 : 6 * 3600,
+    urgency: topic === 'errors' || topic === 'doorbell' || topic === 'camera' ? ('high' as const) : ('normal' as const),
     ...(header && !apple ? { topic: header } : {}),
   }
 }
@@ -73,8 +74,8 @@ export function sendOptions(endpoint: string, topic: PushTopic | null, tag: stri
  */
 export async function notify(db: Db, siteId: number, topic: PushTopic | null, msg: PushMessage | LocalizedPush, only?: string) {
   try {
-    // Car notifications come from the experimental integrations: never for a household without them
-    if (topic === 'car' && !(await experimentalSite(db, siteId))) return { sent: 0, failed: 0, error: 'Not available for this household' }
+    // Car and camera notifications come from the experimental integrations: never for a household without them
+    if ((topic === 'car' || topic === 'doorbell' || topic === 'camera') && !(await experimentalSite(db, siteId))) return { sent: 0, failed: 0, error: 'Not available for this household' }
     const subs = await db
       .select()
       .from(pushSubscriptions)

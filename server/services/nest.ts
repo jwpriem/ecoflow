@@ -1,8 +1,11 @@
+import { createHmac, timingSafeEqual } from 'node:crypto'
 import type { H3Event } from 'h3'
 import { createError } from 'h3'
 import type { Db } from '../db/client'
 import type { sites } from '../db/schema'
-import { checkOffer, isDeviceId, type NestCamera, nestCameras, withNewline } from '../lib/nest'
+import { checkOffer, isDeviceId, type NestCamera, nestCameras, NestEventGate, parseNestEvent, withNewline } from '../lib/nest'
+import { nestEventMessage } from '../lib/notifications'
+import { notify } from './push'
 import { type NestCredentials, nestCommand, nestDevices, NestError, nestExchangeCode, nestRefresh, nestTokenNeedsRefresh } from '../providers/nest'
 import { getIntegration, markIntegration, updateIntegration } from './integrations'
 
@@ -81,7 +84,7 @@ export async function completeNestAuth(db: Db, site: Site, key: string, code: st
   let error: string | undefined
   try {
     const cameras = nestCameras(await nestDevices(tokens.accessToken, nest.creds.projectId))
-    nest.meta = { ...nest.meta, cameras: cameras.length }
+    nest.meta = { ...nest.meta, cameras: cameras.length, cameraNames: cameraNames(cameras) }
     if (!cameras.length) error = 'Signed in, but no cameras were shared. Sign in again and tick the cameras.'
   } catch (err) {
     error = (err as Error).message
@@ -93,7 +96,58 @@ export async function completeNestAuth(db: Db, site: Site, key: string, code: st
 
 /** The cameras the owner shared with WattsWise */
 export function readCameras(db: Db, site: Site, key: string): Promise<NestCamera[]> {
-  return withNest(db, site, key, async (token, projectId) => nestCameras(await nestDevices(token, projectId)))
+  return withNest(db, site, key, async (token, projectId) => {
+    const cameras = nestCameras(await nestDevices(token, projectId))
+    await rememberNames(db, site, key, cameras)
+    return cameras
+  })
+}
+
+const cameraNames = (cameras: NestCamera[]) => Object.fromEntries(cameras.map((c) => [c.id, c.name]))
+
+/** The events only carry a device ID: keep the names, so a notification can say "Voordeur" without asking Google */
+async function rememberNames(db: Db, site: Site, key: string, cameras: NestCamera[]) {
+  const nest = await getIntegration<NestCredentials>(db, site.id, 'nest', key)
+  if (!nest) return
+  const names = cameraNames(cameras)
+  if (JSON.stringify(nest.meta.cameraNames) === JSON.stringify(names) && nest.meta.cameras === cameras.length) return
+  await updateIntegration(db, nest.row.id, { meta: { ...nest.meta, cameras: cameras.length, cameraNames: names } }, key)
+}
+
+const EVENTS_PATH = '/api/integrations/nest/events'
+
+/** The secret in the push URL: tied to this household and this server's key, so it needs no storage */
+export function nestEventsToken(siteId: number, key: string): string {
+  return createHmac('sha256', Buffer.from(key, 'base64')).update(`nest-events:${siteId}`).digest('base64url').slice(0, 32)
+}
+
+export function checkEventsToken(siteId: number, token: string, key: string): boolean {
+  const want = Buffer.from(nestEventsToken(siteId, key))
+  const got = Buffer.from(String(token))
+  return got.length === want.length && timingSafeEqual(got, want)
+}
+
+/** Endpoint URL for the Pub/Sub push subscription in Google Cloud */
+export function nestEventsUrl(event: H3Event, siteId: number, key: string): string {
+  return `${appBaseUrl(event)}${EVENTS_PATH}?site=${siteId}&token=${nestEventsToken(siteId, key)}`
+}
+
+const gate = new NestEventGate()
+
+/** One Pub/Sub push: a ring, person or motion becomes a notification on the devices that want it */
+export async function handleNestEvent(db: Db, site: Site, key: string, body: unknown, now = Date.now()) {
+  const ev = parseNestEvent(body)
+  const nest = await getIntegration<NestCredentials>(db, site.id, 'nest', key)
+  if (!nest) return { notified: null }
+  // Shown in Settings, so it's clear events arrive even when none is worth a notification
+  await updateIntegration(db, nest.row.id, { meta: { ...nest.meta, lastEventAt: new Date(now).toISOString() } }, key)
+  if (!ev) return { notified: null }
+  const kind = gate.decide(site.id, ev, now)
+  if (!kind) return { notified: null }
+  const names = (nest.meta.cameraNames ?? {}) as Record<string, string>
+  const camera = { id: ev.deviceId, name: names[ev.deviceId] ?? (kind === 'chime' ? 'Voordeur' : 'Camera') }
+  await notify(db, site.id, kind === 'chime' ? 'doorbell' : 'camera', nestEventMessage(kind, camera, ev.at, site.timezone))
+  return { notified: kind }
 }
 
 function checkId(id: string) {

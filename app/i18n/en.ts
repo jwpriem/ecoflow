@@ -151,7 +151,7 @@ export const en = {
     failed: 'Couldn’t start the stream. Try again.',
     kind: { doorbell: 'Doorbell', camera: 'Camera', display: 'Nest Hub Max' },
     timeLeft: (min: number) => (min <= 1 ? 'stops in a minute' : `stops in ${min} minutes`),
-    foot: 'Live video goes straight from Google to your device, not through WattsWise. Recordings and alerts stay in the Google Home app.',
+    foot: 'Live video goes straight from Google to your device, not through WattsWise. Recordings stay in the Google Home app; turn on doorbell and motion alerts in Settings.',
   },
   mode: { self_use: 'Self-use', solar_only: 'Hold', charge_grid: 'Charge from grid', discharge: 'Discharge' } as Record<string, string>,
   modeHelp: {
@@ -642,6 +642,9 @@ export const en = {
     nestNotSignedIn: 'Not signed in with Google yet.',
     nestCameras: (n: number) => `Signed in, ${n === 1 ? '1 camera' : `${n} cameras`} shared.`,
     nowSignInNest: 'Saved. Now sign in with Google',
+    nestEvents: 'Endpoint URL for your Pub/Sub push subscription (for notifications):',
+    nestLastEvent: (when: string) => `Last event received: ${when}.`,
+    nestNoEvents: 'No events received yet.',
     connected: 'Connected',
     info: {
       tibber: { title: 'Tibber', help: 'Personal access token from developer.tibber.com. Used for 15-minute prices and the Pulse live meter.' },
@@ -767,6 +770,8 @@ export const en = {
       errors: { label: 'Connection problems', help: 'When Tibber or SolarEdge stops working' },
       daily: { label: 'Daily savings', help: 'Summary at 21:00' },
       car: { label: 'Car plugged in', help: 'Asks when you need to leave when you plug in the car at home' },
+      doorbell: { label: 'Doorbell', help: 'When someone presses your Nest doorbell' },
+      camera: { label: 'Motion and people', help: 'When a Nest camera sees motion or a person, at most once per 3 minutes per camera' },
     },
     enableFailed: 'Could not turn on notifications',
     testFailed: 'Test failed',

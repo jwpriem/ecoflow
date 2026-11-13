@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { checkOffer, isDeviceId, nestCameras, withNewline } from '../server/lib/nest'
+import { checkOffer, isDeviceId, nestCameras, NestEventGate, parseNestEvent, withNewline } from '../server/lib/nest'
+import { nestEventMessage } from '../server/lib/notifications'
 import { resetProviders } from '../server/providers/http'
 import { nestAuthorizeUrl, nestCommand, nestExchangeCode, nestRefresh, nestTokenNeedsRefresh, type SdmDevice } from '../server/providers/nest'
 
@@ -121,5 +122,64 @@ describe('SDM calls', () => {
   it('tells an offline camera apart from other failures', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ error: { code: 400, status: 'FAILED_PRECONDITION', message: 'The camera is not available.' } }), { status: 400 })))
     await expect(nestCommand('T', 'p', 'DEVICE_1234', 'CameraLiveStream.GenerateWebRtcStream', {})).rejects.toMatchObject({ kind: 'offline' })
+  })
+})
+
+describe('Nest events', () => {
+  const push = (event: object) => ({ message: { data: Buffer.from(JSON.stringify(event)).toString('base64'), messageId: '1' }, subscription: 'projects/x/subscriptions/y' })
+  const at = '2026-11-13T08:00:00.000Z'
+  const now = Date.parse(at) + 2_000
+  const update = (events: object, extra: object = {}) => push({ eventId: 'e', timestamp: at, resourceUpdate: { name: `${P}/DOORBELL_abc_456`, events }, eventThreadState: 'STARTED', ...extra })
+  const chime = { 'sdm.devices.events.DoorbellChime.Chime': { eventSessionId: 'S1', eventId: 'a' } }
+  const motion = (s = 'S2') => ({ 'sdm.devices.events.CameraMotion.Motion': { eventSessionId: s, eventId: 'b' } })
+  const person = (s = 'S2') => ({ 'sdm.devices.events.CameraPerson.Person': { eventSessionId: s, eventId: 'c' } })
+
+  it('reads the device, kinds and session from a Pub/Sub push', () => {
+    expect(parseNestEvent(update(chime))).toEqual({ deviceId: 'DOORBELL_abc_456', kinds: ['chime'], sessionId: 'S1', at: new Date(at) })
+  })
+
+  it('ignores trait updates, clip previews and junk', () => {
+    expect(parseNestEvent(push({ resourceUpdate: { name: `${P}/X1234567`, traits: { 'sdm.devices.traits.Info': {} } } }))).toBeNull()
+    expect(parseNestEvent(update({ 'sdm.devices.events.CameraClipPreview.ClipPreview': { eventSessionId: 'S', previewUrl: 'https://x' } }))).toBeNull()
+    expect(parseNestEvent({ message: { data: 'not base64 json' } })).toBeNull()
+    expect(parseNestEvent(null)).toBeNull()
+  })
+
+  it('always lets a ring through, once per session', () => {
+    const g = new NestEventGate()
+    const ev = parseNestEvent(update(chime))!
+    expect(g.decide(1, ev, now)).toBe('chime')
+    expect(g.decide(1, ev, now + 1000)).toBeNull()
+    expect(g.decide(1, { ...ev, sessionId: 'S9' }, now + 2000)).toBe('chime')
+  })
+
+  it('lets motion through once per camera per few minutes', () => {
+    const g = new NestEventGate()
+    expect(g.decide(1, parseNestEvent(update(motion('A')))!, now)).toBe('motion')
+    expect(g.decide(1, parseNestEvent(update(motion('B')))!, now + 60_000)).toBeNull()
+    expect(g.decide(1, parseNestEvent(update(motion('C')))!, now + 60_000 + 3 * 60_000)).toBeNull() // event itself is too old by then
+  })
+
+  it('upgrades motion to a person within the same session', () => {
+    const g = new NestEventGate()
+    expect(g.decide(1, parseNestEvent(update(motion()))!, now)).toBe('motion')
+    expect(g.decide(1, parseNestEvent(update(person()))!, now + 1000)).toBe('person')
+    expect(g.decide(1, parseNestEvent(update(motion()))!, now + 2000)).toBeNull()
+  })
+
+  it('drops events Pub/Sub delivers late', () => {
+    expect(new NestEventGate().decide(1, parseNestEvent(update(chime))!, Date.parse(at) + 10 * 60_000)).toBeNull()
+  })
+
+  it('keeps households apart', () => {
+    const g = new NestEventGate()
+    expect(g.decide(1, parseNestEvent(update(motion()))!, now)).toBe('motion')
+    expect(g.decide(2, parseNestEvent(update(motion()))!, now)).toBe('motion')
+  })
+
+  it('words the notification and opens that camera live', () => {
+    const msg = nestEventMessage('chime', { id: 'DOORBELL_abc_456', name: 'Voordeur' }, new Date(at), 'Europe/Amsterdam')
+    expect(msg('nl')).toMatchObject({ title: 'Er wordt aangebeld', body: expect.stringContaining('Voordeur, 09:00'), url: '/security?live=DOORBELL_abc_456' })
+    expect(nestEventMessage('person', { id: 'C', name: 'Tuin' }, new Date(at), 'Europe/Amsterdam')('en')).toMatchObject({ title: 'Person at Tuin', tag: 'nest-C' })
   })
 })

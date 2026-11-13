@@ -24,6 +24,7 @@ const PROVIDER_NAME: Record<string, Record<Locale, string>> = {
   zeekr: { en: 'Zeekr', nl: 'Zeekr' },
   tibber_app: { en: 'Tibber app (charging)', nl: 'Tibber-app (laden)' },
   hue: { en: 'Philips Hue', nl: 'Philips Hue' },
+  nest: { en: 'Google Nest', nl: 'Google Nest' },
 }
 
 /** Only grid charging and discharging are worth a notification; the other modes are the quiet default. */
@@ -142,4 +143,20 @@ export function pulseUpMessage(downForMs: number): LocalizedPush {
     l === 'nl'
       ? { title: 'Tibber Pulse is terug', body: `Na ${duration(downForMs, l)} zonder data komen de meterstanden weer binnen.`, url: '/', tag: 'pulse' }
       : { title: 'Tibber Pulse is back', body: `Meter readings are coming in again after ${duration(downForMs, l)} without data.`, url: '/', tag: 'pulse' }
+}
+
+/**
+ * Someone at the door, a person or motion at a camera. Tapping opens the Security tab with that camera live.
+ * A ring gets its own tag, so it always sounds; motion and a person replace each other per camera.
+ */
+export function nestEventMessage(kind: 'chime' | 'person' | 'motion', camera: { id: string; name: string }, at: Date, timeZone: string): LocalizedPush {
+  const time = hhmm(at, timeZone)
+  const url = `/security?live=${encodeURIComponent(camera.id)}`
+  const text = {
+    chime: { nl: { title: 'Er wordt aangebeld', body: `${camera.name}, ${time}. Tik voor live beeld.` }, en: { title: 'Someone’s at the door', body: `${camera.name}, ${time}. Tap to watch live.` } },
+    person: { nl: { title: `Persoon bij ${camera.name}`, body: `Gezien om ${time}. Tik voor live beeld.` }, en: { title: `Person at ${camera.name}`, body: `Seen at ${time}. Tap to watch live.` } },
+    motion: { nl: { title: `Beweging bij ${camera.name}`, body: `Om ${time}. Tik voor live beeld.` }, en: { title: `Motion at ${camera.name}`, body: `At ${time}. Tap to watch live.` } },
+  }[kind]
+  const tag = kind === 'chime' ? `nest-ring-${camera.id}-${at.getTime()}` : `nest-${camera.id}`
+  return (l) => ({ ...text[l], url, tag })
 }
