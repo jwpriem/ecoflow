@@ -368,6 +368,11 @@ nav.tabs a.router-link-exact-active::before { transform: scaleX(1); }
 
 /* The account button (components/UserMenu.vue) sits top right over the page: what shares its line leaves room */
 .shell.authed { position: relative; }
+
+/* The app is never shorter than the screen. While a page loads (and for a moment between two pages) the content
+   is short; a document shorter than the screen makes iOS, in the installed app, put the docked tab bar higher up
+   and drop it back once the page has loaded. svh, so a browser toolbar sliding in or out doesn't change it. */
+.shell { min-height: 100vh; min-height: 100svh; }
 .shell.authed main > .note:first-child,
 .shell.authed :is(.page-head, .home > .top) { padding-right: 52px; }
 
