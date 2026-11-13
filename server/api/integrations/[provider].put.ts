@@ -3,6 +3,7 @@ import { type Provider, vehicles } from '../../db/schema'
 import { type TibberHome, tibberHomes, type TibberCredentials } from '../../providers/tibber'
 import { forgetTibberApp } from '../../providers/tibberApp'
 import { readHue } from '../../services/hue'
+import { readCameras } from '../../services/nest'
 import { getIntegration, markIntegration, saveIntegration, updateIntegration } from '../../services/integrations'
 import { locationFromTibber } from '../../services/location'
 import { assertExperimental } from '../../services/experimental'
@@ -23,6 +24,7 @@ const FIELDS: Record<Provider, string[]> = {
   zeekr: ['username', 'password', 'hmacAccessKey', 'hmacSecretKey', 'passwordPublicKey', 'prodSecret', 'vinKey', 'vinIv'],
   tibber_app: ['email', 'password'],
   hue: ['clientId', 'clientSecret'],
+  nest: ['projectId', 'clientId', 'clientSecret'],
 }
 
 /**
@@ -56,6 +58,17 @@ export default defineEventHandler(async (event) => {
     return { ok: !('error' in r), error: 'error' in r ? r.error : null, meta: (await getIntegration(db, site.id, 'hue', key))?.meta ?? {} }
   }
 
+  // And for Google Nest: list the cameras through the stored sign-in
+  if (provider === 'nest' && !body.credentials) {
+    const r = await readCameras(db, site, key).then(
+      (c) => ({ cameras: c.length }),
+      (err: Error) => ({ error: (err as any).statusMessage ?? err.message }),
+    )
+    const after = await getIntegration(db, site.id, 'nest', key)
+    if ('cameras' in r && after) await updateIntegration(db, after.row.id, { meta: { ...after.meta, cameras: r.cameras } }, key)
+    return { ok: !('error' in r), error: 'error' in r ? r.error : null, meta: (await getIntegration(db, site.id, 'nest', key))?.meta ?? {} }
+  }
+
   const existing = await getIntegration<Record<string, string>>(db, site.id, provider, key)
   let creds = existing?.creds
   if (body.credentials) {
@@ -83,7 +96,7 @@ export default defineEventHandler(async (event) => {
       tibberHome = home
       meta.realtime = home.features?.realTimeConsumptionEnabled ?? false
       meta.homes = homes.map((h) => ({ id: h.id, name: h.appNickname || h.address?.address1 || h.id }))
-    } else if ((provider === 'solaredge' || provider === 'hue') && body.credentials) {
+    } else if ((provider === 'solaredge' || provider === 'hue' || provider === 'nest') && body.credentials) {
       // New client credentials have no tokens yet: the owner signs in next (GET .../solaredge/authorize)
       meta.authorized = false
     }

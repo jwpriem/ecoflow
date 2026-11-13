@@ -6,7 +6,7 @@ import { assertExperimental, experimentalSite, visibleProviders } from '../serve
 import { createAccount } from '../server/services/setup'
 import { freshDb } from './support/pglite'
 
-const ALL: schema.Provider[] = ['tibber', 'solaredge', 'ecoflow_official', 'zeekr', 'tibber_app', 'hue']
+const ALL: schema.Provider[] = ['tibber', 'solaredge', 'ecoflow_official', 'zeekr', 'tibber_app', 'hue', 'nest']
 
 describe('visibleProviders', () => {
   it('leaves Zeekr, the Tibber app and Hue out for a household without experimental', () => {
@@ -25,6 +25,7 @@ describe('assertExperimental', () => {
     expect(() => assertExperimental(false, 'zeekr')).toThrow(forbidden)
     expect(() => assertExperimental(false, 'tibber_app')).toThrow(forbidden)
     expect(() => assertExperimental(false, 'hue')).toThrow(forbidden)
+    expect(() => assertExperimental(false, 'nest')).toThrow(forbidden)
     expect(() => assertExperimental(false)).toThrow(forbidden)
   })
 

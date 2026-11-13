@@ -111,7 +111,7 @@
       <section class="group" style="--o: 5">
         <h3 class="section-title">{{ m.settings.connections }}</h3>
         <div class="list">
-          <details v-for="i in integrations" :key="i.provider" class="conn" :open="(i.provider === 'solaredge' || i.provider === 'hue') && !!results[i.provider]">
+          <details v-for="i in integrations" :key="i.provider" class="conn" :open="['solaredge', 'hue', 'nest'].includes(i.provider) && !!results[i.provider]">
             <summary class="list-row indent">
               <div class="lead">
                 <span class="icon-tile"><AppIcon :name="INFO[i.provider]!.icon" /></span>
@@ -146,6 +146,10 @@
                 <p class="small muted">{{ m.settings.hueCallback }} <code class="copy">{{ i.redirectUri }}</code></p>
                 <p v-if="i.configured" class="small muted">{{ i.meta.authorized ? m.settings.hueLamps(Number(i.meta.lights ?? 0)) : m.settings.hueNotSignedIn }}</p>
               </template>
+              <template v-if="i.provider === 'nest'">
+                <p class="small muted">{{ m.settings.nestCallback }} <code class="copy">{{ i.redirectUri }}</code></p>
+                <p v-if="i.configured" class="small muted">{{ i.meta.authorized ? m.settings.nestCameras(Number(i.meta.cameras ?? 0)) : m.settings.nestNotSignedIn }}</p>
+              </template>
               <p v-if="i.provider === 'tibber_app' && i.configured" class="small muted">
                 {{ m.settings.tibberApp((i.meta.vehicles as any[])?.length ?? 0, (i.meta.chargers as any[])?.length ?? 0) }}
               </p>
@@ -167,6 +171,9 @@
                   </button>
                   <button v-if="i.provider === 'hue' && i.configured" type="button" :disabled="busy === 'hue-auth'" @click="signInHue">
                     {{ i.meta.authorized ? m.settings.signInAgain : m.settings.hueSignIn }}
+                  </button>
+                  <button v-if="i.provider === 'nest' && i.configured" type="button" :disabled="busy === 'nest-auth'" @click="signInNest">
+                    {{ i.meta.authorized ? m.settings.signInAgain : m.settings.nestSignIn }}
                   </button>
                   <button v-if="i.configured" type="button" class="danger" @click="remove(i.provider)">{{ m.settings.disconnect }}</button>
                   <span v-if="results[i.provider]" class="small" :class="results[i.provider]!.ok ? 'pos' : 'error'">{{ results[i.provider]!.text }}</span>
@@ -370,10 +377,11 @@ const INFO: Record<string, { icon: string; tile: string; fields: Field[] }> = {
   },
   tibber_app: { icon: 'plug', tile: 'var(--sys-blue)', fields: [{ key: 'email' }, { key: 'password', secret: true }] },
   hue: { icon: 'bulb', tile: 'var(--surface-3)', fields: [{ key: 'clientId' }, { key: 'clientSecret', secret: true }] },
+  nest: { icon: 'camera', tile: 'var(--surface-3)', fields: [{ key: 'projectId' }, { key: 'clientId' }, { key: 'clientSecret', secret: true }] },
 }
 
 const integrations = ref<any[]>([])
-const forms = reactive<Record<string, Record<string, string>>>({ tibber: {}, solaredge: {}, ecoflow_official: {}, zeekr: {}, tibber_app: {}, hue: {} })
+const forms = reactive<Record<string, Record<string, string>>>({ tibber: {}, solaredge: {}, ecoflow_official: {}, zeekr: {}, tibber_app: {}, hue: {}, nest: {} })
 const results = reactive<Record<string, { ok: boolean; text: string } | undefined>>({})
 const busy = ref('')
 const homeId = ref('')
@@ -471,7 +479,11 @@ async function save(provider: string) {
       ? { ok: false, text: r.error ?? m.value.settings.testFailed }
       : {
           ok: true,
-          text: !r.meta.authorized && provider === 'solaredge' ? m.value.settings.nowSignIn : !r.meta.authorized && provider === 'hue' ? m.value.settings.nowSignInHue : m.value.settings.connected,
+          text: !r.meta.authorized && provider === 'solaredge' ? m.value.settings.nowSignIn : !r.meta.authorized && provider === 'hue'
+              ? m.value.settings.nowSignInHue
+              : !r.meta.authorized && provider === 'nest'
+                ? m.value.settings.nowSignInNest
+                : m.value.settings.connected,
         }
     forms[provider] = {}
     await load()
@@ -509,6 +521,20 @@ async function signInHue() {
     results.hue = { ok: false, text: serverText(e?.data?.statusMessage) || m.value.common.failed }
   }
   if (results.hue) haptic(results.hue.ok ? 'success' : 'error')
+  busy.value = ''
+}
+const nestSignIn = useSolarEdgeSignIn('nest')
+// Google Nest too: away to Google's Partner Connections Manager (back with ?nest), in a sheet in the iOS app
+async function signInNest() {
+  busy.value = 'nest-auth'
+  try {
+    const r = await nestSignIn()
+    await safeLoad()
+    if (r) results.nest = seResult(r)
+  } catch (e: any) {
+    results.nest = { ok: false, text: serverText(e?.data?.statusMessage) || m.value.common.failed }
+  }
+  if (results.nest) haptic(results.nest.ok ? 'success' : 'error')
   busy.value = ''
 }
 const seResult = (se: string) => (se === 'ok' ? { ok: true, text: m.value.settings.connected } : { ok: false, text: se })
@@ -660,6 +686,11 @@ onMounted(async () => {
   // Back from signing in with Hue: /settings?hue=ok or ?hue=<error>
   if (typeof route.query.hue === 'string') {
     results.hue = seResult(route.query.hue)
+    navigateTo({ query: {} }, { replace: true })
+  }
+  // And from Google: ?nest=ok or ?nest=<error>
+  if (typeof route.query.nest === 'string') {
+    results.nest = seResult(route.query.nest)
     navigateTo({ query: {} }, { replace: true })
   }
   push.init().catch(() => (push.state.value = 'unsupported'))

@@ -9,6 +9,7 @@ import {
   solarEdgeRedirectUri,
 } from '../../../services/solaredge'
 import { completeHueAuth } from '../../../services/hue'
+import { completeNestAuth, nestRedirectUri } from '../../../services/nest'
 import { verifyState } from '../../../utils/crypto'
 
 /**
@@ -18,6 +19,7 @@ import { verifyState } from '../../../utils/crypto'
  */
 export default defineEventHandler(async (event) => {
   if (getRouterParam(event, 'provider') === 'hue') return hueCallback(event)
+  if (getRouterParam(event, 'provider') === 'nest') return nestCallback(event)
   if (getRouterParam(event, 'provider') !== 'solaredge') throw createError({ statusCode: 404, statusMessage: 'Not found' })
   const q = getQuery(event) as Record<string, string | undefined>
   const params = Object.keys(q).sort()
@@ -78,4 +80,28 @@ async function hueCallback(event: H3Event) {
   console.log(`[hue] callback state=${fromState ? 'ok' : 'invalid'} result=${error ?? 'ok'}`)
   if (fromState?.app) return sendRedirect(event, appReturnUrl('hue', error ?? 'ok'))
   return sendRedirect(event, `/settings?hue=${encodeURIComponent(error ?? 'ok')}`)
+}
+
+/** Google sends ?code&state (or ?error=access_denied) back from the Partner Connections Manager */
+async function nestCallback(event: H3Event) {
+  const q = getQuery(event) as Record<string, string | undefined>
+  const key = encryptionKey()
+  const db = useDb()
+  const fromState = q.state ? verifyState<{ site: number; app?: boolean }>(q.state, key) : null
+  let error: string | undefined
+  if (q.error) error = String(q.error_description ?? q.error)
+  else if (!fromState) error = 'Sign-in link expired, try again'
+  else if (!q.code) error = 'Google did not return a code'
+  const [site] = fromState ? await db.select().from(sites).where(eq(sites.id, fromState.site)) : []
+  if (!error && !site) error = 'Unknown site'
+  if (!error) {
+    try {
+      error = (await completeNestAuth(db, site!, key, q.code!, nestRedirectUri(event))).error
+    } catch (err) {
+      error = (err as Error).message
+    }
+  }
+  console.log(`[nest] callback state=${fromState ? 'ok' : 'invalid'} result=${error ?? 'ok'}`)
+  if (fromState?.app) return sendRedirect(event, appReturnUrl('nest', error ?? 'ok'))
+  return sendRedirect(event, `/settings?nest=${encodeURIComponent(error ?? 'ok')}`)
 }

@@ -78,6 +78,30 @@
       <path d="M9 18h6M10 21h4" />
       <path d="M12 3a6 6 0 0 0-3.6 10.8c.7.5 1.1 1.3 1.1 2.2h5c0-.9.4-1.7 1.1-2.2A6 6 0 0 0 12 3Z" />
     </template>
+    <template v-else-if="name === 'shield'">
+      <path d="M12 3 4.5 6v5.5c0 4.6 3.1 8.2 7.5 9.5 4.4-1.3 7.5-4.9 7.5-9.5V6L12 3Z" />
+      <path d="m9 12 2.2 2.2L15.5 10" />
+    </template>
+    <template v-else-if="name === 'bell'">
+      <rect x="7" y="2.5" width="10" height="19" rx="5" />
+      <circle cx="12" cy="7" r="1" />
+      <circle cx="12" cy="14.5" r="2.6" />
+    </template>
+    <template v-else-if="name === 'camera'">
+      <rect x="2.5" y="6.5" width="13" height="11" rx="2.5" />
+      <path d="m15.5 10.5 6-3v9l-6-3" />
+    </template>
+    <template v-else-if="name === 'expand'">
+      <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />
+    </template>
+    <template v-else-if="name === 'speaker'">
+      <path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" />
+      <path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11" />
+    </template>
+    <template v-else-if="name === 'speaker-off'">
+      <path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" />
+      <path d="m16 9.5 5 5M21 9.5l-5 5" />
+    </template>
     <template v-else-if="name === 'plus'">
       <path d="M12 5v14M5 12h14" />
     </template>
