@@ -84,6 +84,7 @@ export const en = {
     otherColor: 'Other colour',
     warmCool: { warm: 'Warm', cool: 'Cool' },
     whites: { candle: 'Candle', warm: 'Warm', neutral: 'Neutral', cool: 'Cool', daylight: 'Daylight' } as Record<string, string>,
+    scenes: 'Scenes',
     inGroup: 'Lamps in this group',
     editGroup: 'Edit group',
     deleteGroup: 'Delete group',

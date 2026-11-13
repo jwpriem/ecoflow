@@ -110,3 +110,13 @@ export function glow(rgb: Rgb | null, brightness: number): Record<string, string
     boxShadow: `0 0 ${Math.round(6 + 18 * a)}px ${rgbCss(rgb, 0.45 * a)}`,
   }
 }
+
+/** One colour of a Hue scene: a colour point or a white tone */
+export type SceneColor = { xy: Xy } | { mirek: number }
+
+/** A scene's swatch: its colours side by side, blending into each other; quiet when the scene tells us none */
+export function sceneSwatch(colors: SceneColor[]): string {
+  const css = colors.map((c) => rgbCss('xy' in c ? xyToRgb(c.xy) : mirekToRgb(c.mirek)))
+  if (!css.length) return 'var(--fill)'
+  return css.length === 1 ? css[0]! : `linear-gradient(135deg, ${css.join(', ')})`
+}
