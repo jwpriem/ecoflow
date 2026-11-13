@@ -676,7 +676,7 @@ export const en = {
         ouderwets: 'Old-fashioned bell',
         vrolijk: 'Cheerful (marimba)',
         halloween: 'Halloween (spooky organ)',
-        kerst: 'Christmas (Jingle Bells)',
+        kerst: 'Christmas (Carol of the Bells)',
         chime: 'Sonos chime (short)',
       } as Record<string, string>,
       seasonal: 'Holiday sounds',

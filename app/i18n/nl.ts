@@ -673,7 +673,7 @@ export const nl: Messages = {
         ouderwets: 'Ouderwetse bel',
         vrolijk: 'Vrolijk (marimba)',
         halloween: 'Halloween (spookorgel)',
-        kerst: 'Kerst (Jingle Bells)',
+        kerst: 'Kerst (Carol of the Bells)',
         chime: 'Sonos-gong (kort)',
       } as Record<string, string>,
       seasonal: 'Feestdagengeluid',

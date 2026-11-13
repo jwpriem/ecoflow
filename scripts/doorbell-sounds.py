@@ -63,11 +63,34 @@ for n,d in seq:
     add(b,organ(note(n),d+0.05,.35),t); add(b,organ(note(n)/2,d+0.05,.25),t); t+=d+0.04
 add(b,organ(note('D2'),t-1.5,.35),1.7)
 save(b,'halloween')
-# Christmas: Jingle Bells chorus start on bells + sleigh bells
-b=buf(4.4)
-mel=[('E5',.25),('E5',.25),('E5',.5),('E5',.25),('E5',.25),('E5',.5),('E5',.25),('G5',.25),('C5',.375),('D5',.125),('E5',1.0)]
-t=0.05
-for n,d in mel:
-    d*=0.9; add(b,bell(note(n),1.4,.45),t); t+=d
-for k in range(int(t/0.225)+2): add(b,jingle(.3,.5,k),0.05+k*0.225)
+# Christmas, Home Alone feel: the Carol of the Bells ostinato (Leontovych, 1916, public domain) on celesta and
+# glockenspiel over sleigh bells, warm strings and the descending bass, ending on a ringing G minor chord
+def celesta(f,dur=1.2,amp=1.0):
+    return bell(f,dur,amp,((1,1,.55),(2,.25,.25),(4,.12,.12),(0.5,.06,.6)))
+def strings(f,dur,amp=1.0):
+    t=np.arange(int(SR*dur))/SR
+    env=np.minimum(1,t/0.35)*np.minimum(1,(dur-t)/0.6)
+    s=0
+    for det in (-0.004,0,0.005):
+        ph=2*np.pi*f*(1+det)*t+0.003*np.sin(2*np.pi*5*t)*2*np.pi
+        s=s+sum(np.sin(ph*h)/h**1.6 for h in range(1,8))
+    return amp*env*s/3
+bar=0.72
+b=buf(7.2)
+motif=[('A#5',.25),('A5',.125),('A#5',.125),('G5',.25)]
+for k in range(6):
+    t=0.05+k*bar
+    for n,d in motif:
+        add(b,celesta(note(n),1.0,.5),t)
+        if k>=2: add(b,celesta(note(n)*2,.6,.15),t)
+        t+=d*bar/.75
+# strings enter on bar 3: G minor over the falling bass G F Eb D
+for k,(bass,chord) in enumerate([('G3',['D4','G4','A#4']),('F3',['D4','F4','A#4']),('D#3',['D#4','G4','A#4']),('D3',['D4','F#4','A4'])]):
+    t=0.05+(2+k)*bar
+    add(b,strings(note(bass),bar+0.25,.32),t)
+    for n in chord: add(b,strings(note(n),bar+0.25,.12),t)
+end=0.05+6*bar
+for n in ['G3','D4','G4','A#4','D5']: add(b,strings(note(n),1.9,.14),end)
+for n in ['G5','A#5','D6','G6']: add(b,celesta(note(n),2.0,.3),end)
+for k in range(int(end/(bar/6))): add(b,jingle(.25,.22 if k%3 else .35,k),0.05+k*bar/6)
 save(b,'kerst')
