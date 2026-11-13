@@ -1,11 +1,11 @@
 import { APP_SCHEME, appReturnResult } from '#shared/appReturn'
 
 /**
- * Sign in with SolarEdge Connect (or Philips Hue, the same way). On the web the page goes to SolarEdge and comes back with ?solaredge=…, so this never
+ * Sign in with SolarEdge Connect (or Philips Hue or Google Nest, the same way). On the web the page goes to SolarEdge and comes back with ?solaredge=…, so this never
  * resolves. In the iOS app it runs in Apple's sign-in sheet and resolves with the result: 'ok', an error, or null when
  * the sheet was closed without one (the sign-in may still have finished, so reload either way).
  */
-export function useSolarEdgeSignIn(provider: 'solaredge' | 'hue' = 'solaredge') {
+export function useSolarEdgeSignIn(provider: 'solaredge' | 'hue' | 'nest' = 'solaredge') {
   const api = useApi()
   return async function signIn(): Promise<string | null> {
     const native = isNative()

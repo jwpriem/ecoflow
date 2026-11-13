@@ -6,9 +6,10 @@ import { pulseStatus } from '../../providers/tibberPulse'
 import { demoPulseStatus } from '../../services/demoData'
 import { visibleProviders } from '../../services/experimental'
 import { hueRedirectUri } from '../../services/hue'
+import { nestRedirectUri } from '../../services/nest'
 import { solarEdgeRedirectUri } from '../../services/solaredge'
 
-const PROVIDERS: Provider[] = ['tibber', 'solaredge', 'ecoflow_official', 'zeekr', 'tibber_app', 'hue']
+const PROVIDERS: Provider[] = ['tibber', 'solaredge', 'ecoflow_official', 'zeekr', 'tibber_app', 'hue', 'nest']
 
 /** Never returns secrets, only whether they are set and the non-secret settings. Experimental providers only for an experimental household. */
 export default defineEventHandler(async (event) => {
@@ -27,6 +28,7 @@ export default defineEventHandler(async (event) => {
       ...(provider === 'tibber' ? { pulse: site.isDemo ? demoPulseStatus() : pulseStatus(site.id) } : {}),
       ...(provider === 'ecoflow_official' ? { mqtt: site.isDemo ? { connected: true } : ecoflowMqttStatus(site.id) } : {}),
       ...(provider === 'hue' ? { redirectUri: hueRedirectUri(event) } : {}),
+      ...(provider === 'nest' ? { redirectUri: nestRedirectUri(event) } : {}),
       ...(provider === 'solaredge'
         ? {
             redirectUri: solarEdgeRedirectUri(event),

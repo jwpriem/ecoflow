@@ -32,9 +32,10 @@ const ALL_TABS = [
   { to: '/savings', key: 'savings', icon: 'chart' },
   { to: '/cars', key: 'cars', icon: 'car', experimental: true },
   { to: '/lights', key: 'lights', icon: 'bulb', experimental: true },
+  { to: '/security', key: 'security', icon: 'shield', experimental: true },
 ] as const
 // Plan opens from Home, Settings from the account menu (components/UserMenu.vue)
-// The Cars and Lights tabs only for a household with the experimental integrations on
+// The Cars, Lights and Security tabs only for a household with the experimental integrations on
 const tabs = computed(() => ALL_TABS.filter((t) => !('experimental' in t) || experimental.value))
 // No tab bar while a new household is set up
 const tabsOn = computed(() => loggedIn.value && route.path !== '/onboarding')

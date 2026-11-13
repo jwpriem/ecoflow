@@ -66,6 +66,10 @@ const ACCESS: Record<string, 'owner' | 'household' | 'account' | 'public' | 'adm
   'lights/floors/index.post.ts': 'household',
   'lights/floors/[id].put.ts': 'household',
   'lights/floors/[id].delete.ts': 'household',
+  // Watching the cameras live is for everyone at home too
+  'security/[id]/stream.post.ts': 'household',
+  'security/[id]/extend.post.ts': 'household',
+  'security/[id]/stop.post.ts': 'household',
   // Subscriptions belong to this device: anyone in the household can turn their own notifications on or off
   'push/index.put.ts': 'household',
   'push/index.delete.ts': 'household',
