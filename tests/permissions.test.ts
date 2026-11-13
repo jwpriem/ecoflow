@@ -61,6 +61,7 @@ const ACCESS: Record<string, 'owner' | 'household' | 'account' | 'public' | 'adm
   // The lamps are for everyone at home: switching them and making groups of them
   'lights/light/[id].put.ts': 'household',
   'lights/group/[id].put.ts': 'household',
+  'lights/scene/[id].put.ts': 'household',
   'lights/zones/index.post.ts': 'household',
   'lights/zones/[id].put.ts': 'household',
   'lights/zones/[id].delete.ts': 'household',

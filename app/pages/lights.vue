@@ -79,6 +79,8 @@
                   <span />
                 </label>
               </div>
+              <!-- Scenes straight in the list only where there is colour to set (the garden); other rooms have them in their sheet -->
+              <SceneChips v-if="hasColor(r) && scenesOf(r.id).length" class="room-scenes" :scenes="scenesOf(r.id)" @pick="recall" />
               <div class="list">
                 <div v-for="l in lampsOf(r)" :key="l.id" class="list-row lamp">
                   <button type="button" class="lead lamp-btn" @click="openLight(l)">
@@ -100,7 +102,7 @@
         <p v-if="sendError" class="error" role="status">{{ sendError }}</p>
       </template>
 
-      <LightSheet :target="sheet" :lights="state.lights" @close="sheetId = null" @change="(c) => sheet && change(sheet, c)" @member="(id, c) => changeLight(id, c)" @edit="editFromSheet" />
+      <LightSheet :target="sheet" :lights="state.lights" :scenes="sheet?.groupId ? scenesOf(sheet.groupId) : []" @scene="recall" @close="sheetId = null" @change="(c) => sheet && change(sheet, c)" @member="(id, c) => changeLight(id, c)" @edit="editFromSheet" />
       <FloorSheet :open="!!floorEdit" :floor="floorEdit?.floor ?? null" @close="floorEdit = null" @saved="afterFloor" />
       <GroupSheet :open="!!editing" :group="editing?.group ?? null" :lights="state.lights" :rooms="rooms" @close="editing = null" @saved="safeLoad" />
     </template>
@@ -114,6 +116,7 @@
 
 <script setup lang="ts">
 import type { LightChange, SheetTarget } from '~/components/LightSheet.vue'
+import type { Scene } from '~/components/SceneChips.vue'
 
 type Lamp = {
   id: string; name: string; archetype: string | null; on: boolean; brightness: number; mirek: number | null; xy: Xy | null
@@ -221,7 +224,7 @@ function groupGlow(g: Group) {
 }
 
 // What the sheet works on, kept live from the state so it follows every change
-const groupTarget = (g: Group): SheetTarget => ({ kind: 'group', id: g.groupedLightId ?? g.id, name: g.name, on: lampsOf(g).some((l) => l.on), brightness: groupBrightness(g), zone: g.kind === 'zone', lightIds: g.lightIds })
+const groupTarget = (g: Group): SheetTarget => ({ kind: 'group', id: g.groupedLightId ?? g.id, name: g.name, on: lampsOf(g).some((l) => l.on), brightness: groupBrightness(g), groupId: g.id, zone: g.kind === 'zone', lightIds: g.lightIds })
 const lightTarget = (l: Lamp): SheetTarget => ({ kind: 'light', id: l.id, name: l.name, on: l.on, brightness: l.brightness, lightIds: [l.id] })
 function groupBrightness(g: Group) {
   const lit = lampsOf(g).filter((l) => l.on)
@@ -289,9 +292,46 @@ function send(t: SheetTarget, c: LightChange) {
   flush()
 }
 
+// Scenes from the Hue app, by the room or zone they belong to. They rarely change, so they are read apart from the
+// lamps: on opening the tab and every few minutes after.
+const scenes = ref<Scene[]>([])
+const scenesOf = (groupId: string) => scenes.value.filter((s) => s.groupId === groupId)
+const hasColor = (g: Group) => lampsOf(g).some((l) => l.supports.color)
+async function loadScenes() {
+  try {
+    scenes.value = (await api<{ scenes: Scene[] }>('/api/lights/scenes')).scenes
+  } catch {
+    // Without scenes the tab works as before; the next round tries again
+  }
+}
+/** Changing a lamp by hand ends the scene of every room and zone it is in, as on the bridge */
+function endScenes(lightIds: string[]) {
+  const touched = new Set((state.value?.groups ?? []).filter((g) => g.lightIds.some((id) => lightIds.includes(id))).map((g) => g.id))
+  for (const s of scenes.value) if (touched.has(s.groupId)) s.active = false
+}
+let sceneTimers: ReturnType<typeof setTimeout>[] = []
+/** Set a scene. What each lamp becomes is the bridge's to say, so read the lamps again shortly after. */
+async function recall(scene: Scene) {
+  lastTouch = Date.now()
+  endScenes((state.value?.groups ?? []).find((g) => g.id === scene.groupId)?.lightIds ?? [])
+  scene.active = true
+  try {
+    await api(`/api/lights/scene/${scene.id}`, { method: 'PUT' })
+    sendError.value = ''
+    // Through Hue's cloud the lamps follow in a second or so; look twice so a slow bridge is caught too
+    sceneTimers.forEach(clearTimeout)
+    sceneTimers = [1200, 3500].map((ms) => setTimeout(safeLoad, ms))
+  } catch (e: any) {
+    sendError.value = serverText(e?.data?.statusMessage) || m.value.lights.failed
+    haptic('error')
+    loadScenes()
+  }
+}
+
 function change(t: SheetTarget, c: LightChange) {
   lastTouch = Date.now()
   applyLocal(t.lightIds, c)
+  endScenes(t.lightIds)
   send(t, c)
 }
 function changeLight(id: string, c: LightChange) {
@@ -322,12 +362,18 @@ let timer: ReturnType<typeof setInterval>
 onMounted(() => {
   safeLoad()
   loadFloors().catch(() => undefined)
+  loadScenes()
+  let round = 0
   timer = setInterval(() => {
-    if (document.visibilityState === 'visible' && Date.now() - lastTouch > 5000 && !editing.value && !arranging.value) safeLoad()
+    if (document.visibilityState !== 'visible' || Date.now() - lastTouch <= 5000 || editing.value || arranging.value) return
+    safeLoad()
+    // Scenes every five minutes
+    if (++round % 30 === 0) loadScenes()
   }, 10_000)
 })
 onBeforeUnmount(() => {
   clearInterval(timer)
+  sceneTimers.forEach(clearTimeout)
   for (const s of pending.values()) clearTimeout(s.timer)
 })
 </script>
@@ -368,6 +414,7 @@ onBeforeUnmount(() => {
 .room-name { border: 0; background: none; padding: 0; font-size: 16px; font-weight: 600; color: var(--text); text-align: left; display: inline-flex; align-items: baseline; gap: 8px; }
 .room-name:hover { background: none; }
 .room-name:disabled { opacity: 1; }
+.room-scenes { margin-bottom: 10px; }
 .list { margin-bottom: 0; }
 .lamp { gap: 10px; }
 .lamp-btn { flex: 1; min-width: 0; border: 0; background: none; padding: 0; text-align: left; color: var(--text); font-weight: 400; }

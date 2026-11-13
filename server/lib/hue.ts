@@ -142,3 +142,55 @@ export function hueCommand(change: HueChange): Record<string, unknown> {
   if (!Object.keys(body).length) throw new Error('Nothing to change')
   return body
 }
+
+/** One colour of a scene: a colour point, or a white tone */
+export type HueSceneColor = { xy: { x: number; y: number } } | { mirek: number }
+
+/** A scene from the Hue app, as the Lights tab offers it for its room or zone */
+export interface HueScene {
+  id: string
+  name: string
+  /** The room or zone the scene belongs to */
+  groupId: string
+  /** A few of the scene's colours, for its swatch */
+  colors: HueSceneColor[]
+  active: boolean
+}
+
+/** The parts of a CLIP v2 scene we read */
+export interface HueSceneResource {
+  id: string
+  type?: string
+  metadata?: { name?: string }
+  group?: { rid: string; rtype: string }
+  actions?: Array<{ action?: { on?: { on: boolean }; color?: { xy: { x: number; y: number } }; color_temperature?: { mirek?: number | null } } }>
+  palette?: { color?: Array<{ color?: { xy: { x: number; y: number } } }>; color_temperature?: Array<{ color_temperature?: { mirek?: number | null } }> }
+  status?: { active?: string }
+}
+
+const SCENE_COLORS = 5
+
+/**
+ * Scenes with their room or zone and a few colours to show them by. A scene made from a palette (the Hue gallery)
+ * carries that palette; one saved from the lamps only has what each lamp is set to.
+ */
+export function hueScenes(raw: HueSceneResource[]): HueScene[] {
+  return raw
+    .flatMap((s) => {
+      const name = s.metadata?.name?.trim()
+      if (!name || !s.group?.rid) return []
+      const palette: HueSceneColor[] = (s.palette?.color ?? []).flatMap((c) => (c.color?.xy ? [{ xy: c.color.xy }] : []))
+      const fromLamps: HueSceneColor[] = (s.actions ?? []).flatMap(({ action: a }): HueSceneColor[] => {
+        if (!a || a.on?.on === false) return []
+        if (a.color?.xy) return [{ xy: a.color.xy }]
+        return a.color_temperature?.mirek ? [{ mirek: a.color_temperature.mirek }] : []
+      })
+      const seen = new Set<string>()
+      const colors = (palette.length ? palette : fromLamps).filter((c) => {
+        const k = JSON.stringify(c)
+        return seen.has(k) ? false : (seen.add(k), true)
+      })
+      return [{ id: s.id, name, groupId: s.group.rid, colors: colors.slice(0, SCENE_COLORS), active: !!s.status?.active && s.status.active !== 'inactive' }]
+    })
+    .sort((a, b) => a.name.localeCompare(b.name))
+}

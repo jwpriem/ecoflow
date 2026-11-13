@@ -13,6 +13,12 @@
         </label>
       </header>
 
+      <!-- Scenes are a colour thing: first for a room with colour lamps, after the white tones for one without -->
+      <template v-if="scenes?.length && supports.color">
+        <p class="label">{{ m.lights.scenes }}</p>
+        <SceneChips :scenes="scenes" @pick="(s) => emit('scene', s)" />
+      </template>
+
       <template v-if="supports.dim">
         <p class="label spread"><span>{{ m.lights.brightness }}</span><span class="num">{{ target.on ? `${Math.round(target.brightness)}%` : '–' }}</span></p>
         <input
@@ -52,6 +58,11 @@
         </template>
       </template>
 
+      <template v-if="scenes?.length && !supports.color">
+        <p class="label">{{ m.lights.scenes }}</p>
+        <SceneChips :scenes="scenes" @pick="(s) => emit('scene', s)" />
+      </template>
+
       <!-- A group: its lamps, each to switch on its own -->
       <template v-if="target.kind === 'group' && members.length">
         <p class="label">{{ m.lights.inGroup }}</p>
@@ -81,12 +92,16 @@
 </template>
 
 <script setup lang="ts">
+import type { Scene } from '~/components/SceneChips.vue'
+
 export interface SheetTarget {
   kind: 'light' | 'group'
   id: string
   name: string
   on: boolean
   brightness: number
+  /** Only for a group: the room or zone itself, which its scenes belong to */
+  groupId?: string
   /** Only for a group: whether it's one of ours (a Hue zone), which can be edited */
   zone?: boolean
   lightIds: string[]
@@ -94,8 +109,9 @@ export interface SheetTarget {
 type Lamp = { id: string; name: string; on: boolean; brightness: number; mirek: number | null; xy: Xy | null; reachable: boolean; supports: { dim: boolean; temperature: boolean; color: boolean } }
 export type LightChange = { on?: boolean; brightness?: number; mirek?: number; xy?: Xy }
 
-const props = defineProps<{ target: SheetTarget | null; lights: Lamp[] }>()
-const emit = defineEmits<{ close: []; change: [LightChange]; member: [string, LightChange]; edit: [] }>()
+// scenes: those of the room or group the sheet is open on
+const props = defineProps<{ target: SheetTarget | null; lights: Lamp[]; scenes?: Scene[] }>()
+const emit = defineEmits<{ close: []; change: [LightChange]; member: [string, LightChange]; edit: []; scene: [Scene] }>()
 const { m } = useLocale()
 
 const dlg = ref<HTMLDialogElement>()
