@@ -5,6 +5,7 @@ import {
   commandsLog,
   consents,
   devices,
+  doorbellSounds,
   integrations,
   ledger,
   lightFloors,
@@ -47,6 +48,7 @@ const SECTIONS: Section[] = [
   { name: 'solarProduction', table: solarProduction, key: solarProduction.slotStart, where: (s) => eq(solarProduction.siteId, s) },
   { name: 'solarLedger', table: solarLedger, key: solarLedger.slotStart, where: (s) => eq(solarLedger.siteId, s) },
   { name: 'vehicles', table: vehicles, key: vehicles.id, where: (s) => eq(vehicles.siteId, s) },
+  { name: 'doorbellSounds', table: doorbellSounds, key: doorbellSounds.id, where: (s) => eq(doorbellSounds.siteId, s) },
   { name: 'lightFloors', table: lightFloors, key: lightFloors.id, where: (s) => eq(lightFloors.siteId, s) },
   { name: 'vehicleSamples', table: vehicleSamples, key: vehicleSamples.id, where: (s) => eq(vehicleSamples.siteId, s) },
 ]

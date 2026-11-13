@@ -200,6 +200,26 @@ export const lightFloors = pgTable(
   (t) => [index('light_floors_site').on(t.siteId)],
 )
 
+/**
+ * The owner's own doorbell sounds for the Sonos speaker (MP3 or WAV, at most 1 MB). The speaker fetches one from
+ * /api/sonos/sounds/{token}.mp3 without a session, so the token is a long random secret.
+ */
+export const doorbellSounds = pgTable(
+  'doorbell_sounds',
+  {
+    id: serial('id').primaryKey(),
+    siteId: integer('site_id').notNull().references(() => sites.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    /** audio/mpeg or audio/wav */
+    mime: text('mime').notNull(),
+    /** The file, base64 */
+    audio: text('audio').notNull(),
+    token: text('token').notNull().unique(),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [index('doorbell_sounds_site').on(t.siteId)],
+)
+
 export const vehicles = pgTable(
   'vehicles',
   {

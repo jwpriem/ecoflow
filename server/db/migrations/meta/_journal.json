@@ -176,6 +176,13 @@
       "when": 1794559557039,
       "tag": "0024_push_doorbell",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1794568281297,
+      "tag": "0025_doorbell_sounds",
+      "breakpoints": true
     }
   ]
 }
