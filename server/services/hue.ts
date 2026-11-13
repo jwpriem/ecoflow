@@ -2,7 +2,7 @@ import type { H3Event } from 'h3'
 import { createError } from 'h3'
 import type { Db } from '../db/client'
 import type { sites } from '../db/schema'
-import { type HueChange, hueCommand, type HueState, hueState } from '../lib/hue'
+import { type HueChange, hueCommand, type HueScene, hueScenes, type HueSceneResource, type HueState, hueState } from '../lib/hue'
 import {
   type HueAuth,
   hueCreateAppKey,
@@ -121,7 +121,7 @@ export function readHue(db: Db, site: Site, key: string): Promise<HueState> {
 const HUE_ID = /^[0-9a-f-]{36}$/i
 
 function checkId(id: string) {
-  if (!HUE_ID.test(id)) throw createError({ statusCode: 400, statusMessage: 'Unknown lamp or group' })
+  if (!HUE_ID.test(id)) throw createError({ statusCode: 400, statusMessage: 'Unknown lamp, group or scene' })
 }
 
 function command(change: HueChange) {
@@ -144,6 +144,17 @@ export function setHueGroup(db: Db, site: Site, key: string, groupedLightId: str
   checkId(groupedLightId)
   const body = command(change)
   return withHue(db, site, key, (auth) => huePut(auth, 'grouped_light', groupedLightId, body))
+}
+
+/** The scenes made in the Hue app, each with its room or zone */
+export function readHueScenes(db: Db, site: Site, key: string): Promise<HueScene[]> {
+  return withHue(db, site, key, async (auth) => hueScenes(await hueResources<HueSceneResource>(auth, 'scene')))
+}
+
+/** Set a scene: the bridge puts every lamp of its room or zone to what the scene says */
+export function recallHueScene(db: Db, site: Site, key: string, id: string) {
+  checkId(id)
+  return withHue(db, site, key, (auth) => huePut(auth, 'scene', id, { recall: { action: 'active' } }))
 }
 
 /**

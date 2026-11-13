@@ -127,3 +127,13 @@ export function lightsSummary(state: {
     brightness: lit.length ? Math.round(lit.reduce((s, l) => s + l.brightness, 0) / lit.length) : 0,
   }
 }
+
+/** One colour of a Hue scene: a colour point or a white tone */
+export type SceneColor = { xy: Xy } | { mirek: number }
+
+/** A scene's swatch: its colours side by side, blending into each other; quiet when the scene tells us none */
+export function sceneSwatch(colors: SceneColor[]): string {
+  const css = colors.map((c) => rgbCss('xy' in c ? xyToRgb(c.xy) : mirekToRgb(c.mirek)))
+  if (!css.length) return 'var(--fill)'
+  return css.length === 1 ? css[0]! : `linear-gradient(135deg, ${css.join(', ')})`
+}

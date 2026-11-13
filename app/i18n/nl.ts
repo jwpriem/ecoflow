@@ -83,6 +83,7 @@ export const nl: Messages = {
     otherColor: 'Andere kleur',
     warmCool: { warm: 'Warm', cool: 'Koel' },
     whites: { candle: 'Kaars', warm: 'Warm', neutral: 'Neutraal', cool: 'Koel', daylight: 'Daglicht' },
+    scenes: 'Scènes',
     inGroup: 'Lampen in deze groep',
     editGroup: 'Groep wijzigen',
     deleteGroup: 'Groep verwijderen',

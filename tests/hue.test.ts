@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { glow, hexToRgb, lampRgb, lightsSummary, mirekToRgb, mixRgb, rgbToHex, rgbToXy, xyToRgb } from '../app/utils/hue'
-import { hueCommand, hueState, type HueRaw } from '../server/lib/hue'
+import { glow, hexToRgb, lampRgb, lightsSummary, mirekToRgb, mixRgb, rgbCss, rgbToHex, rgbToXy, sceneSwatch, xyToRgb } from '../app/utils/hue'
+import { hueCommand, hueScenes, hueState, type HueRaw } from '../server/lib/hue'
 import { hueAuthorizeUrl, hueCreateAppKey, hueExchangeCode, hueTokenNeedsRefresh } from '../server/providers/hue'
 import { resetProviders } from '../server/providers/http'
 
@@ -175,5 +175,59 @@ describe('lightsSummary', () => {
   it('is quiet when everything is off', () => {
     const off = { ...s, lights: s.lights.map((l) => ({ ...l, on: false })) }
     expect(lightsSummary(off)).toMatchObject({ on: 0, rooms: [], rgb: null, brightness: 0 })
+  })
+})
+
+describe('hueScenes', () => {
+  const scene = (n: number, name: string, extra: object = {}) => ({ id: id(n), type: 'scene', metadata: { name }, group: { rid: id(200), rtype: 'room' }, ...extra })
+
+  it('gives each scene its room or zone, sorted by name', () => {
+    const s = hueScenes([scene(501, 'Tropical'), scene(500, 'Relax', { group: { rid: id(201), rtype: 'zone' } })])
+    expect(s.map((x) => [x.name, x.groupId])).toEqual([['Relax', id(201)], ['Tropical', id(200)]])
+  })
+
+  it('takes the colours from the palette first', () => {
+    const [s] = hueScenes([
+      scene(500, 'Tropical', {
+        palette: { color: [{ color: { xy: { x: 0.6, y: 0.3 } } }, { color: { xy: { x: 0.2, y: 0.1 } } }], color_temperature: [{ color_temperature: { mirek: 300 } }] },
+        actions: [{ target: { rid: id(1), rtype: 'light' }, action: { on: { on: true }, color: { xy: { x: 0.4, y: 0.4 } } } }],
+      }),
+    ])
+    expect(s!.colors).toEqual([{ xy: { x: 0.6, y: 0.3 } }, { xy: { x: 0.2, y: 0.1 } }])
+  })
+
+  it('falls back to what the lamps are set to: colours and whites of lamps that go on, each once, at most five', () => {
+    const action = (n: number, a: object) => ({ target: { rid: id(n), rtype: 'light' }, action: a })
+    const [s] = hueScenes([
+      scene(500, 'Relax', {
+        actions: [
+          action(1, { on: { on: true }, color_temperature: { mirek: 447 } }),
+          action(2, { on: { on: true }, color_temperature: { mirek: 447 } }),
+          action(3, { on: { on: false }, color: { xy: { x: 0.1, y: 0.1 } } }),
+          action(4, { on: { on: true }, color: { xy: { x: 0.5, y: 0.4 } } }),
+          ...[5, 6, 7, 8, 9].map((n) => action(n, { on: { on: true }, color: { xy: { x: n / 10, y: 0.3 } } })),
+        ],
+      }),
+    ])
+    expect(s!.colors).toEqual([{ mirek: 447 }, { xy: { x: 0.5, y: 0.4 } }, { xy: { x: 0.5, y: 0.3 } }, { xy: { x: 0.6, y: 0.3 } }, { xy: { x: 0.7, y: 0.3 } }])
+  })
+
+  it('knows which scene is active, when the bridge says so', () => {
+    const s = hueScenes([scene(500, 'A', { status: { active: 'static' } }), scene(501, 'B', { status: { active: 'inactive' } }), scene(502, 'C', { status: { active: 'dynamic_palette' } }), scene(503, 'D')])
+    expect(s.map((x) => x.active)).toEqual([true, false, true, false])
+  })
+
+  it('skips scenes without a name or a group', () => {
+    expect(hueScenes([{ id: id(500), type: 'scene', metadata: { name: 'Lost' } }, scene(501, '')])).toEqual([])
+  })
+})
+
+describe('sceneSwatch', () => {
+  it('is one colour, a blend of several, or quiet when the scene has none', () => {
+    expect(sceneSwatch([{ mirek: 370 }])).toBe(rgbCss(mirekToRgb(370)))
+    const two = sceneSwatch([{ xy: { x: 0.6, y: 0.3 } }, { mirek: 370 }])
+    expect(two).toContain('linear-gradient')
+    expect(two).toContain(rgbCss(xyToRgb({ x: 0.6, y: 0.3 })))
+    expect(sceneSwatch([])).toBe('var(--fill)')
   })
 })
