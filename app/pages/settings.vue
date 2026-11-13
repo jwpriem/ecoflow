@@ -158,59 +158,7 @@
               <template v-if="i.provider === 'sonos'">
                 <p class="small muted">{{ m.settings.sonosCallback }} <code class="copy">{{ i.redirectUri }}</code></p>
                 <p v-if="i.configured" class="small muted">{{ i.meta.authorized ? m.settings.sonosSpeakers(sonosSpeakerList(i.meta).length) : m.settings.sonosNotSignedIn }}</p>
-                <!-- The doorbell on a speaker: saved as it changes, like the other settings -->
-                <div v-if="i.configured && i.meta.authorized && isOwner" class="doorbell">
-                  <label class="field-row">
-                    <span class="stack-text"><span class="title">{{ m.settings.sonosDoorbell.enabled }}</span><span class="small muted">{{ m.settings.sonosDoorbell.enabledHelp }}</span></span>
-                    <span class="switch"><input v-model="doorbell.enabled" type="checkbox" :disabled="!doorbell.playerId" @change="saveDoorbell({ enabled: doorbell.enabled })" /><span /></span>
-                  </label>
-                  <label class="field">
-                    <span>{{ m.settings.sonosDoorbell.speaker }}</span>
-                    <select v-model="doorbell.playerId" @change="saveDoorbell({ playerId: doorbell.playerId })">
-                      <option :value="null">{{ m.settings.sonosDoorbell.pick }}</option>
-                      <option v-for="s in sonosSpeakerList(i.meta)" :key="s.id" :value="s.id" :disabled="!s.audioClip">
-                        {{ s.audioClip ? s.name : m.settings.sonosDoorbell.cannot(s.name) }}
-                      </option>
-                    </select>
-                  </label>
-                  <label class="field">
-                    <span>{{ m.settings.sonosDoorbell.volume(doorbell.volume) }}</span>
-                    <input
-                      v-model.number="doorbell.volume" type="range" min="5" max="100" step="5" class="range" :style="{ '--p': (doorbell.volume - 5) / 95 }"
-                      @change="saveDoorbell({ volume: doorbell.volume })"
-                    />
-                  </label>
-                  <label class="field">
-                    <span>{{ m.settings.sonosDoorbell.sound }}</span>
-                    <select v-model="doorbell.sound" @change="saveDoorbell({ sound: doorbell.sound })">
-                      <option v-for="s in BUILTIN_SOUNDS" :key="s" :value="s">{{ m.settings.sonosDoorbell.sounds[s] }}</option>
-                      <option v-for="s in sounds" :key="s.id" :value="`custom:${s.id}`">{{ s.name }}</option>
-                    </select>
-                  </label>
-                  <label class="field-row">
-                    <span class="stack-text"><span class="title">{{ m.settings.sonosDoorbell.seasonal }}</span><span class="small muted">{{ m.settings.sonosDoorbell.seasonalHelp }}</span></span>
-                    <span class="switch"><input v-model="doorbell.seasonal" type="checkbox" @change="saveDoorbell({ seasonal: doorbell.seasonal })" /><span /></span>
-                  </label>
-                  <!-- Own sounds: MP3 or WAV, sent as base64 and kept on the server, where the speaker fetches them -->
-                  <div v-if="sounds.length" class="sounds">
-                    <div v-for="s in sounds" :key="s.id" class="sound-row">
-                      <span class="small">{{ s.name }} <span class="muted">· {{ s.mime === 'audio/wav' ? 'WAV' : 'MP3' }}, {{ Math.max(1, Math.round(s.bytes / 1000)) }} kB</span></span>
-                      <button type="button" class="plain danger small" @click="removeSound(s.id)">{{ m.settings.sonosDoorbell.remove }}</button>
-                    </div>
-                  </div>
-                  <label class="upload">
-                    <input type="file" accept="audio/mpeg,audio/mp3,audio/wav,audio/x-wav,.mp3,.wav" :disabled="busy === 'sound-upload'" @change="uploadSound" />
-                    <span class="small">{{ busy === 'sound-upload' ? m.settings.sonosDoorbell.uploading : m.settings.sonosDoorbell.upload }}</span>
-                  </label>
-                  <p class="small muted">{{ m.settings.sonosDoorbell.uploadHelp }}</p>
-                  <div class="row">
-                    <button type="button" :disabled="!doorbell.playerId || busy === 'sonos-test'" @click="testDoorbell">
-                      {{ busy === 'sonos-test' ? m.settings.sonosDoorbell.testing : m.settings.sonosDoorbell.test }}
-                    </button>
-                    <span v-if="doorbellMsg" class="small" :class="doorbellMsg.ok ? 'pos' : 'error'" role="status">{{ doorbellMsg.text }}</span>
-                  </div>
-                  <p v-if="i.meta.lastRing" class="small muted">{{ lastRingText(i.meta.lastRing as any) }}</p>
-                </div>
+                <p v-if="i.configured && i.meta.authorized && isOwner" class="small muted">{{ m.settings.doorbellBelow }}</p>
               </template>
               <p v-if="i.provider === 'tibber_app' && i.configured" class="small muted">
                 {{ m.settings.tibberApp((i.meta.vehicles as any[])?.length ?? 0, (i.meta.chargers as any[])?.length ?? 0) }}
@@ -246,6 +194,64 @@
               </template>
             </form>
           </details>
+        </div>
+      </section>
+      <!-- The doorbell: which speaker plays it and what it sounds like. A section of its own, where you look for it;
+           the Security tab links here (/settings#doorbell) -->
+      <section v-if="sonos?.configured && sonos.meta.authorized && isOwner" id="doorbell" class="group" style="--o: 5">
+        <h3 class="section-title">{{ m.settings.doorbellTitle }}</h3>
+        <!-- The doorbell on a speaker: saved as it changes, like the other settings -->
+        <div class="doorbell">
+          <label class="field-row">
+            <span class="stack-text"><span class="title">{{ m.settings.sonosDoorbell.enabled }}</span><span class="small muted">{{ m.settings.sonosDoorbell.enabledHelp }}</span></span>
+            <span class="switch"><input v-model="doorbell.enabled" type="checkbox" :disabled="!doorbell.playerId" @change="saveDoorbell({ enabled: doorbell.enabled })" /><span /></span>
+          </label>
+          <label class="field">
+            <span>{{ m.settings.sonosDoorbell.speaker }}</span>
+            <select v-model="doorbell.playerId" @change="saveDoorbell({ playerId: doorbell.playerId })">
+              <option :value="null">{{ m.settings.sonosDoorbell.pick }}</option>
+              <option v-for="s in sonosSpeakerList(sonos.meta)" :key="s.id" :value="s.id" :disabled="!s.audioClip">
+                {{ s.audioClip ? s.name : m.settings.sonosDoorbell.cannot(s.name) }}
+              </option>
+            </select>
+          </label>
+          <label class="field">
+            <span>{{ m.settings.sonosDoorbell.volume(doorbell.volume) }}</span>
+            <input
+              v-model.number="doorbell.volume" type="range" min="5" max="100" step="5" class="range" :style="{ '--p': (doorbell.volume - 5) / 95 }"
+              @change="saveDoorbell({ volume: doorbell.volume })"
+            />
+          </label>
+          <label class="field">
+            <span>{{ m.settings.sonosDoorbell.sound }}</span>
+            <select v-model="doorbell.sound" @change="saveDoorbell({ sound: doorbell.sound })">
+              <option v-for="s in BUILTIN_SOUNDS" :key="s" :value="s">{{ m.settings.sonosDoorbell.sounds[s] }}</option>
+              <option v-for="s in sounds" :key="s.id" :value="`custom:${s.id}`">{{ s.name }}</option>
+            </select>
+          </label>
+          <label class="field-row">
+            <span class="stack-text"><span class="title">{{ m.settings.sonosDoorbell.seasonal }}</span><span class="small muted">{{ m.settings.sonosDoorbell.seasonalHelp }}</span></span>
+            <span class="switch"><input v-model="doorbell.seasonal" type="checkbox" @change="saveDoorbell({ seasonal: doorbell.seasonal })" /><span /></span>
+          </label>
+          <!-- Own sounds: MP3 or WAV, sent as base64 and kept on the server, where the speaker fetches them -->
+          <div v-if="sounds.length" class="sounds">
+            <div v-for="s in sounds" :key="s.id" class="sound-row">
+              <span class="small">{{ s.name }} <span class="muted">· {{ s.mime === 'audio/wav' ? 'WAV' : 'MP3' }}, {{ Math.max(1, Math.round(s.bytes / 1000)) }} kB</span></span>
+              <button type="button" class="plain danger small" @click="removeSound(s.id)">{{ m.settings.sonosDoorbell.remove }}</button>
+            </div>
+          </div>
+          <label class="upload">
+            <input type="file" accept="audio/mpeg,audio/mp3,audio/wav,audio/x-wav,.mp3,.wav" :disabled="busy === 'sound-upload'" @change="uploadSound" />
+            <span class="small">{{ busy === 'sound-upload' ? m.settings.sonosDoorbell.uploading : m.settings.sonosDoorbell.upload }}</span>
+          </label>
+          <p class="small muted">{{ m.settings.sonosDoorbell.uploadHelp }}</p>
+          <div class="row">
+            <button type="button" :disabled="!doorbell.playerId || busy === 'sonos-test'" @click="testDoorbell">
+              {{ busy === 'sonos-test' ? m.settings.sonosDoorbell.testing : m.settings.sonosDoorbell.test }}
+            </button>
+            <span v-if="doorbellMsg" class="small" :class="doorbellMsg.ok ? 'pos' : 'error'" role="status">{{ doorbellMsg.text }}</span>
+          </div>
+          <p v-if="sonos.meta.lastRing" class="small muted">{{ lastRingText(sonos.meta.lastRing as any) }}</p>
         </div>
       </section>
       <section class="group" style="--o: 6">
@@ -624,6 +630,7 @@ async function signInSonos() {
 
 // The doorbell on Sonos: which speaker, how loud, which sound
 type Speaker = { id: string; name: string; audioClip: boolean }
+const sonos = computed(() => integrations.value.find((i) => i.provider === 'sonos'))
 const sonosSpeakerList = (meta: Record<string, any>): Speaker[] => (Array.isArray(meta.speakers) ? meta.speakers : [])
 const BUILTIN_SOUNDS = ['dingdong', 'westminster', 'drie-tonen', 'ouderwets', 'vrolijk', 'halloween', 'kerst', 'chime']
 const doorbell = reactive<{ enabled: boolean; playerId: string | null; volume: number; sound: string; seasonal: boolean }>({
@@ -888,8 +895,8 @@ onMounted(async () => {
   }
   push.init().catch(() => (push.state.value = 'unsupported'))
   await safeLoad()
-  // From the Cars tab (/settings#cars): the group only exists once loaded, so scroll to it now
-  if (route.hash === '#cars') nextTick(() => document.getElementById('cars')?.scrollIntoView({ block: 'start' }))
+  // From the Cars tab (/settings#cars) or the Security tab (/settings#doorbell): the group only exists once loaded, so scroll to it now
+  if (route.hash === '#cars' || route.hash === '#doorbell') nextTick(() => document.getElementById(route.hash.slice(1))?.scrollIntoView({ block: 'start' }))
   // Sign-in may finish in another window or on another device: refresh when the page is shown again
   document.addEventListener('visibilitychange', onVisible)
 })
@@ -930,7 +937,7 @@ function onVisible() {
 .admin-link { color: var(--text); text-decoration: none; }
 .danger-fill { background: var(--alert); border-color: var(--alert); color: #fff; }
 .copy { user-select: all; word-break: break-all; }
-.doorbell { display: flex; flex-direction: column; gap: 4px; margin: 4px 0 16px; padding: 12px 0 0; border-top: 1px solid var(--rule); }
+.doorbell { display: flex; flex-direction: column; gap: 4px; background: var(--surface); border-radius: var(--radius); padding: 14px 16px 16px; }
 .doorbell .field-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
 .doorbell .range { width: 100%; }
 .doorbell p { margin: 4px 0 0; }
