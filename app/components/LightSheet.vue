@@ -8,7 +8,7 @@
           <p class="small muted">{{ subtitle }}</p>
         </div>
         <label class="switch">
-          <input type="checkbox" :checked="target.on" :aria-label="m.lights.toggle(target.name)" @change="emit('change', { on: ($event.target as HTMLInputElement).checked })" />
+          <input type="checkbox" :checked="target.on" :disabled="unreachable" :aria-label="m.lights.toggle(target.name)" @change="emit('change', { on: ($event.target as HTMLInputElement).checked })" />
           <span />
         </label>
       </header>
@@ -49,7 +49,7 @@
           <div class="swatches">
             <button
               v-for="(c, i) in COLOR_PRESETS" :key="i" type="button" class="swatch-btn" :style="{ background: rgbCss(c) }"
-              :aria-label="rgbToHex(c)" @click="pickRgb(c)"
+              :aria-label="m.lights.colors[i] ?? rgbToHex(c)" @click="pickRgb(c)"
             />
             <label class="swatch-btn custom" :aria-label="m.lights.otherColor">
               <input type="color" :value="pickerValue" @input="pickHex(($event.target as HTMLInputElement).value)" />
@@ -73,7 +73,7 @@
               <span class="title">{{ l.name }}<span v-if="!l.reachable" class="small muted"> · {{ m.lights.unreachable }}</span></span>
             </div>
             <label class="switch">
-              <input type="checkbox" :checked="l.on" :aria-label="m.lights.toggle(l.name)" @change="emit('member', l.id, { on: ($event.target as HTMLInputElement).checked })" />
+              <input type="checkbox" :checked="l.on" :disabled="!l.reachable" :aria-label="m.lights.toggle(l.name)" @change="emit('member', l.id, { on: ($event.target as HTMLInputElement).checked })" />
               <span />
             </label>
           </div>
@@ -136,6 +136,8 @@ const subtitle = computed(() => {
   return `${m.value.lights.lamps(members.value.length)} · ${m.value.lights.lampsOn(members.value.filter((l) => l.on).length, members.value.length)}`
 })
 
+// Nothing in it can be reached (a lamp switched off at the wall): its switch would do nothing
+const unreachable = computed(() => members.value.length > 0 && members.value.every((l) => !l.reachable))
 const dotStyle = (l: Lamp) => glow(lampRgb(l), l.on ? l.brightness : 0)
 
 function pickRgb(c: Rgb) {
