@@ -151,17 +151,23 @@ export function setStreamConfig(creds: EcoFlowCredentials, sn: string, params: R
  * The developer API has no "charge/discharge now" for the STREAM. The plan's modes are mapped onto the
  * backup reserve (cfgBackupReverseSoc) while the system runs in Self-Powered mode, like evcc does:
  * - self_use / discharge: reserve at the strategy minimum, the STREAM covers the house load itself
- * - solar_only (hold): reserve at the current level, so it stops discharging but still takes in solar
+ * - solar_only (hold): reserve just under the current level, so it stops discharging but still takes in solar
  * - charge_grid: reserve at the charge target, the STREAM charges from the grid to reach it
  * The unit rejects a reserve less than 3 above its own discharge limit (cmsMinDsgSoc).
+ *
+ * Each unit holds its own pack at the reserve: a unit below it charges from the grid (at its full
+ * 1050 W) while a unit above it keeps discharging. So hold rounds DOWN from the lowest pack level
+ * (lowestPackPct), never up from the system level. Rounding the system level up (30% from packs at
+ * 31% and 29.8%) once had one unit charging from the grid at 970 W while the other discharged 850 W.
  */
 export function backupReserveFor(
   mode: BatteryMode,
-  s: { socPct: number; reservePct: number; targetPct: number; minDsgPct: number; maxChgPct: number },
+  s: { socPct: number; lowestPackPct?: number | null; reservePct: number; targetPct: number; minDsgPct: number; maxChgPct: number },
 ): number {
   const lo = s.minDsgPct + 3
   const hi = Math.max(lo, Math.min(100, s.maxChgPct))
-  const want = mode === 'solar_only' ? Math.ceil(s.socPct) : mode === 'charge_grid' ? s.targetPct : s.reservePct
+  const hold = Math.floor(Math.min(s.socPct, s.lowestPackPct ?? s.socPct))
+  const want = mode === 'solar_only' ? hold : mode === 'charge_grid' ? s.targetPct : s.reservePct
   return Math.round(Math.min(hi, Math.max(lo, want)))
 }
 
