@@ -187,7 +187,7 @@ describe('STREAM control through the backup reserve', () => {
   it('maps each plan mode onto a reserve level', () => {
     expect(backupReserveFor('self_use', base)).toBe(10)
     expect(backupReserveFor('discharge', base)).toBe(10)
-    expect(backupReserveFor('solar_only', base)).toBe(42) // hold: no discharge below the current level
+    expect(backupReserveFor('solar_only', base)).toBe(41) // hold: rounded down, never above the current level
     expect(backupReserveFor('charge_grid', base)).toBe(95) // capped at the unit's own max charge level
   })
 
@@ -195,5 +195,11 @@ describe('STREAM control through the backup reserve', () => {
     expect(backupReserveFor('self_use', { ...base, reservePct: 0 })).toBe(3)
     expect(backupReserveFor('self_use', { ...base, reservePct: 5, minDsgPct: 10 })).toBe(13)
     expect(backupReserveFor('solar_only', { ...base, socPct: 1 })).toBe(3)
+  })
+
+  it('holds at the lowest pack, so no unit charges from the grid while the other discharges', () => {
+    // 13 Nov: system 30%, packs 31.05% and 29.81%; a reserve of 30 made 2339 charge at 970 W while 0172 gave 850 W
+    expect(backupReserveFor('solar_only', { ...base, socPct: 30, lowestPackPct: 29.81 })).toBe(29)
+    expect(backupReserveFor('solar_only', { ...base, socPct: 30, lowestPackPct: null })).toBe(30)
   })
 })

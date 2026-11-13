@@ -136,11 +136,23 @@ export function steeringOf(meta: Record<string, unknown> | undefined): EcoFlowSt
 }
 
 /** The unit that takes settings for the whole system: the one reporting MASTER, else the one with system values */
-async function mainUnit(db: Db, site: Site) {
-  const rows = await db
+async function streamUnits(db: Db, site: Site) {
+  return db
     .select()
     .from(devices)
     .where(and(eq(devices.siteId, site.id), eq(devices.driver, 'ecoflow_official')))
+}
+
+/** Lowest own pack level (%) over the units, from MQTT; null when no unit reported one */
+export function lowestPackPct(quotas: Record<string, unknown>[]): number | null {
+  const levels = quotas
+    .map((q) => Number(q.f32ShowSoc ?? q.bmsBattSoc))
+    .filter((v) => Number.isFinite(v) && v > 0)
+  return levels.length ? Math.min(...levels) : null
+}
+
+async function mainUnit(db: Db, site: Site, rows?: Awaited<ReturnType<typeof streamUnits>>) {
+  rows ??= await streamUnits(db, site)
   const quota = (d: (typeof rows)[number]) => (d.state as DeviceState).quota ?? {}
   return (
     rows.find((d) => quota(d).distributedDeviceStatus === 'MASTER') ??
@@ -175,12 +187,14 @@ export async function controlEcoFlow(db: Db, site: Site, key: string, mode: Batt
   const integ = await credentials(db, site, key)
   if (!integ) return 'skipped: EcoFlow developer API not connected'
   if (steeringOf(integ.meta) !== 'wattwise') return 'skipped: EcoFlow AI mode steers the batteries'
-  const main = await mainUnit(db, site)
+  const units = await streamUnits(db, site)
+  const main = await mainUnit(db, site, units)
   if (!main) return 'skipped: no STREAM units'
   const q = (main.state as DeviceState).quota ?? {}
   const n = (k: string, d: number) => (Number.isFinite(Number(q[k])) && q[k] !== null && q[k] !== undefined ? Number(q[k]) : d)
   const reserve = backupReserveFor(mode, {
     socPct: n('cmsBattSoc', 0),
+    lowestPackPct: lowestPackPct(units.map((u) => (u.state as DeviceState).quota ?? {})),
     reservePct: site.strategy.reserveSoc * 100,
     targetPct: site.strategy.maxSoc * 100,
     minDsgPct: n('cmsMinDsgSoc', 0),
