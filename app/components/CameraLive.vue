@@ -1,5 +1,5 @@
 <template>
-  <article class="cam" :class="phase">
+  <article class="cam" :class="`is-${phase}`">
     <div class="frame" :style="{ aspectRatio: ratio }">
       <video ref="video" playsinline autoplay :muted="muted" :class="{ shown: phase === 'live' }" @loadedmetadata="onMeta" />
 
@@ -84,39 +84,47 @@ async function start() {
   teardown()
   phase.value = 'connecting'
   message.value = ''
-  const conn = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] })
-  pc = conn
+  let conn: RTCPeerConnection | null = null
   try {
+    conn = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] })
+    pc = conn
     // Google's order: audio, video, then a data channel. Audio only received.
     conn.addTransceiver('audio', { direction: 'recvonly' })
     conn.addTransceiver('video', { direction: 'recvonly' })
     conn.createDataChannel('dataSendChannel')
     const media = new MediaStream()
-    conn.ontrack = (e) => {
-      media.addTrack(e.track)
-      if (video.value && video.value.srcObject !== media) video.value.srcObject = media
+    const c = conn
+    c.ontrack = (e) => {
+      if (pc !== c) return
+      try {
+        media.addTrack(e.track)
+        if (video.value && video.value.srcObject !== media) video.value.srcObject = media
+      } catch (err) {
+        fail(m.value.security.failed, err)
+      }
     }
-    conn.onconnectionstatechange = () => {
-      if (pc !== conn) return
-      if (conn.connectionState === 'connected') phase.value = 'live'
-      if (conn.connectionState === 'failed') fail(m.value.security.failed)
+    c.onconnectionstatechange = () => {
+      if (pc !== c) return
+      if (c.connectionState === 'connected') phase.value = 'live'
+      if (c.connectionState === 'failed') fail(m.value.security.failed)
     }
-    await conn.setLocalDescription(await conn.createOffer())
-    await gathered(conn)
-    if (pc !== conn) return
-    const r = await api<Session>(`/api/security/${props.camera.id}/stream`, { method: 'POST', body: { offerSdp: conn.localDescription!.sdp } })
-    if (pc !== conn) {
+    await c.setLocalDescription(await c.createOffer())
+    await gathered(c)
+    if (pc !== c) return
+    const r = await api<Session>(`/api/security/${props.camera.id}/stream`, { method: 'POST', body: { offerSdp: c.localDescription!.sdp } })
+    if (pc !== c || c.signalingState === 'closed') {
       // Stopped while waiting: tell the camera too
       sendStop(r.mediaSessionId)
       return
     }
     session = r
-    await conn.setRemoteDescription({ type: 'answer', sdp: r.answerSdp! })
+    await c.setRemoteDescription({ type: 'answer', sdp: r.answerSdp! })
     schedule(r.expiresAt)
     clock = setInterval(() => (now.value = Date.now()), 15_000)
   } catch (e: any) {
-    if (pc !== conn) return
-    fail(e?.statusCode === 409 ? m.value.security.offline : serverText(e?.data?.statusMessage) || m.value.security.failed)
+    // A connection closed under us (stopped, page hidden, a newer start) is no error to show
+    if (conn && pc !== conn) return
+    fail(e?.statusCode === 409 ? m.value.security.offline : serverText(e?.data?.statusMessage) || m.value.security.failed, e)
   }
 }
 
@@ -155,9 +163,15 @@ function teardown() {
   if (session) sendStop(session.mediaSessionId)
   session = null
   expiresAt.value = null
-  pc?.close()
+  const old = pc
   pc = null
-  if (video.value) video.value.srcObject = null
+  // Closing or detaching can throw in Safari when the connection is already half gone; nothing to do about it then
+  try {
+    old?.close()
+  } catch {}
+  try {
+    if (video.value) video.value.srcObject = null
+  } catch {}
 }
 
 function stop(next: 'idle' | 'paused' = 'idle') {
@@ -172,7 +186,9 @@ function end(text: string) {
   message.value = text
 }
 
-function fail(text: string) {
+function fail(text: string, err?: unknown) {
+  // Only the tile shows it; the details go to the console (and Sentry) for us
+  if (err) console.warn(`[camera ${props.camera.id}]`, err)
   teardown()
   phase.value = 'error'
   message.value = text
@@ -187,19 +203,25 @@ function onMeta() {
 function fullscreen() {
   const v = video.value as (HTMLVideoElement & { webkitEnterFullscreen?: () => void }) | null
   if (!v) return
-  if (v.requestFullscreen) v.requestFullscreen().catch(() => v.webkitEnterFullscreen?.())
-  else v.webkitEnterFullscreen?.()
+  // iPhone Safari only has webkitEnterFullscreen on video, and throws when the picture isn't playing yet
+  const fallback = () => {
+    try {
+      v.webkitEnterFullscreen?.()
+    } catch {}
+  }
+  if (v.requestFullscreen) v.requestFullscreen().catch(fallback)
+  else fallback()
 }
 
 // Nobody watching a hidden page: stop, so the camera doesn't stream to nobody. Back on the page it picks up again
 // by itself when the page started it by itself, otherwise it offers to carry on.
 function onVisibility() {
   if (document.visibilityState === 'hidden' && (phase.value === 'live' || phase.value === 'connecting')) stop('paused')
-  else if (document.visibilityState === 'visible' && phase.value === 'paused' && props.autostart) start()
+  else if (document.visibilityState === 'visible' && phase.value === 'paused' && props.autostart) void start()
 }
 onMounted(() => {
   document.addEventListener('visibilitychange', onVisibility)
-  if (props.autostart && props.camera.live && document.visibilityState === 'visible') start()
+  if (props.autostart && props.camera.live && document.visibilityState === 'visible') void start()
 })
 onBeforeUnmount(() => {
   document.removeEventListener('visibilitychange', onVisibility)

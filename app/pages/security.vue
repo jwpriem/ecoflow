@@ -19,7 +19,19 @@
         <!-- The doorbell first: it's the one you open when someone's at the door. Wired cameras start live by themselves,
              battery ones wait behind Watch live (utils/cameras.ts). -->
         <div v-stagger class="cams" :class="{ single: state.cameras.length === 1 }">
-          <CameraLive v-for="(c, i) in state.cameras" :id="`cam-${c.id}`" :key="c.id" :camera="c" :autostart="auto.includes(c.id)" :style="{ '--o': i }" />
+          <!-- Whatever goes wrong in one camera stays in its tile: the page and the other camera keep going -->
+          <NuxtErrorBoundary v-for="(c, i) in state.cameras" :key="c.id">
+            <CameraLive :id="`cam-${c.id}`" :camera="c" :autostart="auto.includes(c.id)" :style="{ '--o': i }" />
+            <template #error="{ clearError }">
+              <article class="cam-error" :style="{ '--o': i }">
+                <div class="frame">
+                  <p>{{ m.security.failed }}</p>
+                  <button type="button" class="primary" @click="clearError()">{{ m.common.tryAgain }}</button>
+                </div>
+                <header class="cap"><span class="name">{{ c.name }}</span></header>
+              </article>
+            </template>
+          </NuxtErrorBoundary>
         </div>
         <p class="foot">{{ m.security.foot }}</p>
         <NuxtLink v-if="state.chime && me?.member === 'owner'" to="/settings#doorbell" class="to-chime">{{ m.security.chime }}<AppIcon name="chevron" /></NuxtLink>
@@ -81,6 +93,13 @@ onMounted(async () => {
 .to-chime { display: inline-flex; align-items: center; gap: 4px; margin: 14px 2px 0; font-weight: 600; }
 .to-chime svg { width: 16px; height: 16px; }
 .cams { display: grid; gap: 22px; margin-bottom: 18px; }
+.cam-error .frame {
+  aspect-ratio: 16 / 9; border-radius: var(--radius); background: #0b132b; color: #f4eee6;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 16px; text-align: center;
+}
+.cam-error .frame p { margin: 0; font-size: 14px; color: rgba(244, 238, 230, 0.78); }
+.cam-error .frame button { border-radius: 999px; padding: 9px 18px; font-weight: 600; }
+.cam-error .cap { padding: 10px 2px 0; font-size: 16px; font-weight: 600; }
 .foot { font-size: 13px; color: var(--text-2); margin: 4px 2px 0; max-width: 60ch; }
 @media (min-width: 1024px) {
   .cams { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px; align-items: start; }
