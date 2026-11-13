@@ -1,26 +1,28 @@
 import { describe, expect, it } from 'vitest'
 import { autostartCameras } from '../app/utils/cameras'
 
-const cam = (id: string, kind: 'doorbell' | 'camera' | 'display', live = true) => ({ id, kind, live })
+const cam = (id: string, kind: 'doorbell' | 'camera' | 'display', opts: { wired?: boolean; live?: boolean } = {}) => ({ id, kind, live: opts.live ?? true, extendable: opts.wired ?? true })
 
 describe('which cameras start live by themselves on the Security tab', () => {
-  const all = [cam('door', 'doorbell'), cam('garden', 'camera'), cam('hub', 'display')]
+  it('every wired camera', () => {
+    expect(autostartCameras([cam('door', 'doorbell'), cam('garden', 'camera')], null)).toEqual(['door', 'garden'])
+  })
 
-  it('only the doorbell: it is the one you open the tab for', () => {
+  it('not a battery camera beside wired ones, unless a notification pointed to it', () => {
+    const all = [cam('door', 'doorbell'), cam('shed', 'camera', { wired: false })]
     expect(autostartCameras(all, null)).toEqual(['door'])
+    expect(autostartCameras(all, 'shed')).toEqual(['door', 'shed'])
   })
 
-  it('the camera a notification pointed to, instead of the doorbell', () => {
-    expect(autostartCameras(all, 'garden')).toEqual(['garden'])
+  it('one camera in a house with only battery cameras: the doorbell, else the first, else the one asked for', () => {
+    const all = [cam('shed', 'camera', { wired: false }), cam('door', 'doorbell', { wired: false })]
+    expect(autostartCameras(all, null)).toEqual(['door'])
+    expect(autostartCameras(all, 'shed')).toEqual(['shed'])
+    expect(autostartCameras([cam('shed', 'camera', { wired: false }), cam('gate', 'camera', { wired: false })], null)).toEqual(['shed'])
   })
 
-  it('the first camera in a house without a doorbell', () => {
-    expect(autostartCameras([cam('garden', 'camera'), cam('shed', 'camera')], null)).toEqual(['garden'])
-  })
-
-  it('never a camera that cannot stream here, and the doorbell when the notification names an unknown one', () => {
-    expect(autostartCameras([cam('door', 'doorbell', false), cam('garden', 'camera')], null)).toEqual(['garden'])
-    expect(autostartCameras(all, 'gone')).toEqual(['door'])
-    expect(autostartCameras([cam('old', 'camera', false)], null)).toEqual([])
+  it('never a camera that cannot stream here', () => {
+    expect(autostartCameras([cam('old', 'camera', { live: false }), cam('garden', 'camera')], 'old')).toEqual(['garden'])
+    expect(autostartCameras([cam('old', 'camera', { live: false })], null)).toEqual([])
   })
 })

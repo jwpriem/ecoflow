@@ -16,8 +16,8 @@
 
       <template v-else>
         <p v-if="state.lastRing" class="rang"><AppIcon name="bell" />{{ rang(state.lastRing.at) }}</p>
-        <!-- The doorbell first: it's the one you open when someone's at the door. One camera starts live by itself
-             (utils/cameras.ts says which); the others wait behind Watch live. -->
+        <!-- The doorbell first: it's the one you open when someone's at the door. Wired cameras start live by themselves,
+             battery ones wait behind Watch live (utils/cameras.ts). -->
         <div v-stagger class="cams" :class="{ single: state.cameras.length === 1 }">
           <CameraLive v-for="(c, i) in state.cameras" :id="`cam-${c.id}`" :key="c.id" :camera="c" :autostart="auto.includes(c.id)" :style="{ '--o': i }" />
         </div>
