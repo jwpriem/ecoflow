@@ -3,7 +3,7 @@ import type { H3Event } from 'h3'
 import { createError } from 'h3'
 import type { Db } from '../db/client'
 import type { sites } from '../db/schema'
-import { checkOffer, isDeviceId, type NestCamera, nestCameras, NestEventGate, parseNestEvent, withNewline } from '../lib/nest'
+import { checkOffer, isDeviceId, type NestCamera, nestCameras, NestEventGate, type NestLastRing, nextLastRing, parseNestEvent, withNewline } from '../lib/nest'
 import { nestEventMessage } from '../lib/notifications'
 import { notify } from './push'
 import { ringDoorbell, type SonosLastRing } from './sonos'
@@ -148,10 +148,10 @@ export async function handleNestEvent(db: Db, site: Site, key: string, body: unk
   let sent: number | null = null
   let failed = 0
   let sonos: SonosLastRing | null = null
+  const names = (nest.meta.cameraNames ?? {}) as Record<string, string>
   if (ev && kind) {
     // Started first and not awaited before the push: the kitchen should sound as soon as possible
     const ring = kind === 'chime' && opts.baseUrl ? ringDoorbell(db, site, key, opts.baseUrl, { now }).catch(() => null) : Promise.resolve(null)
-    const names = (nest.meta.cameraNames ?? {}) as Record<string, string>
     const camera = { id: ev.deviceId, name: names[ev.deviceId] ?? (kind === 'chime' ? 'Voordeur' : 'Camera') }
     const r = await notify(db, site.id, kind === 'chime' ? 'doorbell' : 'camera', nestEventMessage(kind, camera, ev.at, site.timezone))
     sent = r.sent
@@ -165,7 +165,7 @@ export async function handleNestEvent(db: Db, site: Site, key: string, body: unk
     outcome: !ev ? 'other' : !kind ? 'quiet' : sent ? 'sent' : failed ? 'failed' : 'no-devices',
     sent: sent ?? 0,
   }
-  await updateIntegration(db, nest.row.id, { meta: { ...nest.meta, lastEventAt: lastEvent.at, lastEvent } }, key)
+  await updateIntegration(db, nest.row.id, { meta: { ...nest.meta, lastEventAt: lastEvent.at, lastEvent, lastRing: nextLastRing(nest.meta.lastRing as NestLastRing | undefined, ev, names) } }, key)
   return { notified: kind, sent, sonos: sonos?.outcome ?? null }
 }
 

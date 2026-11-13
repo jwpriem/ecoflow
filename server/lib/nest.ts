@@ -158,3 +158,25 @@ export class NestEventGate {
     for (const [k, v] of this.sessions) if (now - v.at > 60 * 60_000) this.sessions.delete(k)
   }
 }
+
+/** The last time someone rang, kept with the connection so Home can say it without asking Google */
+export interface NestLastRing {
+  at: string
+  cameraId: string
+  name: string | null
+}
+
+/** The ring to remember after an event: a newer ring replaces it, anything else leaves it as it was */
+export function nextLastRing<T extends NestLastRing | undefined>(prev: T, ev: NestEvent | null, names: Record<string, string>): T | NestLastRing {
+  if (!ev || !ev.kinds.includes('chime')) return prev
+  // Pub/Sub can deliver an old event late
+  if (prev && Date.parse(prev.at) >= ev.at.getTime()) return prev
+  return { at: ev.at.toISOString(), cameraId: ev.deviceId, name: names[ev.deviceId] ?? null }
+}
+
+/** The stored last ring of a signed-in Nest connection, or null */
+export function lastRing(meta: Record<string, unknown>): NestLastRing | null {
+  const r = meta.lastRing as Partial<NestLastRing> | undefined
+  if (!meta.authorized || !r || typeof r.cameraId !== 'string' || typeof r.at !== 'string' || Number.isNaN(Date.parse(r.at))) return null
+  return { at: r.at, cameraId: r.cameraId, name: typeof r.name === 'string' ? r.name : null }
+}
