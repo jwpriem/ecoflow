@@ -151,7 +151,8 @@
                 <p v-if="i.configured" class="small muted">{{ i.meta.authorized ? m.settings.nestCameras(Number(i.meta.cameras ?? 0)) : m.settings.nestNotSignedIn }}</p>
                 <p v-if="i.configured && isOwner" class="small muted">{{ m.settings.nestEvents }} <code class="copy">{{ i.eventsUrl }}</code></p>
                 <p v-if="i.configured && i.meta.authorized" class="small muted">
-                  {{ i.meta.lastEventAt ? m.settings.nestLastEvent(new Date(String(i.meta.lastEventAt)).toLocaleString(m.dateLocale, { dateStyle: 'short', timeStyle: 'short' })) : m.settings.nestNoEvents }}
+                  {{ i.meta.lastEventAt ? m.settings.nestLastEvent(lastEventText(i.meta)) : m.settings.nestNoEvents }}
+                  <template v-if="(i.meta.lastEvent as any)?.outcome">{{ m.settings.nestOutcome[(i.meta.lastEvent as any).outcome]?.((i.meta.lastEvent as any).sent) }}</template>
                 </p>
               </template>
               <p v-if="i.provider === 'tibber_app' && i.configured" class="small muted">
@@ -540,6 +541,13 @@ async function signInNest() {
   }
   if (results.nest) haptic(results.nest.ok ? 'success' : 'error')
   busy.value = ''
+}
+/** "13-11-2026 09:43 (aanbellen)": when the last Nest event came in, and what it was */
+function lastEventText(meta: Record<string, any>) {
+  const when = new Date(String(meta.lastEventAt)).toLocaleString(m.value.dateLocale, { dateStyle: 'short', timeStyle: 'short' })
+  const kinds: string[] = meta.lastEvent?.kinds ?? []
+  if (!meta.lastEvent) return when
+  return `${when} (${(kinds.length ? kinds : ['other']).map((k) => m.value.settings.nestEventKinds[k] ?? k).join(', ')})`
 }
 const seResult = (se: string) => (se === 'ok' ? { ok: true, text: m.value.settings.connected } : { ok: false, text: se })
 

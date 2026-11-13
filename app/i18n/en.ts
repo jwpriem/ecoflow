@@ -644,6 +644,14 @@ export const en = {
     nowSignInNest: 'Saved. Now sign in with Google',
     nestEvents: 'Endpoint URL for your Pub/Sub push subscription (for notifications):',
     nestLastEvent: (when: string) => `Last event received: ${when}.`,
+    nestEventKinds: { chime: 'doorbell', person: 'person', motion: 'motion', other: 'status change' } as Record<string, string>,
+    nestOutcome: {
+      sent: (n: number) => `Notification sent to ${n === 1 ? '1 device' : `${n} devices`}.`,
+      failed: () => 'Sending the notification failed. Turn notifications off and on again on this device.',
+      'no-devices': () => 'No notification: no device has this notification switched on.',
+      quiet: () => 'No notification: shortly after an earlier one for this camera, or it arrived too late.',
+      other: () => 'Nothing to notify about.',
+    } as Record<string, (n: number) => string>,
     nestNoEvents: 'No events received yet.',
     connected: 'Connected',
     info: {

@@ -139,15 +139,33 @@ export async function handleNestEvent(db: Db, site: Site, key: string, body: unk
   const ev = parseNestEvent(body)
   const nest = await getIntegration<NestCredentials>(db, site.id, 'nest', key)
   if (!nest) return { notified: null }
-  // Shown in Settings, so it's clear events arrive even when none is worth a notification
-  await updateIntegration(db, nest.row.id, { meta: { ...nest.meta, lastEventAt: new Date(now).toISOString() } }, key)
-  if (!ev) return { notified: null }
-  const kind = gate.decide(site.id, ev, now)
-  if (!kind) return { notified: null }
-  const names = (nest.meta.cameraNames ?? {}) as Record<string, string>
-  const camera = { id: ev.deviceId, name: names[ev.deviceId] ?? (kind === 'chime' ? 'Voordeur' : 'Camera') }
-  await notify(db, site.id, kind === 'chime' ? 'doorbell' : 'camera', nestEventMessage(kind, camera, ev.at, site.timezone))
-  return { notified: kind }
+  const kind = ev ? gate.decide(site.id, ev, now) : null
+  let sent: number | null = null
+  let failed = 0
+  if (ev && kind) {
+    const names = (nest.meta.cameraNames ?? {}) as Record<string, string>
+    const camera = { id: ev.deviceId, name: names[ev.deviceId] ?? (kind === 'chime' ? 'Voordeur' : 'Camera') }
+    const r = await notify(db, site.id, kind === 'chime' ? 'doorbell' : 'camera', nestEventMessage(kind, camera, ev.at, site.timezone))
+    sent = r.sent
+    failed = r.failed
+  }
+  // Shown in Settings: what came in last and what became of it, so a missing notification can be explained
+  const lastEvent: NestLastEvent = {
+    at: new Date(now).toISOString(),
+    kinds: ev?.kinds ?? [],
+    outcome: !ev ? 'other' : !kind ? 'quiet' : sent ? 'sent' : failed ? 'failed' : 'no-devices',
+    sent: sent ?? 0,
+  }
+  await updateIntegration(db, nest.row.id, { meta: { ...nest.meta, lastEventAt: lastEvent.at, lastEvent } }, key)
+  return { notified: kind, sent }
+}
+
+/** The last Pub/Sub event: its kinds (empty for a trait update) and whether it became a notification */
+export interface NestLastEvent {
+  at: string
+  kinds: Array<'chime' | 'person' | 'motion'>
+  outcome: 'sent' | 'failed' | 'no-devices' | 'quiet' | 'other'
+  sent: number
 }
 
 function checkId(id: string) {

@@ -641,6 +641,14 @@ export const nl: Messages = {
     nowSignInNest: 'Opgeslagen. Log nu in bij Google',
     nestEvents: 'Eindpunt-URL voor je Pub/Sub-pushabonnement (voor meldingen):',
     nestLastEvent: (when: string) => `Laatste event ontvangen: ${when}.`,
+    nestEventKinds: { chime: 'aanbellen', person: 'persoon', motion: 'beweging', other: 'statuswijziging' } as Record<string, string>,
+    nestOutcome: {
+      sent: (n: number) => `Melding naar ${n === 1 ? '1 toestel' : `${n} toestellen`} gestuurd.`,
+      failed: () => 'Melding versturen mislukt. Zet meldingen op dit toestel uit en weer aan.',
+      'no-devices': () => 'Geen melding: geen toestel heeft deze melding aan bij Meldingen.',
+      quiet: () => 'Geen melding: kort na een vorige melding van deze camera, of te laat binnengekomen.',
+      other: () => 'Hier hoort geen melding bij.',
+    } as Record<string, (n: number) => string>,
     nestNoEvents: 'Nog geen events ontvangen.',
     connected: 'Verbonden',
     info: {

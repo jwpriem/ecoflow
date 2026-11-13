@@ -385,7 +385,7 @@ export const pushSubscriptions = pgTable(
     endpoint: text('endpoint').notNull().unique(),
     p256dh: text('p256dh').notNull(),
     auth: text('auth').notNull(),
-    topics: jsonb('topics').$type<PushTopic[]>().notNull().default(['plan', 'prices', 'errors', 'daily']),
+    topics: jsonb('topics').$type<PushTopic[]>().notNull().default(['plan', 'prices', 'errors', 'daily', 'doorbell']),
     userAgent: text('user_agent'),
     /** Language this device shows notifications in */
     locale: text('locale').$type<Locale>().notNull().default('nl'),
