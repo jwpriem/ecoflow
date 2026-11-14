@@ -25,11 +25,18 @@ export const en = {
     plugged: 'Plugged in, not charging',
     idle: 'Not charging',
     target: 'Charge limit',
-    stamps: (updated: string, synced: string | null) => `Updated ${updated}${synced ? ` · sent to Tibber ${synced}` : ''}`,
+    stamps: (updated: string, synced: string | null, abrp?: string | null) =>
+      `Updated ${updated}${synced ? ` · sent to Tibber ${synced}` : ''}${abrp ? ` · sent to ABRP ${abrp}` : ''}`,
     name: 'Name',
     capacity: 'Battery capacity',
     tibberCar: 'Car in Tibber',
     tibberNone: 'Don’t send',
+    abrpToken: 'ABRP token',
+    abrpTokenHelp: 'From the ABRP app: car settings, Live data, Generic. Leave empty to keep the saved one.',
+    abrpTokenSaved: 'Saved; type a new one to replace it',
+    abrpRemove: 'Stop sending to ABRP',
+    abrpStatus: (sent: string | null, error: string | null) =>
+      error ? `ABRP refused the last reading: ${error}` : sent ? `Last sent to ABRP ${sent}.` : 'Not sent to ABRP yet: that happens on the next reading.',
     departure: {
       row: 'Departure',
       unset: 'Set a time',
@@ -740,6 +747,10 @@ export const en = {
         title: 'Sonos',
         help: 'Control API: create a control integration on developer.sonos.com with a key and the redirect URI below, save the key and secret here and then sign in with your Sonos account. Then pick a speaker to play the bell when the Nest doorbell rings.',
       },
+      abrp: {
+        title: 'A Better Routeplanner',
+        help: 'Telemetry API key from abetterrouteplanner.com/home/app/api-keys/telemetry (free). Then paste each car’s ABRP token in the car settings below. WattsWise sends the battery level, charging, location and speed to ABRP on every reading: every 5 minutes, and every minute while a car is driving.',
+      },
       nest: {
         title: 'Google Nest',
         help: 'Device Access (SDM API): the project ID from console.nest.google.com/device-access and the client ID and secret of an OAuth client (web application) in Google Cloud with the redirect URI below. Then sign in with your Google account and tick your cameras. For the Security tab.',
@@ -761,6 +772,7 @@ export const en = {
       vinKey: 'VIN key',
       email: 'Email',
       vinIv: 'VIN IV',
+      apiKey: 'API key',
     } as Record<string, string>,
     battery: 'Battery',
     name: 'Name',

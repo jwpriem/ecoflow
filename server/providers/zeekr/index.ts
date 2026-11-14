@@ -126,6 +126,17 @@ export interface VehicleReading {
   lon: number | null
   online: boolean
   statusAt: string | null
+  /** Extra live data, sent on to ABRP; each is null when the car doesn't report it */
+  speedKmh?: number | null
+  /** true while the car is switched on to drive ('engine-running'), false when off, null when unknown */
+  driving?: boolean | null
+  odometerKm?: number | null
+  headingDeg?: number | null
+  altitudeM?: number | null
+  extTempC?: number | null
+  cabinTempC?: number | null
+  /** kPa, front-left / front-right / rear-left / rear-right (left-hand drive) */
+  tyresKpa?: { fl: number | null; fr: number | null; rl: number | null; rr: number | null } | null
 }
 
 class ZeekrError extends Error {}
@@ -260,8 +271,11 @@ export async function zeekrVehicleList(creds: ZeekrCredentials, session: ZeekrSe
   }))
 }
 
-/** Reads one car's status, charging status and target SoC. Throws when the status call is refused. */
-export async function zeekrVehicleReading(creds: ZeekrCredentials, session: ZeekrSession, vin: string): Promise<VehicleReading> {
+/**
+ * Reads one car's status, charging status and target SoC. Throws when the status call is refused.
+ * `light` (the live reads while driving) makes only the status call: no charge power unless plugged in, no target SoC.
+ */
+export async function zeekrVehicleReading(creds: ZeekrCredentials, session: ZeekrSession, vin: string, opts: { light?: boolean } = {}): Promise<VehicleReading> {
   const status = await appCall(creds, session, 'GET', `${session.regionLoginServer}${VEHSTATUS_PATH}?latest=false&target=new`, undefined, vin)
   if (!status.success) throw new ZeekrError(`Vehicle status failed: ${status.msg ?? status.code ?? 'unknown'}`)
   const data: Json = status.data ?? {}
@@ -274,22 +288,27 @@ export async function zeekrVehicleReading(creds: ZeekrCredentials, session: Zeek
   const pluggedIn = !!asNum(ev.statusOfChargerConnection)
 
   let chargePowerW: number | null = null
-  try {
-    const charge = await appCall(creds, session, 'GET', `${session.regionLoginServer}${VEHCHARGE_PATH}`, undefined, vin)
-    const kw = asNum(charge.success ? charge.data?.chargePower : null)
-    if (kw != null) chargePowerW = Math.round(kw * 1000)
-  } catch {
-    // charging-status endpoint is only meaningful while plugged in; ignore failures
+  if (!opts.light || pluggedIn) {
+    try {
+      const charge = await appCall(creds, session, 'GET', `${session.regionLoginServer}${VEHCHARGE_PATH}`, undefined, vin)
+      const kw = asNum(charge.success ? charge.data?.chargePower : null)
+      if (kw != null) chargePowerW = Math.round(kw * 1000)
+    } catch {
+      // charging-status endpoint is only meaningful while plugged in; ignore failures
+    }
   }
 
   let targetSoc: number | null = null
-  try {
-    const limit = await appCall(creds, session, 'GET', `${session.regionLoginServer}${CHARGELIMIT_PATH}`, undefined, vin)
-    const raw = asNum(limit.success ? limit.data?.soc : null)
-    if (raw != null) targetSoc = raw / 1000 // API returns percent x 10 (e.g. 800 -> 80% -> 0.8)
-  } catch {
-    // ignore
+  if (!opts.light) {
+    try {
+      const limit = await appCall(creds, session, 'GET', `${session.regionLoginServer}${CHARGELIMIT_PATH}`, undefined, vin)
+      const raw = asNum(limit.success ? limit.data?.soc : null)
+      if (raw != null) targetSoc = raw / 1000 // API returns percent x 10 (e.g. 800 -> 80% -> 0.8)
+    } catch {
+      // ignore
+    }
   }
+
 
   const socPct = asNum(ev.chargeLevel)
   return {
@@ -303,5 +322,35 @@ export async function zeekrVehicleReading(creds: ZeekrCredentials, session: Zeek
     lon: asNum(pos.longitude),
     online: status.success === true,
     statusAt: data.updateTime ? String(data.updateTime) : null,
+    ...zeekrExtras(data),
+  }
+}
+
+/**
+ * The extra fields ABRP can use, read defensively: field names follow github.com/Fryyyyy/zeekr_homeassistant,
+ * and a car or firmware that leaves one out just gives null.
+ */
+export function zeekrExtras(data: Json): Pick<VehicleReading, 'speedKmh' | 'driving' | 'odometerKm' | 'headingDeg' | 'altitudeM' | 'extTempC' | 'cabinTempC' | 'tyresKpa'> {
+  const basic: Json = data.basicVehicleStatus ?? {}
+  const pos: Json = basic.position ?? {}
+  const add: Json = data.additionalVehicleStatus ?? {}
+  const maint: Json = add.maintenanceStatus ?? {}
+  const climate: Json = add.climateStatus ?? {}
+  const engine = typeof basic.engineStatus === 'string' ? basic.engineStatus.trim().toLowerCase() : null
+  const tyres = {
+    fl: asNum(maint.tyreStatusDriver),
+    fr: asNum(maint.tyreStatusPassenger),
+    rl: asNum(maint.tyreStatusDriverRear),
+    rr: asNum(maint.tyreStatusPassengerRear),
+  }
+  return {
+    speedKmh: asNum(basic.speed),
+    driving: engine === 'engine-running' ? true : engine ? false : null,
+    odometerKm: asNum(maint.odometer),
+    headingDeg: asNum(pos.direction),
+    altitudeM: asNum(pos.altitude),
+    extTempC: asNum(climate.exteriorTemp),
+    cabinTempC: asNum(climate.interiorTemp),
+    tyresKpa: Object.values(tyres).some((v) => v != null) ? tyres : null,
   }
 }

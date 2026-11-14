@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm'
 import { type Provider, vehicles } from '../../db/schema'
 import { type TibberHome, tibberHomes, type TibberCredentials } from '../../providers/tibber'
+import { abrpCheckKey } from '../../providers/abrp'
 import { forgetTibberApp } from '../../providers/tibberApp'
 import { readHue } from '../../services/hue'
 import { readCameras } from '../../services/nest'
@@ -27,6 +28,7 @@ const FIELDS: Record<Provider, string[]> = {
   hue: ['clientId', 'clientSecret'],
   nest: ['projectId', 'clientId', 'clientSecret'],
   sonos: ['clientId', 'clientSecret'],
+  abrp: ['apiKey'],
 }
 
 /**
@@ -91,6 +93,8 @@ export default defineEventHandler(async (event) => {
     }
     // The bridge's key for this app stays valid with a new client secret; keeping it avoids a second WattsWise on the bridge
     if (provider === 'hue' && existing?.creds.appKey) creds.appKey = existing.creds.appKey
+    // A new ABRP API key keeps the tokens of the cars (set per car in the car settings)
+    if (provider === 'abrp' && existing?.creds.tokens) (creds as Record<string, unknown>).tokens = existing.creds.tokens
   }
   if (!creds) throw createError({ statusCode: 400, statusMessage: 'Credentials are required' })
   const meta: Record<string, unknown> = { ...(existing?.meta ?? {}), ...(body.meta ?? {}) }
@@ -107,6 +111,8 @@ export default defineEventHandler(async (event) => {
       tibberHome = home
       meta.realtime = home.features?.realTimeConsumptionEnabled ?? false
       meta.homes = homes.map((h) => ({ id: h.id, name: h.appNickname || h.address?.address1 || h.id }))
+    } else if (provider === 'abrp') {
+      await abrpCheckKey(creds.apiKey!)
     } else if ((provider === 'solaredge' || provider === 'hue' || provider === 'nest' || provider === 'sonos') && body.credentials) {
       // New client credentials have no tokens yet: the owner signs in next (GET .../solaredge/authorize)
       meta.authorized = false
@@ -117,7 +123,7 @@ export default defineEventHandler(async (event) => {
 
   await saveIntegration(db, site.id, provider, creds, meta, key)
   const saved = await getIntegration(db, site.id, provider, key)
-  if (provider === 'tibber') await markIntegration(db, saved!.row.id, error)
+  if (provider === 'tibber' || provider === 'abrp') await markIntegration(db, saved!.row.id, error)
   if (provider === 'solaredge') forgetSolarEdge(site.id)
 
   // Lists the units on the EcoFlow account, adds them as batteries and records the outcome

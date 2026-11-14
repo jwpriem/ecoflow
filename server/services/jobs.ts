@@ -27,6 +27,8 @@ export interface JobOptions {
 export const JOB_OPTIONS: Record<JobName, JobOptions> = {
   collect: { timeoutMs: 45_000, skipEmpty: true },
   vehicles: { timeoutMs: 90_000, skipEmpty: true },
+  // Only the cars linked to ABRP that are on the move; must finish inside its minute
+  vehiclesLive: { timeoutMs: 45_000, skipEmpty: true },
   ledger: { timeoutMs: 120_000, skipEmpty: true },
   strategy: { timeoutMs: 60_000, skipEmpty: true },
   prices: { timeoutMs: 120_000, skipEmpty: true },

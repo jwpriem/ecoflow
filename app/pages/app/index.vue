@@ -184,7 +184,7 @@ const viewOptions = computed(() => [
   { value: 'clean' as const, label: m.value.home.viewClean },
   { value: 'detailed' as const, label: m.value.home.viewHouse },
 ])
-const PROVIDER: Record<string, string> = { tibber: 'Tibber', solaredge: 'SolarEdge', ecoflow_official: 'EcoFlow', zeekr: 'Zeekr', tibber_app: 'Tibber app', hue: 'Philips Hue', nest: 'Google Nest', sonos: 'Sonos' }
+const PROVIDER: Record<string, string> = { tibber: 'Tibber', solaredge: 'SolarEdge', ecoflow_official: 'EcoFlow', zeekr: 'Zeekr', tibber_app: 'Tibber app', hue: 'Philips Hue', nest: 'Google Nest', sonos: 'Sonos', abrp: 'ABRP' }
 const cents = (p: number) => `${num(p * 100, 1)} ct`
 
 async function load() {

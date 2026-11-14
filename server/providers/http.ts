@@ -1,6 +1,6 @@
 import { backoffDelay, CircuitBreaker, RateBudget, retryAfterMs } from '../lib/backoff'
 
-export type Provider = 'tibber' | 'ecoflow' | 'solaredge' | 'openmeteo' | 'hue' | 'nest' | 'sonos'
+export type Provider = 'tibber' | 'ecoflow' | 'solaredge' | 'openmeteo' | 'hue' | 'nest' | 'sonos' | 'abrp'
 
 /** The provider failed often enough that calls are held back for a while */
 export class ProviderUnavailableError extends Error {
@@ -12,7 +12,7 @@ export class ProviderUnavailableError extends Error {
   }
 }
 
-const NAMES: Record<Provider, string> = { tibber: 'Tibber', ecoflow: 'EcoFlow', solaredge: 'SolarEdge', openmeteo: 'Open-Meteo', hue: 'Philips Hue', nest: 'Google Nest', sonos: 'Sonos' }
+const NAMES: Record<Provider, string> = { tibber: 'Tibber', ecoflow: 'EcoFlow', solaredge: 'SolarEdge', openmeteo: 'Open-Meteo', hue: 'Philips Hue', nest: 'Google Nest', sonos: 'Sonos', abrp: 'ABRP' }
 
 /**
  * Tibber allows 100 requests per 5 minutes per IP address (developer.tibber.com, "Communicating with the API"),

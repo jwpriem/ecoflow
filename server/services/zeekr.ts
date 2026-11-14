@@ -10,6 +10,7 @@ import {
   zeekrVehicleList,
   zeekrVehicleReading,
 } from '../providers/zeekr'
+import { abrpTokens, isOnTheMove, pushAbrp } from './abrp'
 import { getIntegration, markIntegration, updateIntegration } from './integrations'
 import { askDeparture, inPluginGrace, pushPluggedCarToTibber, rediscoverTibberApp, tibberPushStep } from './tibberEv'
 
@@ -25,7 +26,12 @@ export interface VehicleState extends VehicleReading {
   tibberResyncedAt?: string
   /** When the car was plugged in at home (first read that saw it), for the quiet retries after plug-in */
   pluggedInAt?: string
+  /** Last read that saw the car driving or moved: while recent, cars linked to ABRP are read every minute */
+  movedAt?: string
 }
+
+/** Moving this far between two reads counts as driving, for cars that don't report it */
+const MOVED_M = 100
 
 /** A car counts as "at home" within this distance of home. */
 const HOME_RADIUS_M = 250
@@ -110,11 +116,28 @@ export async function syncZeekrVehicles(db: Db, site: Site, key: string): Promis
   }
 }
 
-/** Read every car, store a sample and update its state. Safe to call when no cars are configured. */
-export async function readZeekrVehicles(db: Db, site: Site, key: string, now = new Date()): Promise<VehicleState[]> {
+function movedAt(reading: VehicleReading, prev: Partial<VehicleState>, now: Date): string | undefined {
+  const moved =
+    reading.lat != null && reading.lon != null && prev.lat != null && prev.lon != null && distanceM(reading.lat, reading.lon, prev.lat, prev.lon) > MOVED_M
+  return reading.driving || (reading.speedKmh ?? 0) > 0 || moved ? now.toISOString() : prev.movedAt
+}
+
+/**
+ * Read every car, store a sample and update its state, and send the readings on to ABRP. Safe to call when no
+ * cars are configured.
+ *
+ * `live`: the in-between read every minute, only for cars linked to ABRP that are on the move. It makes just the
+ * status call, stores no sample and leaves a car that is home or plugged in to the full read, which does the
+ * Tibber push and the departure question.
+ */
+export async function readZeekrVehicles(db: Db, site: Site, key: string, now = new Date(), opts: { live?: boolean } = {}): Promise<VehicleState[]> {
   const integ = await credentials(db, site, key)
   if (!integ) return []
-  const rows = await db.select().from(vehicles).where(eq(vehicles.siteId, site.id))
+  let rows = await db.select().from(vehicles).where(eq(vehicles.siteId, site.id))
+  if (opts.live) {
+    const tokens = await abrpTokens(db, site.id, key)
+    rows = rows.filter((r) => tokens?.[r.id] && isOnTheMove(r.state as Partial<VehicleState>, now))
+  }
   if (!rows.length) return []
 
   const home = homePoint(integ.meta)
@@ -128,19 +151,28 @@ export async function readZeekrVehicles(db: Db, site: Site, key: string, now = n
   }
 
   let failure: string | undefined
+  const readings: { row: typeof vehicles.$inferSelect; state: VehicleState }[] = []
   for (const row of rows) {
     try {
       let reading: VehicleReading
+      const light = !!opts.live
       try {
-        reading = await zeekrVehicleReading(integ.creds, sess, row.vin)
+        reading = await zeekrVehicleReading(integ.creds, sess, row.vin, { light })
       } catch {
         // Token likely expired: log in once more and retry this car
         sess = await session(site.id, integ.creds, true)
-        reading = await zeekrVehicleReading(integ.creds, sess, row.vin)
+        reading = await zeekrVehicleReading(integ.creds, sess, row.vin, { light })
       }
-      const state: VehicleState = { ...reading, atHome: isAtHome(reading, home), ts: now.toISOString() }
-      // Plugged in at home: tell Tibber once per plug-in which car is on the charger and its level
       const prev = (row.state ?? {}) as Partial<VehicleState>
+      const state: VehicleState = { ...reading, atHome: isAtHome(reading, home), ts: now.toISOString(), movedAt: movedAt(reading, prev, now) }
+      if (opts.live) {
+        // The light read has no charge limit: keep the last one
+        state.targetSoc = reading.targetSoc ?? prev.targetSoc ?? null
+        readings.push({ row, state })
+        states.push(state)
+        if (!state.atHome && !state.pluggedIn) await db.update(vehicles).set({ state: state as unknown as Record<string, unknown> }).where(eq(vehicles.id, row.id))
+        continue
+      }
       // Just plugged in at home: ask when the car has to leave
       if (state.atHome && state.pluggedIn && prev.ts && !(prev.atHome && prev.pluggedIn)) {
         await askDeparture(db, site, key, row).catch(() => undefined)
@@ -148,6 +180,7 @@ export async function readZeekrVehicles(db: Db, site: Site, key: string, now = n
       if (state.atHome && state.pluggedIn) {
         state.pluggedInAt = prev.atHome && prev.pluggedIn ? (prev.pluggedInAt ?? now.toISOString()) : now.toISOString()
       }
+      // Plugged in at home: tell Tibber once per plug-in which car is on the charger and its level
       if (state.atHome && state.pluggedIn && state.soc != null) {
         const step = tibberPushStep(prev, now)
         if (step !== 'first') state.tibberSyncedAt = prev.tibberSyncedAt
@@ -159,6 +192,7 @@ export async function readZeekrVehicles(db: Db, site: Site, key: string, now = n
         if (step === 'again' && (await pushPluggedCarToTibber(db, site, key, row, state.soc, state.targetSoc, true))) state.tibberResyncedAt = now.toISOString()
       }
       states.push(state)
+      readings.push({ row, state })
       await db.update(vehicles).set({ state: state as unknown as Record<string, unknown> }).where(eq(vehicles.id, row.id))
       await db.insert(vehicleSamples).values({
         siteId: site.id,
@@ -176,6 +210,9 @@ export async function readZeekrVehicles(db: Db, site: Site, key: string, now = n
     }
   }
 
+  await pushAbrp(db, site, key, readings, now).catch(() => undefined)
+  // A failed in-between read is retried a minute later; the full read keeps the integration's status
+  if (opts.live) return states
   await rediscoverTibberApp(db, site, key, rows, now).catch(() => undefined)
   live.set(site.id, states)
   await markIntegration(db, integ.row.id, states.length ? undefined : failure)

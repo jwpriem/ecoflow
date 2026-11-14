@@ -60,7 +60,7 @@
             </button>
           </div>
           <ChargePlan v-if="showPlan(c)" :plan="plans[c.id] ?? null" :error="planErrors[c.id]" />
-          <p v-if="c.state.ts" class="stamps">{{ m.cars.stamps(time(c.state.ts), c.state.tibberSyncedAt ? time(c.state.tibberSyncedAt) : null) }}</p>
+          <p v-if="c.state.ts" class="stamps">{{ m.cars.stamps(time(c.state.ts), c.state.tibberSyncedAt ? time(c.state.tibberSyncedAt) : null, c.abrp?.lastSentAt ? time(c.abrp.lastSentAt) : null) }}</p>
         </section>
       </div>
 

@@ -285,7 +285,15 @@
                 <option v-for="t in tibberCars" :key="t.id" :value="t.id">{{ t.name }}</option>
               </select>
             </label>
+            <label v-if="abrpOn && isOwner" class="list-row">
+              <span class="stack-text"><span class="title">{{ m.cars.abrpToken }}</span><span class="small muted">{{ m.cars.abrpTokenHelp }}</span></span>
+              <input v-model="abrpTokens[c.id]" type="password" autocomplete="off" :placeholder="c.abrp?.linked ? m.cars.abrpTokenSaved : ''" />
+            </label>
           </div>
+          <p v-if="abrpOn && c.abrp?.linked" class="foot" :class="{ error: !!c.abrp.lastError }">
+            {{ m.cars.abrpStatus(c.abrp.lastSentAt ? time(c.abrp.lastSentAt) : null, c.abrp.lastError) }}
+            <button v-if="isOwner" type="button" class="plain danger small" @click="removeAbrp(c)">{{ m.cars.abrpRemove }}</button>
+          </p>
           <p v-if="carMsg?.id === c.id" class="foot" :class="{ error: carMsg?.ok === false }" role="status">{{ carMsg?.text }}</p>
         </template>
         <!-- What ERE certificates earn per kWh charged: the charging plan on the Cars tab shows its cost after them -->
@@ -450,10 +458,11 @@ const INFO: Record<string, { icon: string; tile: string; fields: Field[] }> = {
   hue: { icon: 'bulb', tile: 'var(--surface-3)', fields: [{ key: 'clientId' }, { key: 'clientSecret', secret: true }] },
   nest: { icon: 'camera', tile: 'var(--surface-3)', fields: [{ key: 'projectId' }, { key: 'clientId' }, { key: 'clientSecret', secret: true }] },
   sonos: { icon: 'speaker', tile: 'var(--surface-3)', fields: [{ key: 'clientId' }, { key: 'clientSecret', secret: true }] },
+  abrp: { icon: 'route', tile: 'var(--sys-blue)', fields: [{ key: 'apiKey', secret: true }] },
 }
 
 const integrations = ref<any[]>([])
-const forms = reactive<Record<string, Record<string, string>>>({ tibber: {}, solaredge: {}, ecoflow_official: {}, zeekr: {}, tibber_app: {}, hue: {}, nest: {}, sonos: {} })
+const forms = reactive<Record<string, Record<string, string>>>({ tibber: {}, solaredge: {}, ecoflow_official: {}, zeekr: {}, tibber_app: {}, hue: {}, nest: {}, sonos: {}, abrp: {} })
 const results = reactive<Record<string, { ok: boolean; text: string } | undefined>>({})
 const busy = ref('')
 const homeId = ref('')
@@ -468,6 +477,9 @@ const carMsg = ref<{ id: number; ok: boolean; text: string } | null>(null)
 const ere = ref<number | null>(null)
 const ereMsg = ref<Msg>(null)
 const tibberCars = computed<{ id: string; name: string }[]>(() => (integrations.value.find((i) => i.provider === 'tibber_app')?.meta.vehicles as any[]) ?? [])
+// With ABRP connected each car gets a token field; a typed token is sent once and then cleared, never shown back
+const abrpOn = computed(() => !!integrations.value.find((i) => i.provider === 'abrp')?.configured)
+const abrpTokens = reactive<Record<number, string>>({})
 
 const pct = reactive({ reserveSoc: 10, maxSoc: 100, roundTripEfficiency: 85 })
 
@@ -752,8 +764,27 @@ async function saveDevice(d: any) {
 
 async function saveCar(c: any) {
   try {
-    const body = { name: c.name, capacityKwh: typeof c.capacityKwh === 'number' ? c.capacityKwh : null, ...(tibberCars.value.length ? { tibberVehicleId: c.tibberVehicleId ?? null } : {}) }
+    const token = abrpTokens[c.id]?.trim()
+    const body = {
+      name: c.name,
+      capacityKwh: typeof c.capacityKwh === 'number' ? c.capacityKwh : null,
+      ...(tibberCars.value.length ? { tibberVehicleId: c.tibberVehicleId ?? null } : {}),
+      ...(token ? { abrpToken: token } : {}),
+    }
     await api(`/api/vehicles/${c.id}`, { method: 'PUT', body })
+    if (token) {
+      abrpTokens[c.id] = ''
+      c.abrp = { linked: true, lastSentAt: null, lastError: null }
+    }
+    carMsg.value = { id: c.id, ok: true, text: m.value.settings.deviceSaved(c.name) }
+  } catch (e: any) {
+    carMsg.value = { id: c.id, ok: false, text: whyNot(e) }
+  }
+}
+async function removeAbrp(c: any) {
+  try {
+    await api(`/api/vehicles/${c.id}`, { method: 'PUT', body: { abrpToken: null } })
+    c.abrp = { linked: false, lastSentAt: null, lastError: null }
     carMsg.value = { id: c.id, ok: true, text: m.value.settings.deviceSaved(c.name) }
   } catch (e: any) {
     carMsg.value = { id: c.id, ok: false, text: whyNot(e) }

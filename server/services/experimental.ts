@@ -9,7 +9,7 @@ import { experimentalEnabled } from './members'
  * EV charging behind them, Philips Hue for the Lights tab and Google Nest for the Security tab, Sonos for the doorbell chime. A household without experimental on never sees or calls them; switching it off
  * keeps their credentials and data, they are just no longer used.
  */
-export const EXPERIMENTAL_PROVIDERS: readonly Provider[] = ['zeekr', 'tibber_app', 'hue', 'nest', 'sonos']
+export const EXPERIMENTAL_PROVIDERS: readonly Provider[] = ['zeekr', 'tibber_app', 'hue', 'nest', 'sonos', 'abrp']
 
 export const isExperimentalProvider = (provider: Provider) => EXPERIMENTAL_PROVIDERS.includes(provider)
 
