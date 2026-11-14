@@ -373,7 +373,7 @@ nav.tabs a.router-link-exact-active::before { transform: scaleX(1); }
    is short; a document shorter than the screen makes iOS, in the installed app, put the docked tab bar higher up
    and drop it back once the page has loaded. svh, so a browser toolbar sliding in or out doesn't change it. */
 .shell { min-height: 100vh; min-height: 100svh; }
-/* In the Home Screen app iOS 26 appears to size the viewport without the status bar strip (night launch, black-translucent)
+/* In the Home Screen app iOS 26 sizes the viewport without the status bar strip (night launch, black-translucent)
    and docks the tab bar to that shorter edge while the page doesn't fill the screen: so fill the physical screen
    (--screen-h comes from plugins/viewport.client.ts) */
 html.standalone .shell { min-height: max(100svh, var(--screen-h, 0px)); }
