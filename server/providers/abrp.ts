@@ -39,16 +39,12 @@ async function call(path: string, apiKey: string, params: Record<string, string>
   const res = await providerCall(
     'abrp',
     (signal) =>
-      // The key as api_key in the URL: the documented header form (Authorization: APIKEY …) was refused with 401
-      // A call without parameters is a plain GET, as in the docs
-      Object.keys(params).length
-        ? fetch(`${BASE}${path}?${new URLSearchParams({ api_key: apiKey })}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: new URLSearchParams(params).toString(),
-            signal,
-          })
-        : fetch(`${BASE}${path}?${new URLSearchParams({ api_key: apiKey })}`, { signal }),
+      fetch(`${BASE}${path}`, {
+        method: 'POST',
+        headers: { Authorization: `APIKEY ${apiKey}`, 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams(params).toString(),
+        signal,
+      }),
     { retries: 1, timeoutMs: 15_000 },
   )
   const text = await res.text()
