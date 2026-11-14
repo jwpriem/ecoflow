@@ -111,12 +111,13 @@ describe('sending to ABRP', () => {
     resetProviders()
   })
 
-  it('posts the token and telemetry with the API key in the URL', async () => {
+  it('posts the token and telemetry with the API key in the header', async () => {
     const fetch = vi.fn(async () => new Response(JSON.stringify({ status: 'ok' }), { status: 200 }))
     vi.stubGlobal('fetch', fetch)
     await abrpSend('KEY', 'TOKEN', { utc: 1, soc: 50 })
     const [url, init] = fetch.mock.calls[0] as unknown as [string, RequestInit]
-    expect(url).toBe('https://api.iternio.com/1/tlm/send?api_key=KEY')
+    expect(url).toBe('https://api.iternio.com/1/tlm/send')
+    expect((init.headers as Record<string, string>).Authorization).toBe('APIKEY KEY')
     const body = new URLSearchParams(String(init.body))
     expect(body.get('token')).toBe('TOKEN')
     expect(JSON.parse(body.get('tlm')!)).toEqual({ utc: 1, soc: 50 })
