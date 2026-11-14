@@ -24,11 +24,17 @@ export const nl: Messages = {
     plugged: 'Stekker erin, laadt niet',
     idle: 'Laadt niet',
     target: 'Laadlimiet',
-    stamps: (updated, synced) => `Bijgewerkt ${updated}${synced ? ` · in Tibber gezet ${synced}` : ''}`,
+    stamps: (updated, synced, abrp) => `Bijgewerkt ${updated}${synced ? ` · in Tibber gezet ${synced}` : ''}${abrp ? ` · naar ABRP ${abrp}` : ''}`,
     name: 'Naam',
     capacity: 'Accucapaciteit',
     tibberCar: 'Auto in Tibber',
     tibberNone: 'Niet doorzetten',
+    abrpToken: 'ABRP-token',
+    abrpTokenHelp: 'Uit de ABRP-app: auto-instellingen, Live data, Generic. Leeg laten bewaart de opgeslagen token.',
+    abrpTokenSaved: 'Opgeslagen; typ een nieuwe om te vervangen',
+    abrpRemove: 'Niet meer naar ABRP sturen',
+    abrpStatus: (sent, error) =>
+      error ? `ABRP weigerde de laatste meting: ${error}` : sent ? `Laatst naar ABRP gestuurd ${sent}.` : 'Nog niet naar ABRP gestuurd: dat gebeurt bij de volgende meting.',
     departure: {
       row: 'Vertrek',
       unset: 'Tijd instellen',
@@ -737,6 +743,10 @@ export const nl: Messages = {
         title: 'Sonos',
         help: 'Control API: maak op developer.sonos.com een control-integratie met een key en de redirect-URI hieronder, sla de key en het secret hier op en log daarna in met je Sonos-account. Dan kun je een box kiezen die het belgeluid speelt als de Nest-deurbel gaat.',
       },
+      abrp: {
+        title: 'A Better Routeplanner',
+        help: 'Telemetry-API-sleutel van abetterrouteplanner.com/home/app/api-keys/telemetry (gratis). Plak daarna per auto de ABRP-token bij de auto-instellingen hieronder. WattsWise stuurt bij elke meting het accupercentage, laden, de locatie en de snelheid naar ABRP: elke 5 minuten, en elke minuut zolang een auto rijdt.',
+      },
       nest: {
         title: 'Google Nest',
         help: 'Device Access (SDM API): het project-ID uit console.nest.google.com/device-access en de client-ID en het secret van een OAuth-client (webapplicatie) in Google Cloud met de redirect-URI hieronder. Log daarna in met je Google-account en vink je camera’s aan. Voor het tabblad Beveiliging.',
@@ -758,6 +768,7 @@ export const nl: Messages = {
       vinKey: 'VIN key',
       email: 'E-mail',
       vinIv: 'VIN IV',
+      apiKey: 'API-sleutel',
     },
     battery: 'Batterij',
     name: 'Naam',

@@ -26,6 +26,7 @@ const PROVIDER_NAME: Record<string, Record<Locale, string>> = {
   hue: { en: 'Philips Hue', nl: 'Philips Hue' },
   nest: { en: 'Google Nest', nl: 'Google Nest' },
   sonos: { en: 'Sonos', nl: 'Sonos' },
+  abrp: { en: 'A Better Routeplanner', nl: 'A Better Routeplanner' },
 }
 
 /** Only grid charging and discharging are worth a notification; the other modes are the quiet default. */

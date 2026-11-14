@@ -10,7 +10,7 @@ import { nestEventsUrl, nestRedirectUri } from '../../services/nest'
 import { solarEdgeRedirectUri } from '../../services/solaredge'
 import { sonosRedirectUri } from '../../services/sonos'
 
-const PROVIDERS: Provider[] = ['tibber', 'solaredge', 'ecoflow_official', 'zeekr', 'tibber_app', 'hue', 'nest', 'sonos']
+const PROVIDERS: Provider[] = ['tibber', 'solaredge', 'ecoflow_official', 'zeekr', 'tibber_app', 'hue', 'nest', 'sonos', 'abrp']
 
 /** Never returns secrets, only whether they are set and the non-secret settings. Experimental providers only for an experimental household. */
 export default defineEventHandler(async (event) => {

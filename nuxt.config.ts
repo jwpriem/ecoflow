@@ -73,7 +73,7 @@ export default defineNuxtConfig({
     compressPublicAssets: true,
     experimental: { tasks: true, websocket: false },
     scheduledTasks: {
-      '* * * * *': ['collect'],
+      '* * * * *': ['collect', 'vehiclesLive'],
       '*/5 * * * *': ['vehicles', 'demo'],
       '*/15 * * * *': ['ledger', 'strategy'],
       '5 * * * *': ['prices'],
