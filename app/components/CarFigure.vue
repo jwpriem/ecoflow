@@ -48,9 +48,34 @@ const level = useTweened(() => pct(props.soc), RISE)
 /* The charge bar keeps some air under the tyres, so the car doesn't stand on it */
 .floor { position: relative; align-self: stretch; height: 8px; margin-top: 16px; border-radius: 2px; background: var(--fill); }
 /* The width is driven by a spring (useTweened), so no transition here */
-.charge { height: 100%; border-radius: 2px; background: var(--text); }
-/* The leading edge shows energy going in */
-.charge.charging { box-shadow: inset -4px 0 0 var(--cheap); animation: breathe 2.4s ease-in-out infinite; }
+.charge { position: relative; height: 100%; border-radius: 2px; background: var(--text); }
+/* While the car charges, energy flows in: the leading edge breathes in the charge color, glowing past the
+   end of the bar, and a soft band of that color runs along the charge into the edge, again and again */
+.charge.charging { box-shadow: inset -4px 0 0 var(--cheap); }
+.charge.charging::before {
+  content: ''; position: absolute; top: 0; right: 0; bottom: 0; width: 4px; border-radius: 0 2px 2px 0;
+  animation: breathe 2.4s var(--ease-in-out) infinite;
+}
+.charge.charging::after {
+  content: ''; position: absolute; inset: 0 4px 0 0; border-radius: 2px 0 0 2px;
+  background: linear-gradient(90deg, transparent 0%, color-mix(in srgb, var(--cheap) 55%, transparent) 70%, transparent 100%) no-repeat;
+  background-size: 40% 100%;
+  animation: flow 2.4s var(--ease-in-out) infinite;
+}
 .limit { position: absolute; top: 11px; width: 1.5px; height: 6px; margin-left: -0.75px; background: var(--text-2); }
-@keyframes breathe { 50% { box-shadow: inset -4px 0 0 color-mix(in srgb, var(--cheap) 45%, transparent); } }
+@keyframes breathe {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--cheap) 0%, transparent); }
+  50% { box-shadow: 0 0 8px 2px color-mix(in srgb, var(--cheap) 60%, transparent); }
+}
+/* The band starts off the left end, runs to the edge and fades into it */
+@keyframes flow {
+  0% { background-position: -70% 0; opacity: 0; }
+  15% { opacity: 1; }
+  80% { opacity: 1; }
+  100% { background-position: 100% 0; opacity: 0; }
+}
+/* Still for those who asked for less motion: the green edge alone says it's charging */
+@media (prefers-reduced-motion: reduce) {
+  .charge.charging::after { display: none; }
+}
 </style>
