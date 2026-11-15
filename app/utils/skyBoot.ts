@@ -4,8 +4,9 @@
  * once, when the Home Screen app launches:
  *   night → black-translucent: white status text over our own dark canvas
  *   day   → default: dark status text
- * If the sun comes up while a night-launched app stays open, the status text stays white; main.css
- * then keeps a polder-night band behind it (html[data-statusbar='translucent']).
+ * If the sun comes up while a night-launched app stays open, the status bar stays translucent; main.css
+ * keeps a band in the current page colour behind it (html[data-statusbar='translucent']), and iOS 26
+ * switches the status text to dark over the cream day page.
  *
  * It writes both metas itself: Nuxt places inline scripts ahead of configured metas, so there is
  * nothing to update yet when this runs. Plain ES5 in a string because it is inlined. The math is

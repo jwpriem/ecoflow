@@ -141,12 +141,15 @@
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
-/* Launched at night, iOS draws white status text over the page (see utils/skyBoot.ts).
-   Keep a navy band under it, so the text stays readable if the sun comes up meanwhile
-   and content never scrolls beneath the clock. */
+/* Launched at night, iOS draws the status bar over the page (see utils/skyBoot.ts).
+   Keep a band under it in the page colour, so content never scrolls beneath the clock.
+   It follows the sky: a fixed navy band stayed behind after sunrise, and iOS 26 frosts and
+   fades whatever sits under the status bar, which turned it into a grey smear over the cream
+   day page. iOS 26 picks dark or light status text from what is underneath. */
 html[data-statusbar='translucent'] body::before {
   content: ''; position: fixed; top: 0; left: 0; right: 0; z-index: 40;
-  height: env(safe-area-inset-top); background: #0b132b;
+  height: env(safe-area-inset-top); background: var(--bg);
+  transition: background-color 1.2s;
 }
 html, body {
   margin: 0;
