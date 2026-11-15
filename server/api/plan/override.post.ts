@@ -5,6 +5,14 @@ import { assertSteeringConsent } from '../../services/consent'
 import { assertOwner } from '../../services/members'
 import { runStrategy } from '../../services/strategy'
 
+/** A power target in W from the client: a whole number within what a household setup can do, or none */
+function overridePower(v: unknown): number | undefined {
+  if (v === undefined || v === null || v === '' || v === 0) return undefined
+  const n = Math.round(Number(v))
+  if (!Number.isFinite(n) || n <= 0 || n > 20000) throw createError({ statusCode: 400, statusMessage: 'Bad powerW' })
+  return n
+}
+
 const MODES: BatteryMode[] = ['self_use', 'solar_only', 'charge_grid', 'discharge']
 
 /**
@@ -25,7 +33,7 @@ export default defineEventHandler(async (event) => {
     if ((update.controlMode ?? site.controlMode) === 'manual') throw createError({ statusCode: 409, statusMessage: 'Turn on WattsWise steering first' })
     if (!MODES.includes(body.mode)) throw createError({ statusCode: 400, statusMessage: 'Unknown mode' })
     const minutes = Math.min(24 * 60, Math.max(5, Number(body.minutes) || 60))
-    update.override = { mode: body.mode, until: new Date(Date.now() + minutes * 60_000).toISOString(), powerW: body.powerW ? Number(body.powerW) : undefined }
+    update.override = { mode: body.mode, until: new Date(Date.now() + minutes * 60_000).toISOString(), powerW: overridePower(body.powerW) }
   }
   const [updated] = await useDb().update(sites).set(update).where(eq(sites.id, site.id)).returning()
   const result = await runStrategy(useDb(), updated!)

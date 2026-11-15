@@ -4,7 +4,7 @@ import type { Db } from '../db/client'
 import { appConfig, consents, siteMembers, sites, users } from '../db/schema'
 import { TERMS_VERSION } from '../lib/legal'
 import { defaultStrategy, type Locale, LOCALES } from '../lib/types'
-import { hashPassword } from '../utils/crypto'
+import { hashPassword, MAX_PASSWORD_LENGTH } from '../utils/crypto'
 
 export interface AccountOptions {
   siteName?: string
@@ -70,7 +70,7 @@ export async function signUp(db: Db, input: SignupInput): Promise<{ created: boo
   const email = typeof input.email === 'string' ? normalizeEmail(input.email) : ''
   const password = typeof input.password === 'string' ? input.password : ''
   const locale: Locale = LOCALES.includes(input.locale as Locale) ? (input.locale as Locale) : 'nl'
-  if (!EMAIL.test(email) || password.length < 8) {
+  if (!EMAIL.test(email) || email.length > 254 || password.length < 8 || password.length > MAX_PASSWORD_LENGTH) {
     throw createError({ statusCode: 400, statusMessage: 'Email and a password of at least 8 characters are required' })
   }
   if (input.acceptTerms !== true) throw createError({ statusCode: 400, statusMessage: 'Accept the terms to create an account' })

@@ -5,7 +5,7 @@ import type { Db } from '../db/client'
 import { consents, householdInvites, integrations, pushSubscriptions, siteMembers, sites, users } from '../db/schema'
 import { TERMS_VERSION } from '../lib/legal'
 import { type Locale, LOCALES } from '../lib/types'
-import { hashPassword, newToken, sha256 } from '../utils/crypto'
+import { hashPassword, MAX_PASSWORD_LENGTH, newToken, sha256 } from '../utils/crypto'
 import { EMAIL, newHousehold, normalizeEmail, type Tx } from './setup'
 
 export const INVITE_TTL_MS = 7 * 24 * 60 * 60_000
@@ -150,7 +150,7 @@ export interface InviteSignupInput {
 export async function signUpWithInvite(db: Db, input: InviteSignupInput, now = new Date()) {
   const password = typeof input.password === 'string' ? input.password : ''
   const locale: Locale = LOCALES.includes(input.locale as Locale) ? (input.locale as Locale) : 'nl'
-  if (password.length < 8) throw createError({ statusCode: 400, statusMessage: 'Choose a password of at least 8 characters' })
+  if (password.length < 8 || password.length > MAX_PASSWORD_LENGTH) throw createError({ statusCode: 400, statusMessage: 'Choose a password of at least 8 characters' })
   if (input.acceptTerms !== true) throw createError({ statusCode: 400, statusMessage: 'Accept the terms to create an account' })
   const passwordHash = await hashPassword(password)
   return db.transaction(async (tx) => {

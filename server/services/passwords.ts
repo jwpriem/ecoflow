@@ -2,14 +2,14 @@ import { and, eq, ne } from 'drizzle-orm'
 import { createError } from 'h3'
 import type { Db } from '../db/client'
 import { sessions, users } from '../db/schema'
-import { hashPassword, verifyPassword } from '../utils/crypto'
+import { hashPassword, MAX_PASSWORD_LENGTH, verifyPassword } from '../utils/crypto'
 import { normalizeEmail } from './setup'
 import { consumeToken, issueToken } from './tokens'
 
 export const RESET_TTL_MS = 60 * 60_000
 
 const checkNew = (password: unknown): string => {
-  if (typeof password !== 'string' || password.length < 8) throw createError({ statusCode: 400, statusMessage: 'Choose a password of at least 8 characters' })
+  if (typeof password !== 'string' || password.length < 8 || password.length > MAX_PASSWORD_LENGTH) throw createError({ statusCode: 400, statusMessage: 'Choose a password of at least 8 characters' })
   return password
 }
 

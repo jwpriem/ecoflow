@@ -7,7 +7,11 @@ export default defineEventHandler(async (event) => {
   const b = await readBody<Partial<typeof devices.$inferInsert>>(event)
   const update: Partial<typeof devices.$inferInsert> = {}
   if (typeof b.name === 'string' && b.name.trim()) update.name = b.name.trim().slice(0, 60)
-  if (typeof b.serial === 'string' && b.serial.trim()) update.serial = b.serial.trim()
+  if (typeof b.serial === 'string' && b.serial.trim()) {
+    const serial = b.serial.trim()
+    if (!/^[A-Za-z0-9_-]{1,64}$/.test(serial)) throw createError({ statusCode: 400, statusMessage: 'Bad serial' })
+    update.serial = serial
+  }
   if (b.driver === 'ecoflow_official') update.driver = b.driver
   for (const k of ['capacityWh', 'maxChargeW', 'maxDischargeW'] as const) {
     if (b[k] !== undefined) {

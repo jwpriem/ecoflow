@@ -55,6 +55,11 @@ export async function sendEmail<T extends EmailTemplate>(
 ): Promise<{ ok: boolean; error?: string }> {
   const mail = renderEmail(template, vars, locale, config.appUrl)
   if (!config.host) {
+    // In production a missing SMTP host is a mistake: printing the email would put reset and invite links in the logs
+    if (process.env.NODE_ENV === 'production') {
+      console.error(`[email] ${template} not sent: NUXT_EMAIL_SMTP_HOST is not set`)
+      return { ok: false, error: 'Email is not configured' }
+    }
     console.info(`[email:dev] to ${to}\nSubject: ${mail.subject}\n\n${mail.text}`)
     return { ok: true }
   }
