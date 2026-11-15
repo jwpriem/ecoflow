@@ -166,3 +166,16 @@ describe('user isolation: no session, a bad session, or a normal user on admin r
     expect(row!.role).toBe('user')
   })
 })
+
+describe('SolarEdge sign-in without state', () => {
+  it('only finishes the household whose browser started it', async () => {
+    const { markSolarEdgeAuthStarted, pendingSolarEdgeSiteFor } = await import('../server/services/solaredge')
+    const { saveIntegration, getIntegration } = await import('../server/services/integrations')
+    await saveIntegration(db, b.siteId, 'solaredge', { clientId: 'c', clientSecret: 's' }, {}, KEY)
+    await markSolarEdgeAuthStarted(db, (await getIntegration(db, b.siteId, 'solaredge', KEY))!, KEY)
+    // B's own browser (cookie for B) may finish it; no cookie, or A's cookie, may not
+    expect(await pendingSolarEdgeSiteFor(db, b.siteId)).toBe(b.siteId)
+    expect(await pendingSolarEdgeSiteFor(db, undefined)).toBeUndefined()
+    expect(await pendingSolarEdgeSiteFor(db, a.siteId)).toBeUndefined()
+  })
+})
