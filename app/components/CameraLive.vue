@@ -1,7 +1,7 @@
 <template>
   <article class="cam" :class="`is-${phase}`">
     <div class="frame" :style="{ aspectRatio: ratio }">
-      <video ref="video" playsinline autoplay :muted="muted" :class="{ shown: phase === 'live' }" @loadedmetadata="onMeta" />
+      <video ref="video" playsinline autoplay muted :class="{ shown: phase === 'live' && playing }" @loadedmetadata="onMeta" @playing="onPlaying" />
 
       <!-- Before, after or between streams: a quiet poster with one call to action -->
       <div v-if="phase !== 'live'" class="poster">
@@ -12,6 +12,12 @@
           {{ phase === 'paused' ? m.security.resume : m.security.watch }}
         </button>
         <p v-else-if="phase === 'connecting'" class="msg">{{ m.security.connecting }}</p>
+      </div>
+
+      <!-- Connected, but no picture yet: iPhone may hold back a video that started without a tap -->
+      <div v-if="phase === 'live' && !playing" class="poster">
+        <button v-if="needsTap" type="button" class="primary watch" @click="play(true)">{{ m.security.tapToPlay }}</button>
+        <p v-else class="msg" role="status">{{ m.security.loadingPicture }}</p>
       </div>
 
       <!-- On top of the live picture -->
@@ -53,6 +59,8 @@ const video = ref<HTMLVideoElement | null>(null)
 const phase = ref<'idle' | 'connecting' | 'live' | 'paused' | 'ended' | 'error'>('idle')
 const message = ref(props.camera.live ? '' : m.value.security.notLive)
 const muted = ref(true)
+const playing = ref(false)
+const needsTap = ref(false)
 const size = ref(props.camera.resolution)
 const ratio = computed(() => (size.value ? `${size.value.width} / ${size.value.height}` : '16 / 9'))
 const expiresAt = ref<number | null>(null)
@@ -62,6 +70,55 @@ let pc: RTCPeerConnection | null = null
 let session: Session | null = null
 let extendTimer: ReturnType<typeof setTimeout> | undefined
 let clock: ReturnType<typeof setInterval> | undefined
+let watchdog: ReturnType<typeof setTimeout> | undefined
+
+// Vue only sets the muted property; iPhone Safari wants the attribute as well before it plays without a tap
+watch(muted, (on) => {
+  const v = video.value
+  if (!v) return
+  v.muted = on
+  v.toggleAttribute('muted', on)
+}, { flush: 'post' })
+
+/**
+ * Start the picture ourselves instead of trusting autoplay: a page that starts its cameras by itself has no tap,
+ * and iPhone then leaves the video paused on a black frame while the connection is fine. When play() is refused,
+ * a tap on the tile starts it (a tap always counts as permission).
+ */
+function play(byTap = false) {
+  const v = video.value
+  if (!v || !v.srcObject) return
+  v.muted = muted.value
+  v.toggleAttribute('muted', muted.value)
+  if (byTap) {
+    needsTap.value = false
+    // Tapped and still black after a while: the picture isn't coming, say so instead of a dark tile
+    clearTimeout(watchdog)
+    watchdog = setTimeout(() => {
+      if (phase.value === 'live' && !playing.value) fail(m.value.security.noPicture, new Error(`no picture after a tap (readyState ${v.readyState})`))
+    }, 12_000)
+  }
+  try {
+    v.play().catch((err: any) => {
+      if (err?.name === 'NotAllowedError') needsTap.value = true
+      else if (err?.name !== 'AbortError') console.warn(`[camera ${props.camera.id}] play`, err)
+    })
+  } catch {}
+}
+
+function onPlaying() {
+  playing.value = true
+  needsTap.value = false
+  clearTimeout(watchdog)
+}
+
+/** Connected but still black after a few seconds: offer a tap, which also counts as permission to play */
+function watchPicture() {
+  clearTimeout(watchdog)
+  watchdog = setTimeout(() => {
+    if (phase.value === 'live' && !playing.value) needsTap.value = true
+  }, 5_000)
+}
 
 // Battery cameras stop after 5 minutes; wired ones are extended quietly, so no countdown for those
 const minutesLeft = computed(() => (props.camera.extendable || !expiresAt.value ? null : Math.max(1, Math.ceil((expiresAt.value - now.value) / 60_000))))
@@ -98,14 +155,22 @@ async function start() {
       if (pc !== c) return
       try {
         media.addTrack(e.track)
-        if (video.value && video.value.srcObject !== media) video.value.srcObject = media
+        // Audio comes first; hang the stream on the video element once the picture is in it, then play
+        if (e.track.kind === 'video' && video.value) {
+          if (video.value.srcObject !== media) video.value.srcObject = media
+          play()
+        }
       } catch (err) {
         fail(m.value.security.failed, err)
       }
     }
     c.onconnectionstatechange = () => {
       if (pc !== c) return
-      if (c.connectionState === 'connected') phase.value = 'live'
+      if (c.connectionState === 'connected') {
+        phase.value = 'live'
+        play()
+        watchPicture()
+      }
       if (c.connectionState === 'failed') fail(m.value.security.failed)
     }
     await c.setLocalDescription(await c.createOffer())
@@ -160,6 +225,9 @@ function sendStop(mediaSessionId: string) {
 function teardown() {
   clearTimeout(extendTimer)
   clearInterval(clock)
+  clearTimeout(watchdog)
+  playing.value = false
+  needsTap.value = false
   if (session) sendStop(session.mediaSessionId)
   session = null
   expiresAt.value = null
