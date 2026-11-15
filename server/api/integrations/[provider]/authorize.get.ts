@@ -7,7 +7,7 @@ import { nestAuthorizeUrl, type NestCredentials } from '../../../providers/nest'
 import { sonosAuthorizeUrl, type SonosCredentials } from '../../../providers/sonos'
 import { sonosRedirectUri } from '../../../services/sonos'
 import { getIntegration } from '../../../services/integrations'
-import { markSolarEdgeAuthStarted, solarEdgeRedirectUri } from '../../../services/solaredge'
+import { markSolarEdgeAuthStarted, SOLAREDGE_PENDING_COOKIE, solarEdgeRedirectUri } from '../../../services/solaredge'
 import { assertVerified } from '../../../services/verify'
 import { signState } from '../../../utils/crypto'
 
@@ -48,6 +48,14 @@ export default defineEventHandler(async (event) => {
   const se = await getIntegration<SolarEdgeCredentials>(db, site.id, 'solaredge', key)
   if (!se) throw createError({ statusCode: 400, statusMessage: 'Save the SolarEdge client ID and secret first' })
   await markSolarEdgeAuthStarted(db, se, key)
+  // Ties a callback without state to this browser: only it can finish this household's pending sign-in
+  setCookie(event, SOLAREDGE_PENDING_COOKIE, signState({ site: site.id }, key), {
+    httpOnly: true,
+    secure: !import.meta.dev,
+    sameSite: 'lax',
+    path: '/api/integrations/solaredge/callback',
+    maxAge: 15 * 60,
+  })
   const redirectUri = solarEdgeRedirectUri(event)
   return { url: solarEdgeAuthorizeUrl(se.creds.clientId, redirectUri, signState({ site: site.id, ...(app ? { app: true } : {}) }, key)), redirectUri }
 })

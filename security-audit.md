@@ -47,3 +47,14 @@ Bevindingen, ernst en voorstellen staan in [`security-report.md`](security-repor
 
 - [x] 20. Val je eigen app aan: als code-analyse en lokale test, niet tegen productie (rapport §5)
 - [x] Rapport opleveren: [`security-report.md`](security-report.md)
+
+## Tweede ronde (15 november): top 5
+
+- [x] Back-ups: 7 dagen herstelvenster, dagelijkse en wekelijkse snapshots, restore getest
+- [x] CSP: report-only uitgerold, afdwingen via `NUXT_CSP_MODE=enforce`
+- [x] SolarEdge-callback zonder state gebonden aan de eigen browser
+- [x] Algemene rate limit en melding bij mislukte logins en 429's
+- [x] Bewaartermijnen, privacybeleid bijgewerkt
+- [x] nuxt, Sentry en vitest bijgewerkt
+- [ ] Demo-wachtwoord roteren als SECRET in DigitalOcean (Jeroen)
+- [ ] CSP afdwingen na een week zonder `[csp]`-meldingen (Jeroen)

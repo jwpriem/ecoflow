@@ -5,5 +5,6 @@ import { ringDoorbell } from '../../../services/sonos'
 export default defineEventHandler(async (event) => {
   const { site, experimental } = await requireOwner(event)
   assertExperimental(experimental, 'sonos')
+  rateLimit([LIMITS.testSendSite, String(site.id)])
   return ringDoorbell(useDb(), site, encryptionKey(), appBaseUrl(event), { test: true })
 })

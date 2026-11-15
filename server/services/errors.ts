@@ -44,3 +44,14 @@ export function reportTestEvent(where: 'server') {
   Sentry.captureMessage(`WattsWise test event from the ${where}`, 'info')
   return true
 }
+
+/** An unusual amount of failed logins or refused requests in the last hour (plugins/securityMonitor.ts). */
+export function reportSecurityAlert(kind: string, count: number) {
+  if (!enabled) return
+  Sentry.withScope((scope) => {
+    scope.setLevel('warning')
+    scope.setTag('security', kind)
+    scope.setFingerprint(['security-alert', kind])
+    Sentry.captureMessage(`Security alert: ${count} × ${kind} in one hour`)
+  })
+}

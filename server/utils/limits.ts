@@ -1,5 +1,6 @@
 import type { H3Event } from 'h3'
 import { RateLimiter } from '../lib/rateLimit'
+import { securityEvents } from '../lib/securityEvents'
 
 const MIN = 60_000
 
@@ -22,6 +23,15 @@ export const LIMITS = {
   exportUser: new RateLimiter(5, 60 * MIN),
   // "Try the demo": a session without a password, so not too many from one machine
   demoIp: new RateLimiter(10, 60 * MIN),
+  // Browsers report CSP violations on their own; enough to see a problem, not enough to flood the log
+  cspReportIp: new RateLimiter(30, 60 * MIN),
+  // Every API request, per session (or per IP without one): about 2 a second on average, far above what the app does
+  apiSession: new RateLimiter(600, 5 * MIN),
+  // Every API request from one address, whatever the session: room for a household behind one router
+  apiIp: new RateLimiter(1200, 5 * MIN),
+  // Buttons that reach out: a test push, a test doorbell, a camera stream
+  testSendSite: new RateLimiter(20, 60 * MIN),
+  streamSite: new RateLimiter(60, 60 * MIN),
 }
 
 /** The visitor's address. App Platform puts it in do-connecting-ip; elsewhere the first X-Forwarded-For entry. */
@@ -33,5 +43,6 @@ export function clientIp(event: H3Event): string {
 export function rateLimit(...checks: [RateLimiter, string][]) {
   // Count every key, also after one is over: a blocked IP keeps counting against the email and the other way round
   const ok = checks.map(([limiter, key]) => limiter.hit(key)).every(Boolean)
+  if (!ok) securityEvents.record('rateLimited')
   if (!ok) throw createError({ statusCode: 429, statusMessage: 'Too many attempts, try again later' })
 }

@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import type { H3Event } from 'h3'
 import type { Db } from '../db/client'
 import { integrations, type sites } from '../db/schema'
@@ -142,14 +142,21 @@ export async function markSolarEdgeAuthStarted(db: Db, se: Integration, key: str
   await updateIntegration(db, se.row.id, { meta: se.meta }, key)
 }
 
-/** The one site with a sign-in started in the last 15 minutes, if there is exactly one */
-export async function pendingSolarEdgeSite(db: Db): Promise<number | undefined> {
-  const rows = await db
-    .select({ siteId: integrations.siteId, meta: integrations.meta })
+/** Set by the sign-in start (authorize), read by a callback that came back without state */
+export const SOLAREDGE_PENDING_COOKIE = 'se_pending'
+
+/**
+ * The household a callback without state belongs to: only when this browser started that household's sign-in
+ * (the signed cookie from authorize) and the sign-in is still pending. Without the cookie, someone else's
+ * SolarEdge account could be tied to whichever household happened to be signing in.
+ */
+export async function pendingSolarEdgeSiteFor(db: Db, cookieSite: number | undefined): Promise<number | undefined> {
+  if (!cookieSite) return undefined
+  const [row] = await db
+    .select({ meta: integrations.meta })
     .from(integrations)
-    .where(eq(integrations.provider, 'solaredge'))
-  const pending = rows.filter((r) => Number(r.meta.pendingAuthUntil ?? 0) > Date.now())
-  return pending.length === 1 ? pending[0]!.siteId : undefined
+    .where(and(eq(integrations.provider, 'solaredge'), eq(integrations.siteId, cookieSite)))
+  return row && Number(row.meta.pendingAuthUntil ?? 0) > Date.now() ? cookieSite : undefined
 }
 
 /**

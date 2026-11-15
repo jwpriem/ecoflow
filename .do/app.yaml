@@ -45,6 +45,15 @@ services:
       - key: NUXT_EMAIL_FROM
         scope: RUN_TIME
         value: WattsWise <hello@wattswise.eu>
+      - key: NUXT_APP_URL # Links in emails and OAuth redirects; never taken from request headers in production
+        scope: RUN_TIME
+        value: https://www.wattswise.eu
+      - key: NUXT_DEMO_PASSWORD # The shared demo account (and Apple's App Review login). Secret, not a plain value
+        scope: RUN_TIME
+        type: SECRET
+      - key: NUXT_CSP_MODE # report (default) | enforce | off: see server/lib/csp.ts
+        scope: RUN_TIME
+        value: report
       - key: NUXT_PUBLIC_SENTRY_DSN # Sentry, EU region (…ingest.de.sentry.io). Empty = no error reports
         scope: RUN_AND_BUILD_TIME
         value: ''

@@ -4,7 +4,8 @@ import { appReturnUrl } from '../../../../shared/appReturn'
 import { sites } from '../../../db/schema'
 import {
   completeSolarEdgeAuth,
-  pendingSolarEdgeSite,
+  pendingSolarEdgeSiteFor,
+  SOLAREDGE_PENDING_COOKIE,
   recordSolarEdgeCallback,
   solarEdgeRedirectUri,
 } from '../../../services/solaredge'
@@ -16,7 +17,7 @@ import { verifyState } from '../../../utils/crypto'
 /**
  * SolarEdge Connect redirects here with ?code&site_id&state. There is no bearer token on a browser
  * redirect, so the signed state says which of our sites this is for. If SolarEdge drops the state,
- * we accept the one sign-in started from Settings in the last 15 minutes.
+ * we accept the sign-in this browser started (signed cookie) in the last 15 minutes, never another household's.
  */
 export default defineEventHandler(async (event) => {
   if (getRouterParam(event, 'provider') === 'hue') return hueCallback(event)
@@ -30,7 +31,11 @@ export default defineEventHandler(async (event) => {
 
   const fromState = q.state ? verifyState<{ site: number; app?: boolean }>(q.state, key) : null
   const stateCheck = fromState ? 'ok' : q.state ? 'invalid' : 'missing'
-  const pending = fromState ? undefined : await pendingSolarEdgeSite(db)
+  // No state from SolarEdge: only the browser that started a pending sign-in (its signed cookie) can finish it
+  const cookie = getCookie(event, SOLAREDGE_PENDING_COOKIE)
+  const cookieSite = cookie ? verifyState<{ site: number }>(cookie, key)?.site : undefined
+  const pending = fromState ? undefined : await pendingSolarEdgeSiteFor(db, cookieSite)
+  deleteCookie(event, SOLAREDGE_PENDING_COOKIE, { path: '/api/integrations/solaredge/callback' })
   const siteId = fromState?.site ?? (stateCheck === 'missing' ? pending : undefined)
   const code = q.code
   const seSiteId = q.site_id ?? q.siteId ?? q.siteid

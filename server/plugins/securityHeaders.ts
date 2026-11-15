@@ -1,25 +1,21 @@
-import { setResponseHeaders } from 'h3'
+import { getResponseHeader, setResponseHeader, setResponseHeaders } from 'h3'
+import { BASE_CSP, contentSecurityPolicy, cspMode, inlineScriptHashes, SECURITY_HEADERS } from '../lib/csp'
 
-/**
- * Baseline security headers on every response: pages, static files and the API.
- * - HSTS: browsers only use https for a year (no includeSubDomains: other subdomains of wattswise.eu are not ours to decide)
- * - nosniff: an uploaded doorbell sound or JSON is never run as a script or page
- * - frame-ancestors / X-Frame-Options: the app can't be framed (clickjacking)
- * - Referrer-Policy: links out carry only our origin, never a path with a token in it (/reset?token=…)
- * - Permissions-Policy: the app needs no camera, microphone or location of its own
- * A full Content-Security-Policy is not set here yet: see security-report.md (the inline SKY_BOOT script and Sentry need care).
- */
-export const SECURITY_HEADERS: Record<string, string> = {
-  'Strict-Transport-Security': 'max-age=31536000',
-  'X-Content-Type-Options': 'nosniff',
-  'X-Frame-Options': 'DENY',
-  'Content-Security-Policy': "frame-ancestors 'none'; base-uri 'self'; object-src 'none'",
-  'Referrer-Policy': 'strict-origin-when-cross-origin',
-  'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=()',
-}
-
+/** Sends the headers from lib/csp.ts on every response; NUXT_CSP_MODE picks report (default), enforce or off */
 export default defineNitroPlugin((nitroApp) => {
+  const mode = cspMode(process.env.NUXT_CSP_MODE)
   nitroApp.hooks.hook('request', (event) => {
     setResponseHeaders(event, SECURITY_HEADERS)
+    setResponseHeader(event, 'Content-Security-Policy', mode === 'enforce' ? contentSecurityPolicy() : BASE_CSP)
+    if (mode === 'report') setResponseHeader(event, 'Content-Security-Policy-Report-Only', contentSecurityPolicy())
+  })
+  // A page rendered now (the app's SPA shell) carries Nuxt's own inline config script: add its hash
+  nitroApp.hooks.hook('beforeResponse', (event, response) => {
+    if (mode === 'off') return
+    const type = String(getResponseHeader(event, 'content-type') ?? '')
+    const body = (response as { body?: unknown }).body
+    if (!type.includes('text/html') || typeof body !== 'string') return
+    const policy = contentSecurityPolicy(inlineScriptHashes(body))
+    setResponseHeader(event, mode === 'enforce' ? 'Content-Security-Policy' : 'Content-Security-Policy-Report-Only', policy)
   })
 })

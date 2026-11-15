@@ -37,10 +37,11 @@ Tibber, EcoFlow and SolarEdge are services **you** connect. WattsWise reads your
 ## How long we keep it
 
 - Minute-by-minute readings for **60 days**. After that they're averaged per quarter of an hour, and those averages are kept as long as you have an account, so you can look back at your savings.
+- The commands sent to the batteries and your car's readings: **400 days**, so you can compare a year.
 - Everything else is kept as long as you have an account.
 - Sign-ins expire after 60 days without use. Links in emails expire after an hour (password reset), a day (verification) or a week (invitations).
 - Error reports are kept by Sentry for 90 days at most.
-- When you **delete your account**, your data is deleted right away. If you're the owner of a household, that includes the household's energy data. The database keeps a restore history of 6 hours, so after that nothing of it can be brought back.
+- When you **delete your account**, your data is deleted right away. If you're the owner of a household, that includes the household's energy data. As a safety net against mistakes the database keeps backups: 7 days of restore history, and daily and weekly snapshots that expire after 35 days at most. After that nothing of it can be brought back.
 
 ## Your rights
 

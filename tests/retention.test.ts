@@ -64,3 +64,34 @@ describe('thinSamples', () => {
     }
   })
 })
+
+describe('purgeExpired', () => {
+  it('deletes only what has outlived its use', async () => {
+    const schema = await import('../server/db/schema')
+    const { purgeExpired } = await import('../server/services/retention')
+    const db = await freshDb()
+    const { user, site } = await createAccount(db, 'p@example.com', 'a-long-password')
+    const days = (d: number) => new Date(now.getTime() - d * DAY_MS)
+    await db.insert(schema.sessions).values([
+      { userId: user.id, tokenHash: 'old', expiresAt: days(8) },
+      { userId: user.id, tokenHash: 'live', expiresAt: days(-30) },
+    ])
+    await db.insert(schema.authTokens).values([
+      { userId: user.id, kind: 'reset', tokenHash: 'used-old', expiresAt: days(40), usedAt: days(40) },
+      { userId: user.id, kind: 'reset', tokenHash: 'fresh', expiresAt: days(-1) },
+    ])
+    await db.insert(schema.jobRuns).values([
+      { job: 'collect', startedAt: days(31), durationMs: 1, sitesOk: 1, sitesFailed: 0 },
+      { job: 'collect', startedAt: days(1), durationMs: 1, sitesOk: 1, sitesFailed: 0 },
+    ])
+    const [car] = await db.insert(schema.vehicles).values({ siteId: site.id, vin: 'V', name: 'Car' }).returning()
+    await db.insert(schema.vehicleSamples).values([
+      { siteId: site.id, vehicleId: car!.id, ts: days(401) },
+      { siteId: site.id, vehicleId: car!.id, ts: days(10) },
+    ])
+    const r = await purgeExpired(db, now)
+    expect(r).toMatchObject({ sessions: 1, authTokens: 1, jobRuns: 1, vehicleSamples: 1 })
+    expect((await db.select().from(schema.sessions)).map((s) => s.tokenHash)).toEqual(['live'])
+    expect((await db.select().from(schema.authTokens)).map((t) => t.tokenHash)).toEqual(['fresh'])
+  })
+})
