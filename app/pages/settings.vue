@@ -536,7 +536,9 @@ async function setControl(v: Control) {
 }
 
 async function load() {
-  integrations.value = await api('/api/integrations')
+  // Only the connections this version of the app knows. An app that was still open from before a deploy (or an older
+  // iOS build) can get a provider from the server that it has no icon, fields or texts for, and must not crash on it.
+  integrations.value = ((await api('/api/integrations')) as any[]).filter((i) => INFO[i.provider] && (m.value.settings.info as Record<string, unknown>)[i.provider])
   const t = integrations.value.find((i) => i.provider === 'tibber')
   homeId.value = (t?.meta.homeId as string) ?? ''
   setDoorbell(integrations.value.find((i) => i.provider === 'sonos')?.meta)
