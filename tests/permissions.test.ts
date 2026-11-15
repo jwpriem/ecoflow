@@ -16,6 +16,8 @@ const ACCESS: Record<string, 'owner' | 'household' | 'account' | 'public' | 'adm
   'auth/signup.post.ts': 'public',
   // "Try the demo": a session for the read-only demo account, rate limited
   'auth/demo.post.ts': 'public',
+  // Browsers post Content-Security-Policy violations on their own, without a session
+  'csp-report.post.ts': 'public',
   // The owner's household goes with it: deciding that is the account holder's own, checked with the password
   'account/index.delete.ts': 'account',
   'auth/logout.post.ts': 'account',
