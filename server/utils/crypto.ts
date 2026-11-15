@@ -26,6 +26,13 @@ export function decryptJson<T = unknown>(payload: string, keyB64: string): T {
   return JSON.parse(pt.toString('utf8')) as T
 }
 
+/** Longest password we hash: scrypt over megabytes of input is a cheap way to tie up the server */
+export const MAX_PASSWORD_LENGTH = 256
+
+/** A real scrypt hash of a random password, checked when an email has no account so the answer takes as long either way */
+let dummyHash: Promise<string> | undefined
+export const dummyPasswordHash = () => (dummyHash ??= hashPassword(randomBytes(16).toString('hex')))
+
 export async function hashPassword(password: string): Promise<string> {
   const salt = randomBytes(16)
   const hash = await scrypt(password, salt, 64)
@@ -34,7 +41,7 @@ export async function hashPassword(password: string): Promise<string> {
 
 export async function verifyPassword(password: string, stored: string): Promise<boolean> {
   const [alg, salt, hash] = stored.split('.')
-  if (alg !== 'scrypt' || !salt || !hash) return false
+  if (alg !== 'scrypt' || !salt || !hash || password.length > MAX_PASSWORD_LENGTH) return false
   const expected = Buffer.from(hash, 'base64')
   const actual = await scrypt(password, Buffer.from(salt, 'base64'), expected.length)
   return timingSafeEqual(expected, actual)
