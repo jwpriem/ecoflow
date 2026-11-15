@@ -4,6 +4,7 @@ import { notify } from '../../services/push'
 /** Send a test notification to this device only. */
 export default defineEventHandler(async (event) => {
   const { site } = await requireSite(event)
+  rateLimit([LIMITS.testSendSite, String(site.id)])
   const { endpoint } = await readBody<{ endpoint?: string }>(event)
   if (!endpoint) throw createError({ statusCode: 400, statusMessage: 'endpoint is required' })
   const r = await notify(useDb(), site.id, null, testMessage, endpoint)

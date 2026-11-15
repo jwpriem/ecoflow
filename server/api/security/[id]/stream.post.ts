@@ -5,6 +5,7 @@ import { nestHttpError, startStream } from '../../../services/nest'
 export default defineEventHandler(async (event) => {
   const { site, experimental } = await requireSite(event)
   assertExperimental(experimental)
+  rateLimit([LIMITS.streamSite, String(site.id)])
   const { offerSdp } = await readBody<{ offerSdp?: string }>(event)
   try {
     return await startStream(useDb(), site, encryptionKey(), getRouterParam(event, 'id') ?? '', String(offerSdp ?? ''))
