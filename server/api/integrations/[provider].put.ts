@@ -31,6 +31,17 @@ const FIELDS: Record<Provider, string[]> = {
   abrp: ['apiKey'],
 }
 
+/** Settings in `meta` the client may set, per provider, each with its check. Anything else in body.meta is ignored. */
+const CLIENT_META: Partial<Record<Provider, Record<string, (v: unknown) => boolean>>> = {
+  tibber: { homeId: (v) => typeof v === 'string' && v.length > 0 && v.length <= 100 },
+}
+
+function clientMeta(provider: Provider, meta: unknown): Record<string, unknown> {
+  if (!meta || typeof meta !== 'object') return {}
+  const allowed = CLIENT_META[provider] ?? {}
+  return Object.fromEntries(Object.entries(meta as Record<string, unknown>).filter(([k, v]) => Object.hasOwn(allowed, k) && allowed[k]!(v)))
+}
+
 /**
  * Body: { credentials?: {...}, meta?: {...} }. Credentials are encrypted before they hit the database.
  * Leave credentials out to only change settings (e.g. pick another Tibber home).
@@ -97,7 +108,8 @@ export default defineEventHandler(async (event) => {
     if (provider === 'abrp' && existing?.creds.tokens) (creds as Record<string, unknown>).tokens = existing.creds.tokens
   }
   if (!creds) throw createError({ statusCode: 400, statusMessage: 'Credentials are required' })
-  const meta: Record<string, unknown> = { ...(existing?.meta ?? {}), ...(body.meta ?? {}) }
+  // Only the settings the app may choose: the rest of meta (sign-in state, credit ledger, sync results) is the server's
+  const meta: Record<string, unknown> = { ...(existing?.meta ?? {}), ...clientMeta(provider, body.meta) }
 
   // Test the connection and fill in useful settings before saving
   let error: string | undefined
