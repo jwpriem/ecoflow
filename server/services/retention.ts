@@ -1,7 +1,7 @@
-import { and, eq, lt, sql } from 'drizzle-orm'
+import { and, eq, isNull, isNotNull, lt, or, sql } from 'drizzle-orm'
 import type { Db } from '../db/client'
-import { batteryPool, devices, samples, type sites } from '../db/schema'
-import { MAX_DAYS_PER_RUN, thinUntil } from '../lib/retention'
+import { authTokens, batteryPool, commandsLog, devices, householdInvites, jobRuns, samples, sessions, type sites, vehicleSamples } from '../db/schema'
+import { KEEP, MAX_DAYS_PER_RUN, thinUntil } from '../lib/retention'
 import { addMs } from '../lib/time'
 
 type Site = typeof sites.$inferSelect
@@ -55,4 +55,29 @@ export async function thinSamples(db: Db, site: Site, now = new Date()): Promise
     days++
   }
   return days
+}
+
+/** Delete what has outlived its use (lib/retention.ts KEEP), for every household at once. Returns rows deleted per table. */
+export async function purgeExpired(db: Db, now = new Date()) {
+  const ago = (days: number) => addMs(now, -days * DAY_MS)
+  const n = async (q: Promise<unknown[]>) => (await q).length
+  const usedBefore = ago(KEEP.usedTokenDays)
+  return {
+    sessions: await n(db.delete(sessions).where(lt(sessions.expiresAt, ago(KEEP.expiredSessionDays))).returning({ id: sessions.id })),
+    authTokens: await n(
+      db
+        .delete(authTokens)
+        .where(or(lt(authTokens.expiresAt, usedBefore), and(isNotNull(authTokens.usedAt), lt(authTokens.usedAt, usedBefore))))
+        .returning({ id: authTokens.id }),
+    ),
+    invites: await n(
+      db
+        .delete(householdInvites)
+        .where(and(isNull(householdInvites.acceptedAt), lt(householdInvites.expiresAt, usedBefore)))
+        .returning({ id: householdInvites.id }),
+    ),
+    jobRuns: await n(db.delete(jobRuns).where(lt(jobRuns.startedAt, ago(KEEP.jobRunDays))).returning({ id: jobRuns.id })),
+    commands: await n(db.delete(commandsLog).where(lt(commandsLog.ts, ago(KEEP.commandDays))).returning({ id: commandsLog.id })),
+    vehicleSamples: await n(db.delete(vehicleSamples).where(lt(vehicleSamples.ts, ago(KEEP.vehicleSampleDays))).returning({ id: vehicleSamples.id })),
+  }
 }

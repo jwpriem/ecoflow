@@ -37,10 +37,11 @@ Tibber, EcoFlow en SolarEdge zijn diensten die **jij** koppelt. WattsWise leest 
 ## Hoe lang we het bewaren
 
 - Metingen per minuut **60 dagen**. Daarna worden ze per kwartier gemiddeld, en die gemiddelden blijven bewaard zolang je een account hebt, zodat je je besparing kunt terugzien.
+- Wat de batterijen kregen als opdracht en de metingen van je auto: **400 dagen**, zodat je een jaar kunt vergelijken.
 - Al het andere zolang je een account hebt.
 - Inloggen verloopt na 60 dagen zonder gebruik. Links in e-mails verlopen na een uur (wachtwoordherstel), een dag (bevestiging) of een week (uitnodigingen).
 - Foutmeldingen bewaart Sentry hooguit 90 dagen.
-- Als je **je account verwijdert**, worden je gegevens meteen verwijderd. Ben je eigenaar van een huishouden, dan geldt dat ook voor de energiegegevens van het huishouden. De database bewaart 6 uur aan herstelgeschiedenis; daarna is er niets meer van terug te halen.
+- Als je **je account verwijdert**, worden je gegevens meteen verwijderd. Ben je eigenaar van een huishouden, dan geldt dat ook voor de energiegegevens van het huishouden. Als vangnet tegen fouten maakt de database back-ups: 7 dagen herstelgeschiedenis, en dagelijkse en wekelijkse momentopnames die na hooguit 35 dagen vanzelf verdwijnen. Daarna is er niets meer van terug te halen.
 
 ## Je rechten
 
