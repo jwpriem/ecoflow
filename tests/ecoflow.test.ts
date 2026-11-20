@@ -1,8 +1,11 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { resetProviders } from '../server/providers/http'
 import {
   backupReserveFor,
   deviceQuota,
+  ECOFLOW_SPACING_MS,
   ecoflowRequest,
+  resetEcoFlowSpacing,
   flattenParams,
   listDevices,
   parseStreamQuota,
@@ -42,6 +45,24 @@ describe('EcoFlow signing', () => {
 })
 
 describe('EcoFlow requests', () => {
+  beforeEach(() => {
+    resetProviders()
+    resetEcoFlowSpacing()
+  })
+  afterEach(() => vi.restoreAllMocks())
+
+  /** A clock that only moves when the code sleeps, so spacing and retry waits run instantly */
+  function fakeClock() {
+    let clock = 1_000_000
+    vi.spyOn(Date, 'now').mockImplementation(() => clock)
+    const waits: number[] = []
+    const sleep = vi.fn(async (ms: number) => {
+      waits.push(ms)
+      clock += ms
+    })
+    return { sleep, waits }
+  }
+
   it('sends GET parameters as query string with the signed headers', async () => {
     const f = fakeFetch({ code: '0', message: 'Success', data: { cmsBattSoc: 55 } })
     const data = await deviceQuota(creds, 'BK11ZEB4', { ...fixed, fetch: f })
@@ -71,14 +92,14 @@ describe('EcoFlow requests', () => {
   })
 
   it('throws on an HTTP error', async () => {
-    await expect(listDevices(creds, { fetch: fakeFetch({}, 502) })).rejects.toThrow('EcoFlow HTTP 502')
+    await expect(listDevices(creds, { fetch: fakeFetch({}, 502), sleep: fakeClock().sleep })).rejects.toThrow('EcoFlow HTTP 502')
   })
 
   it('retries a code 1000 server error with a fresh signature, then gives up', async () => {
     const replies = [{ code: '1000', message: 'Server error' }, { code: '0', data: { cmsBattSoc: 55 } }]
     const f = vi.fn(async () => new Response(JSON.stringify(replies.shift()))) as unknown as typeof fetch & ReturnType<typeof vi.fn>
     let n = 0
-    const sleep = vi.fn(async () => {})
+    const { sleep } = fakeClock()
     const data = await deviceQuota(creds, 'BK11', { fetch: f, sleep, nonce: () => String(100000 + n++) })
     expect(data).toEqual({ cmsBattSoc: 55 })
     expect(f).toHaveBeenCalledTimes(2)
@@ -90,16 +111,36 @@ describe('EcoFlow requests', () => {
     expect(down).toHaveBeenCalledTimes(3)
   })
 
+  it('retries a code 1020 rate limit after a longer pause', async () => {
+    const replies = [{ code: '1020', message: 'Request frequency too fast' }, { code: '0', data: { cmsBattSoc: 40 } }]
+    const f = vi.fn(async () => new Response(JSON.stringify(replies.shift()))) as unknown as typeof fetch & ReturnType<typeof vi.fn>
+    const { sleep, waits } = fakeClock()
+    expect(await deviceQuota(creds, 'BK11', { fetch: f, sleep, random: () => 0 })).toEqual({ cmsBattSoc: 40 })
+    expect(waits[0]).toBeGreaterThanOrEqual(2500)
+  })
+
+  it('spaces calls so they do not come in a burst', async () => {
+    const { sleep, waits } = fakeClock()
+    const f = fakeFetch({ code: '0', data: {} })
+    await deviceQuota(creds, 'A', { fetch: f, sleep })
+    await deviceQuota(creds, 'B', { fetch: f, sleep })
+    // Another household's key doesn't wait for this one
+    await deviceQuota({ ...creds, accessKey: 'other-key' }, 'C', { fetch: f, sleep })
+    expect(f).toHaveBeenCalledTimes(3)
+    expect(waits).toEqual([ECOFLOW_SPACING_MS])
+  })
+
   it('does not retry other API codes', async () => {
     const f = fakeFetch({ code: '8521', message: 'signature is wrong' })
-    await expect(listDevices(creds, { fetch: f, sleep: async () => {} })).rejects.toThrow('code 8521')
+    await expect(listDevices(creds, { fetch: f, sleep: fakeClock().sleep })).rejects.toThrow('code 8521')
     expect(f).toHaveBeenCalledTimes(1)
   })
 
   it('returns the device list', async () => {
+    const { sleep } = fakeClock()
     const list = [{ sn: 'BK1', deviceName: 'STREAM Pro 1', productName: 'STREAM Pro', online: 1 }]
-    expect(await listDevices(creds, { fetch: fakeFetch({ code: '0', data: list }) })).toEqual(list)
-    expect(await listDevices(creds, { fetch: fakeFetch({ code: '0' }) })).toEqual([])
+    expect(await listDevices(creds, { sleep, fetch: fakeFetch({ code: '0', data: list }) })).toEqual(list)
+    expect(await listDevices(creds, { sleep, fetch: fakeFetch({ code: '0' }) })).toEqual([])
   })
 })
 

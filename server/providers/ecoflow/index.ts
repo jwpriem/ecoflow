@@ -96,11 +96,36 @@ export interface RequestOptions {
 }
 
 /**
- * EcoFlow answers some outages with HTTP 200 and code 1000 ("Server error"). These come and go from one minute to
- * the next, so they get a couple of quick retries; other codes (a wrong key or signature) fail at once.
+ * Codes worth another try, with the base wait before it. EcoFlow sends these with HTTP 200, so providerCall
+ * doesn't see them. 1000 ("Server error") comes and goes from one minute to the next; 1020 ("Request frequency
+ * too fast") needs a longer pause. Other codes (a wrong key or signature) fail at once.
  */
-const TRANSIENT_CODES = new Set(['1000'])
+const TRANSIENT_CODES: Record<string, number> = { '1000': 2000, '1020': 5000 }
 const RETRIES = 2
+
+/**
+ * EcoFlow answers calls with the same key in quick succession with code 1020 ("Request frequency too fast"),
+ * so calls per access key go out at least this far apart. Per key, not per server: other households don't wait.
+ */
+export const ECOFLOW_SPACING_MS = 2000
+const nextCallAt = new Map<string, number>()
+
+async function waitForTurn(accessKey: string, sleep: (ms: number) => Promise<void>) {
+  for (;;) {
+    const now = Date.now()
+    const at = nextCallAt.get(accessKey) ?? 0
+    if (now >= at) {
+      nextCallAt.set(accessKey, now + ECOFLOW_SPACING_MS)
+      return
+    }
+    await sleep(at - now)
+  }
+}
+
+/** For tests: forget when each key last called */
+export function resetEcoFlowSpacing() {
+  nextCallAt.clear()
+}
 
 /** One signed call. GET sends the params as query string, other methods as JSON body. Throws on a non-zero code. */
 export async function ecoflowRequest<T>(
@@ -135,14 +160,16 @@ export async function ecoflowRequest<T>(
   }
   const sleep = opts.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)))
   for (let attempt = 0; ; attempt++) {
+    await waitForTurn(creds.accessKey, sleep)
     // Signed again for every attempt: a nonce is only good once
-    const res = await providerCall('ecoflow', (signal) => (opts.fetch ?? fetch)(url, { method, headers: { ...signed(), ...headers }, body, signal }))
+    const res = await providerCall('ecoflow', (signal) => (opts.fetch ?? fetch)(url, { method, headers: { ...signed(), ...headers }, body, signal }), { sleep: opts.sleep })
     if (!res.ok) throw new Error(`EcoFlow HTTP ${res.status}`)
     const json = (await res.json()) as { code?: string | number; message?: string; data?: T }
     const code = String(json.code)
     if (code === '0') return json.data as T
-    if (!TRANSIENT_CODES.has(code) || attempt >= RETRIES) throw new Error(`EcoFlow: ${json.message || 'error'} (code ${json.code})`)
-    await sleep(backoffDelay(attempt, { baseMs: 1000, maxMs: 4000, random: opts.random }))
+    const baseMs = TRANSIENT_CODES[code]
+    if (!baseMs || attempt >= RETRIES) throw new Error(`EcoFlow: ${json.message || 'error'} (code ${json.code})`)
+    await sleep(backoffDelay(attempt, { baseMs, maxMs: 4 * baseMs, random: opts.random }))
   }
 }
 
