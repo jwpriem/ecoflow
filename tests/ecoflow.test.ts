@@ -74,6 +74,28 @@ describe('EcoFlow requests', () => {
     await expect(listDevices(creds, { fetch: fakeFetch({}, 502) })).rejects.toThrow('EcoFlow HTTP 502')
   })
 
+  it('retries a code 1000 server error with a fresh signature, then gives up', async () => {
+    const replies = [{ code: '1000', message: 'Server error' }, { code: '0', data: { cmsBattSoc: 55 } }]
+    const f = vi.fn(async () => new Response(JSON.stringify(replies.shift()))) as unknown as typeof fetch & ReturnType<typeof vi.fn>
+    let n = 0
+    const sleep = vi.fn(async () => {})
+    const data = await deviceQuota(creds, 'BK11', { fetch: f, sleep, nonce: () => String(100000 + n++) })
+    expect(data).toEqual({ cmsBattSoc: 55 })
+    expect(f).toHaveBeenCalledTimes(2)
+    const nonces = f.mock.calls.map((c) => (c[1] as RequestInit).headers as Record<string, string>).map((h) => h.nonce)
+    expect(new Set(nonces).size).toBe(2)
+
+    const down = fakeFetch({ code: '1000', message: 'Server error' })
+    await expect(deviceQuota(creds, 'BK11', { fetch: down, sleep })).rejects.toThrow('EcoFlow: Server error (code 1000)')
+    expect(down).toHaveBeenCalledTimes(3)
+  })
+
+  it('does not retry other API codes', async () => {
+    const f = fakeFetch({ code: '8521', message: 'signature is wrong' })
+    await expect(listDevices(creds, { fetch: f, sleep: async () => {} })).rejects.toThrow('code 8521')
+    expect(f).toHaveBeenCalledTimes(1)
+  })
+
   it('returns the device list', async () => {
     const list = [{ sn: 'BK1', deviceName: 'STREAM Pro 1', productName: 'STREAM Pro', online: 1 }]
     expect(await listDevices(creds, { fetch: fakeFetch({ code: '0', data: list }) })).toEqual(list)

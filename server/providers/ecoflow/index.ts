@@ -1,6 +1,7 @@
 import { createHmac, randomInt } from 'node:crypto'
 import type { BatteryMode } from '../../lib/types'
 import type { devices } from '../../db/schema'
+import { backoffDelay } from '../../lib/backoff'
 import { providerCall } from '../http'
 
 export type DeviceRow = typeof devices.$inferSelect
@@ -90,7 +91,16 @@ export interface RequestOptions {
   fetch?: typeof fetch
   now?: () => number
   nonce?: () => string
+  sleep?: (ms: number) => Promise<void>
+  random?: () => number
 }
+
+/**
+ * EcoFlow answers some outages with HTTP 200 and code 1000 ("Server error"). These come and go from one minute to
+ * the next, so they get a couple of quick retries; other codes (a wrong key or signature) fail at once.
+ */
+const TRANSIENT_CODES = new Set(['1000'])
+const RETRIES = 2
 
 /** One signed call. GET sends the params as query string, other methods as JSON body. Throws on a non-zero code. */
 export async function ecoflowRequest<T>(
@@ -123,12 +133,17 @@ export async function ecoflowRequest<T>(
     headers['Content-Type'] = 'application/json;charset=UTF-8'
     body = JSON.stringify(params)
   }
-  // Signed again for every attempt: a nonce is only good once
-  const res = await providerCall('ecoflow', (signal) => (opts.fetch ?? fetch)(url, { method, headers: { ...signed(), ...headers }, body, signal }))
-  if (!res.ok) throw new Error(`EcoFlow HTTP ${res.status}`)
-  const json = (await res.json()) as { code?: string | number; message?: string; data?: T }
-  if (String(json.code) !== '0') throw new Error(`EcoFlow: ${json.message || 'error'} (code ${json.code})`)
-  return json.data as T
+  const sleep = opts.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)))
+  for (let attempt = 0; ; attempt++) {
+    // Signed again for every attempt: a nonce is only good once
+    const res = await providerCall('ecoflow', (signal) => (opts.fetch ?? fetch)(url, { method, headers: { ...signed(), ...headers }, body, signal }))
+    if (!res.ok) throw new Error(`EcoFlow HTTP ${res.status}`)
+    const json = (await res.json()) as { code?: string | number; message?: string; data?: T }
+    const code = String(json.code)
+    if (code === '0') return json.data as T
+    if (!TRANSIENT_CODES.has(code) || attempt >= RETRIES) throw new Error(`EcoFlow: ${json.message || 'error'} (code ${json.code})`)
+    await sleep(backoffDelay(attempt, { baseMs: 1000, maxMs: 4000, random: opts.random }))
+  }
 }
 
 export function listDevices(creds: EcoFlowCredentials, opts?: RequestOptions) {
