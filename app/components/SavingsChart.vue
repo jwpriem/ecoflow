@@ -16,7 +16,8 @@
           <rect v-if="s.future" :x="x(i)" :y="y(0) - 3" :width="barW" height="3" rx="1" class="future" />
           <template v-else>
             <rect v-if="s.battery > 0" :x="x(i)" :y="y(s.battery)" :width="barW" :height="h(s.battery)" rx="1" class="battery" />
-            <rect v-if="s.solar > 0" :x="x(i)" :y="y(Math.max(0, s.battery) + s.solar)" :width="barW" :height="h(s.solar)" rx="1" class="solar" />
+            <rect v-if="s.solar - fed(s) > 0" :x="x(i)" :y="y(Math.max(0, s.battery) + s.solar - fed(s))" :width="barW" :height="h(s.solar - fed(s))" rx="1" class="solar" />
+            <rect v-if="fed(s) > 0" :x="x(i)" :y="y(Math.max(0, s.battery) + s.solar)" :width="barW" :height="h(fed(s))" rx="1" class="fed-in" />
             <rect v-if="neg(s) < 0" :x="x(i)" :y="y(0)" :width="barW" :height="h(-neg(s))" rx="1" class="loss" />
           </template>
         </g>
@@ -39,6 +40,8 @@ export interface SavingsSlot {
   label: string
   battery: number
   solar: number
+  /** The part of solar that was fed in, drawn lighter on top; leave out to draw solar as one block */
+  fedIn?: number
   future: boolean
 }
 const props = defineProps<{ slots: SavingsSlot[]; modelValue: number; ticks: number[]; average: number | null; format: (v: number) => string; aria: string }>()
@@ -63,6 +66,8 @@ const slotW = computed(() => plotW.value / Math.max(1, props.slots.length))
 const barW = computed(() => Math.max(2, Math.min(28, slotW.value * 0.7)))
 const x = (i: number) => i * slotW.value + (slotW.value - barW.value) / 2
 
+// Only a positive solar figure splits; a feed-in part can't be more than the solar it is part of
+const fed = (s: SavingsSlot) => (s.solar > 0 ? Math.min(s.solar, Math.max(0, s.fedIn ?? 0)) : 0)
 const neg = (s: SavingsSlot) => Math.min(0, s.battery) + Math.min(0, s.solar)
 const top = computed(() => Math.max(0, ...props.slots.map((s) => Math.max(0, s.battery) + Math.max(0, s.solar))))
 const bottom = computed(() => Math.min(0, ...props.slots.map(neg)))
@@ -104,6 +109,7 @@ text { font-size: 12px; font-variant-numeric: tabular-nums; font-stretch: 85%; f
 .sel-col { fill: var(--fill-2); }
 .battery { fill: var(--text); }
 .solar { fill: var(--sun); }
+.fed-in { fill: var(--sun); fill-opacity: 0.45; }
 .loss { fill: var(--alert); }
 .future { fill: var(--fill); }
 .avg { stroke: var(--text-2); stroke-width: 1; stroke-dasharray: 3 3; }
