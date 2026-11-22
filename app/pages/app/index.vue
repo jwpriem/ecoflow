@@ -2,7 +2,10 @@
   <div v-stagger class="home">
     <header class="top">
       <img class="logo" :src="`/brand/wattswise-logo-${sky === 'night' ? 'dark' : 'light'}.svg`" alt="WattsWise" />
-      <span v-if="d" class="clock"><span class="dot live" /> {{ time(d.now) }}</span>
+      <span v-if="d" class="top-right">
+        <WeatherNow :weather="d.weather" :location="d.location" :now="d.now" class="top-weather" />
+        <span class="clock"><span class="dot live" /> {{ time(d.now) }}</span>
+      </span>
     </header>
     <!-- A failed refresh keeps the last data on screen and says how old it is -->
     <p v-if="error && d" class="note stale">{{ m.home.stale(time(d.now)) }}</p>
@@ -102,7 +105,7 @@
         </div>
         <Transition name="swap" mode="out-in">
           <EnergyFlow v-if="view === 'clean'" key="clean" :solar-w="d.live?.solarW ?? null" :grid-w="d.live?.gridW ?? null" :battery-w="totalPower" :house-w="houseW" :animate="animate" />
-          <EnergyScene v-else key="detailed" :solar-w="d.live?.solarW ?? null" :grid-w="d.live?.gridW ?? null" :battery-w="totalPower" :house-w="sceneHouseW" :soc="combinedSoc" :car="sceneCar" :animate="animate" />
+          <EnergyScene v-else key="detailed" :weather="d.weather" :location="d.location" :solar-w="d.live?.solarW ?? null" :grid-w="d.live?.gridW ?? null" :battery-w="totalPower" :house-w="sceneHouseW" :soc="combinedSoc" :car="sceneCar" :animate="animate" />
         </Transition>
       </section>
 
@@ -154,6 +157,7 @@
 
       <footer class="sources" style="--o: 10">
         <span class="sources-clock"><span class="dot live" /> {{ time(d.now) }}</span>
+        <WeatherNow :weather="d.weather" :location="d.location" :now="d.now" class="sources-clock" />
         <span><span class="dot" :class="d.sources.pulse.connected ? 'ok' : ''" /> Tibber Pulse</span>
         <span v-for="i in d.sources.integrations" :key="i.provider">
           <span class="dot" :class="i.status === 'ok' ? 'ok' : i.status === 'error' ? 'err' : ''" /> {{ PROVIDER[i.provider] ?? i.provider }}
@@ -368,6 +372,8 @@ onBeforeUnmount(() => {
 <style scoped>
 .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
 .logo { height: 26px; width: auto; display: block; }
+.top-right { display: inline-flex; align-items: center; gap: 14px; }
+.top-weather { font-size: 14px; color: var(--text); }
 .clock { font-size: 14px; color: var(--text-2); display: inline-flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; }
 
 /* The status sentence: Archivo at full width is the page's voice */

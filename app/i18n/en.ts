@@ -214,6 +214,8 @@ export const en = {
     sunrise: (t: string) => `sunrise ${t}`,
     sunUp: 'sun up',
     sunDown: 'sun down',
+    weather: { clear: 'clear', partly: 'partly cloudy', cloudy: 'cloudy', fog: 'fog', drizzle: 'drizzle', rain: 'rain', snow: 'snow', thunder: 'thunderstorm' },
+    outside: (temp: string, weather: string) => `Outside ${temp}, ${weather}`,
   },
   home: {
     stale: (t: string) => `Not updated since ${t}: the server isn't answering. WattsWise tries again every 30 seconds.`,

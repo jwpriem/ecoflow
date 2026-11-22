@@ -1,6 +1,6 @@
 <template>
   <div class="scene-card">
-    <div class="scene" :style="{ background: `linear-gradient(180deg, ${sky.top} 0%, ${sky.horizon} 78%)` }">
+    <div class="scene" :style="{ background: `linear-gradient(180deg, ${skyTop} 0%, ${skyHorizon} 78%)` }">
       <svg class="scene-art" viewBox="0 0 390 290" role="img" :aria-label="aria" preserveAspectRatio="xMidYMid slice">
         <defs>
           <linearGradient id="scene-ground" x1="0" y1="0" x2="0" y2="1">
@@ -10,18 +10,26 @@
         </defs>
 
         <!-- Sky: stars, moon and the real sun position over the house -->
-        <g :opacity="sky.stars * 0.9" fill="#fff">
+        <g :opacity="overcast ? 0 : sky.stars * 0.9" fill="#fff">
           <circle v-for="(s, i) in STARS" :key="i" :cx="s[0]" :cy="s[1]" :r="s[2]" />
         </g>
-        <path :opacity="sky.moon" d="M318 40a16 16 0 1 0 0 30a12 12 0 1 1 0-30z" fill="#f2ecd6" />
-        <g v-if="sun.altitude > -3">
+        <path :opacity="overcast ? 0 : sky.moon" d="M318 40a16 16 0 1 0 0 30a12 12 0 1 1 0-30z" fill="#f2ecd6" />
+        <g v-if="sun.altitude > -3" :opacity="overcast ? 0.3 : 1">
           <circle :cx="sunX" :cy="sunY" r="28" :fill="sunColor" opacity="0.22" />
           <circle :cx="sunX" :cy="sunY" r="14" :fill="sunColor" />
         </g>
-        <g fill="#fff" :opacity="0.5 - sky.darkness * 0.42">
+        <!-- Clouds follow the real weather: none when it's clear, a sky full of grey ones when it's overcast -->
+        <g v-if="kind !== 'clear'" :fill="overcast ? '#c9ced6' : '#fff'" :opacity="(overcast ? 0.75 : 0.5) - sky.darkness * 0.42">
           <ellipse cx="62" cy="120" rx="46" ry="20" />
           <ellipse cx="80" cy="104" rx="28" ry="20" />
           <ellipse cx="330" cy="126" rx="50" ry="20" />
+          <template v-if="overcast">
+            <ellipse cx="140" cy="52" rx="62" ry="22" />
+            <ellipse cx="170" cy="38" rx="36" ry="20" />
+            <ellipse cx="270" cy="62" rx="58" ry="20" />
+            <ellipse cx="20" cy="56" rx="44" ry="18" />
+            <ellipse cx="372" cy="40" rx="40" ry="18" />
+          </template>
         </g>
         <g stroke="rgba(255,255,255,0.4)" stroke-width="1.6" stroke-linecap="round" fill="none">
           <path d="M352 124V196M352 124 340 102M352 124H376M352 124 342 146" />
@@ -61,11 +69,21 @@
         <rect x="294" y="188" width="12" height="20" rx="3" fill="#e9edf2" />
         <path v-if="car?.plugged" d="M300 207C300 228 314 230 316 216" class="cable" />
 
+        <!-- Rain, drizzle or snow falling over the garden; mist as a pale veil -->
+        <g v-if="kind === 'rain' || kind === 'drizzle' || kind === 'thunder'" stroke="#c7d6ea" stroke-linecap="round" :stroke-width="kind === 'drizzle' ? 1 : 1.4" :opacity="kind === 'drizzle' ? 0.45 : 0.6">
+          <path v-for="(r, i) in DROPS" :key="i" :d="`M${r[0]} ${r[1]}l-3 ${kind === 'drizzle' ? 6 : 11}`" :class="{ fall: animate }" :style="{ animationDelay: `${-r[2]}s` }" />
+        </g>
+        <g v-else-if="kind === 'snow'" fill="#fff" opacity="0.85">
+          <circle v-for="(r, i) in DROPS" :key="i" :cx="r[0]" :cy="r[1]" r="1.8" :class="{ drift: animate }" :style="{ animationDelay: `${-r[2] * 4}s` }" />
+        </g>
+        <rect v-else-if="kind === 'fog'" y="120" width="390" height="120" fill="#d8dde4" opacity="0.4" />
+        <path v-if="kind === 'thunder'" d="M276 74 264 98h9l-7 20" stroke="#fff3b0" stroke-width="2.2" fill="none" stroke-linejoin="round" :class="{ flash: animate }" />
+
         <!-- Night falls over everything outside; the room stays lit -->
         <rect width="390" height="290" fill="#060b1c" :opacity="sky.darkness * 0.55" />
         <polygon points="236,120 286,170 286,229 236,229" fill="#cfc7bb" />
         <polygon points="236,120 286,170 236,170" fill="#ada395" />
-        <polygon points="240,134 262,156 240,156" :fill="sky.horizon" />
+        <polygon points="240,134 262,156 240,156" :fill="skyHorizon" />
         <circle cx="266" cy="190" r="22" fill="#f5c451" :opacity="0.12 + sky.darkness * 0.4" />
         <path d="M266 186V228" stroke="#fff" stroke-width="1.5" />
         <polygon points="260,178 272,178 274,188 258,188" fill="#fff6d6" />
@@ -97,7 +115,7 @@
         <path d="M203 189 195 200H200.5L197 208 205.5 196H200Z" fill="none" stroke="var(--cheap)" stroke-width="1.8" stroke-linejoin="round" />
       </svg>
 
-      <span class="where">{{ HOME_LOCATION.name }}, {{ sunLabel }}</span>
+      <span class="where">{{ caption }}</span>
 
       <div v-for="c in chips" :key="c.key" class="chip" :style="c.pos">
         <span class="chip-icon" :style="{ background: c.active ? c.color : 'var(--surface-3)', color: c.active ? 'var(--bg)' : 'var(--text-2)' }"><AppIcon :name="c.icon" /></span>
@@ -126,11 +144,17 @@ const props = withDefaults(
     solarW: number | null; gridW: number | null; batteryW: number; houseW: number | null; soc?: number; animate?: boolean
     /** The car at home, if any: plugged into the charger or just parked beside the house. */
     car?: { name: string; soc: number | null; plugged: boolean; charging: boolean; powerW: number | null } | null
+    /** Outdoor temperature and WMO weather code; without it the sky keeps a few fair-weather clouds */
+    weather?: { tempC: number; code: number } | null
+    /** The household's rough location (0.1°) and town, for the sun and the caption */
+    location?: { lat: number; lon: number; place: string | null } | null
   }>(),
-  { soc: 0.6, animate: true, car: null },
+  { soc: 0.6, animate: true, car: null, weather: null, location: null },
 )
 const { m } = useLocale()
 
+// Rain drops and snowflakes over the sky and garden: x, y and a phase so they don't fall in step
+const DROPS = [[20, 70, 0.1], [52, 120, 0.5], [84, 82, 0.3], [116, 140, 0.7], [148, 64, 0.2], [186, 96, 0.6], [214, 70, 0.4], [246, 132, 0.8], [272, 88, 0.15], [304, 150, 0.55], [334, 76, 0.35], [366, 118, 0.75], [36, 168, 0.45], [70, 54, 0.65], [200, 50, 0.25], [318, 104, 0.85], [380, 160, 0.05], [130, 100, 0.95]] as const
 const STARS = [[30, 30, 1.2], [74, 58, 1], [118, 22, 1.4], [160, 64, 1], [206, 34, 1.2], [250, 72, 1], [286, 20, 1.3], [356, 44, 1], [20, 96, 1], [232, 12, 1], [140, 94, 0.9], [372, 90, 1.1]] as const
 
 // Redraw the sky every minute
@@ -139,19 +163,38 @@ let timer: ReturnType<typeof setInterval>
 onMounted(() => (timer = setInterval(() => (now.value = new Date()), 60_000)))
 onBeforeUnmount(() => clearInterval(timer))
 
-const sun = computed(() => sunPosition(now.value))
+const lat = computed(() => props.location?.lat ?? HOME_LOCATION.lat)
+const lon = computed(() => props.location?.lon ?? HOME_LOCATION.lon)
+const sun = computed(() => sunPosition(now.value, lat.value, lon.value))
 const sky = computed(() => skyFor(sun.value.altitude))
+const kind = computed<WeatherKind>(() => (props.weather ? weatherKind(props.weather.code) : 'partly'))
+const overcast = computed(() => !['clear', 'partly'].includes(kind.value))
+// An overcast sky is the same light, greyed: mix the sky colours halfway to grey
+const grey = (rgb: string) => {
+  const n = rgb.match(/\d+/g)?.map(Number)
+  if (!n || n.length < 3 || !overcast.value) return rgb
+  const g = (n[0]! + n[1]! + n[2]!) / 3
+  return `rgb(${n.slice(0, 3).map((c) => Math.round(c * 0.45 + g * 0.55)).join(', ')})`
+}
+const skyTop = computed(() => grey(sky.value.top))
+const skyHorizon = computed(() => grey(sky.value.horizon))
 // East is left, west is right; the sun disappears behind the hills when it sets
 const sunX = computed(() => Math.round(195 + Math.max(-1.2, Math.min(1.2, sun.value.hourAngle / 100)) * 160))
 const sunY = computed(() => Math.round(196 - sun.value.altitude * 4.2))
 // A low sun is warmer; fixed colors, so it never borrows a meaning from the price palette
 const sunColor = computed(() => (sun.value.altitude < 6 ? '#d97706' : '#f5c451'))
 const sunLabel = computed(() => {
-  const { sunrise, sunset } = nextSunEvents(now.value)
+  const { sunrise, sunset } = nextSunEvents(now.value, lat.value, lon.value)
   const hhmm = (d: Date) => d.toLocaleTimeString('nl-NL', { timeZone: 'Europe/Amsterdam', hour: '2-digit', minute: '2-digit' })
   const t = m.value.flow
   if (sun.value.altitude > -0.833) return sunset ? t.sunset(hhmm(sunset)) : t.sunUp
   return sunrise ? t.sunrise(hhmm(sunrise)) : t.sunDown
+})
+
+const place = computed(() => (props.location ? props.location.place : HOME_LOCATION.name))
+const caption = computed(() => {
+  const w = props.weather ? `${degrees(props.weather.tempC)} ${m.value.flow.weather[kind.value]}` : null
+  return [place.value, w, sunLabel.value].filter(Boolean).join(', ')
 })
 
 const fmt = (w: number | null) => (w == null ? '–' : Math.abs(w) >= 1000 ? `${num(Math.abs(w) / 1000)} kW` : `${Math.round(Math.abs(w))} W`)
@@ -218,7 +261,7 @@ const supply = computed(() => {
   ].filter((s) => s.pct > 0)
 })
 
-const aria = computed(() => chips.value.map((c) => `${c.label} ${c.value}`).join(', ') + `. ${HOME_LOCATION.name}, ${sunLabel.value}.`)
+const aria = computed(() => chips.value.map((c) => `${c.label} ${c.value}`).join(', ') + `. ${caption.value}.`)
 </script>
 
 <style scoped>
@@ -239,6 +282,13 @@ const aria = computed(() => chips.value.map((c) => `${c.label} ${c.value}`).join
 .breathe { animation: breathe 2.4s ease-in-out infinite; }
 @keyframes breathe { 50% { opacity: 0.45; } }
 @keyframes flow { to { stroke-dashoffset: -11; } }
+.fall { animation: fall 0.9s linear infinite; }
+@keyframes fall { from { transform: translate(0, -24px); opacity: 0; } 20% { opacity: 1; } to { transform: translate(-6px, 24px); opacity: 0; } }
+.drift { animation: drift 4s linear infinite; }
+@keyframes drift { from { transform: translate(0, -20px); opacity: 0; } 20% { opacity: 1; } to { transform: translate(-6px, 20px); opacity: 0; } }
+.flash { opacity: 0; animation: flash 6s steps(1) infinite; }
+@keyframes flash { 0% { opacity: 1; } 3% { opacity: 0; } 5% { opacity: 1; } 8% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .fall, .drift, .flash { animation: none; opacity: 1; } }
 
 .where, .chip {
   position: absolute;

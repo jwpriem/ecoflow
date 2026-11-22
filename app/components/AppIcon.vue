@@ -115,6 +115,40 @@
       <path d="M6 8h12v3a6 6 0 0 1-12 0Z" />
       <path d="M12 17v5" />
     </template>
+    <template v-else-if="name === 'moon'">
+      <path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5Z" />
+    </template>
+    <template v-else-if="name === 'cloud'">
+      <path d="M7.5 18.5h9.5a4 4 0 0 0 0-8 5.5 5.5 0 0 0-10.6 1.6A3.3 3.3 0 0 0 7.5 18.5Z" />
+    </template>
+    <template v-else-if="name === 'cloud-sun'">
+      <path d="M3.5 9.5a4.5 4.5 0 0 1 8.4-2.3M7.5 2v1.5M2 9.5h-.5M3.3 5.3l1 1M11.7 5.3l-1 1" />
+      <path d="M9.5 20.5h8a3.5 3.5 0 0 0 0-7 4.8 4.8 0 0 0-9.2 1.4A2.9 2.9 0 0 0 9.5 20.5Z" />
+    </template>
+    <template v-else-if="name === 'cloud-moon'">
+      <path d="M11.5 7.5A4.5 4.5 0 1 1 5.2 3a3.6 3.6 0 0 0 6.3 4.5Z" />
+      <path d="M9.5 20.5h8a3.5 3.5 0 0 0 0-7 4.8 4.8 0 0 0-9.2 1.4A2.9 2.9 0 0 0 9.5 20.5Z" />
+    </template>
+    <template v-else-if="name === 'cloud-fog'">
+      <path d="M7.5 14.5h9.5a4 4 0 0 0 0-8 5.5 5.5 0 0 0-10.6 1.6A3.3 3.3 0 0 0 7.5 14.5Z" />
+      <path d="M5 18h14M7.5 21.5h9" />
+    </template>
+    <template v-else-if="name === 'cloud-drizzle'">
+      <path d="M7.5 14.5h9.5a4 4 0 0 0 0-8 5.5 5.5 0 0 0-10.6 1.6A3.3 3.3 0 0 0 7.5 14.5Z" />
+      <path d="M9 18v.5M13 18v.5M17 18v.5M11 21v.5M15 21v.5" />
+    </template>
+    <template v-else-if="name === 'cloud-rain'">
+      <path d="M7.5 14.5h9.5a4 4 0 0 0 0-8 5.5 5.5 0 0 0-10.6 1.6A3.3 3.3 0 0 0 7.5 14.5Z" />
+      <path d="M9 17.5 8 21M13 17.5l-1 3.5M17 17.5l-1 3.5" />
+    </template>
+    <template v-else-if="name === 'cloud-snow'">
+      <path d="M7.5 14.5h9.5a4 4 0 0 0 0-8 5.5 5.5 0 0 0-10.6 1.6A3.3 3.3 0 0 0 7.5 14.5Z" />
+      <path d="M9 18.5h.01M13 18.5h.01M17 18.5h.01M11 21.5h.01M15 21.5h.01" />
+    </template>
+    <template v-else-if="name === 'cloud-bolt'">
+      <path d="M7.5 14.5h9.5a4 4 0 0 0 0-8 5.5 5.5 0 0 0-10.6 1.6A3.3 3.3 0 0 0 7.5 14.5Z" />
+      <path d="m13 16.5-2.5 3.5h3L11 23.5" />
+    </template>
   </svg>
 </template>
 
