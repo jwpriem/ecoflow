@@ -64,6 +64,7 @@
           <span class="f-label">{{ m.home.savedToday }}</span>
           <span class="f-value" :class="{ neg: savedToday < 0 }">{{ eur(savedTodayT) }}</span>
           <span class="f-note">{{ m.home.split(eur(batteryToday), eur(solarToday)) }}</span>
+          <span v-if="solarDirect" class="f-note">{{ m.home.solarDirect(num(solarDirect.used, 1), num(solarDirect.produced, 1)) }}</span>
         </div>
         <div>
           <span class="f-label">{{ m.home.priceNow }}</span>
@@ -293,6 +294,11 @@ const batteryToday = computed(() => d.value?.today?.savingNaive ?? 0)
 // Solar stored in the batteries is counted once, in the battery saving (stored solar counts as free there)
 const { solarValue } = useSolarCount()
 const solarToday = computed(() => solarValue(d.value?.solarToday))
+// Solar the house used the moment it was made (not stored, not fed in): the kWh behind the solar figure
+const solarDirect = computed(() => {
+  const s = d.value?.solarToday
+  return s && s.producedKwh > 0.05 ? { used: s.selfUsedKwh ?? 0, produced: s.producedKwh } : null
+})
 const savedToday = computed(() => batteryToday.value + solarToday.value)
 const savedTodayT = useTweened(() => savedToday.value)
 const priceT = useTweened(() => d.value?.price?.total ?? 0)

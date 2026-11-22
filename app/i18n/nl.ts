@@ -229,6 +229,7 @@ export const nl: Messages = {
     noPrices: 'Nog geen prijzen. Voeg je Tibber-token toe in Instellingen: de kwartierprijzen van vandaag en het plan verschijnen binnen een minuut.',
     savedToday: 'Vandaag bespaard',
     split: (b, s) => `Batterijen ${b}, zon ${s}`,
+    solarDirect: (u, p) => `Zon direct in huis: ${u} van ${p} kWh`,
     priceNow: 'Prijs nu',
     feedInNow: (c) => `Je krijgt ${c} voor teruglevering`,
     noPriceNow: 'Nog geen prijs voor dit kwartier',

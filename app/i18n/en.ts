@@ -231,6 +231,7 @@ export const en = {
     noPrices: 'No prices yet. Add your Tibber token in Settings: today’s 15-minute prices and the plan appear within a minute.',
     savedToday: 'Saved today',
     split: (b: string, s: string) => `Batteries ${b}, solar ${s}`,
+    solarDirect: (u: string, p: string) => `Solar used straight away: ${u} of ${p} kWh`,
     priceNow: 'Price now',
     feedInNow: (c: string) => `You get ${c} for feeding in`,
     noPriceNow: 'No price for this quarter yet',
