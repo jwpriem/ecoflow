@@ -63,8 +63,11 @@
         <div>
           <span class="f-label">{{ m.home.savedToday }}</span>
           <span class="f-value" :class="{ neg: savedToday < 0 }">{{ eur(savedTodayT) }}</span>
-          <span class="f-note">{{ m.home.split(eur(batteryToday), eur(solarToday)) }}</span>
-          <span v-if="solarDirect" class="f-note">{{ m.home.solarDirect(num(solarDirect.used, 1), num(solarDirect.produced, 1)) }}</span>
+          <span class="f-note">{{ m.home.parts.battery(eur(batteryToday)) }}</span>
+          <template v-if="solarParts">
+            <span class="f-note">{{ m.home.parts.house(eur(solarParts.house.eur), num(solarParts.house.kwh, 1)) }}<template v-if="!solarParts.house.counted"> {{ m.home.parts.notCounted }}</template></span>
+            <span class="f-note">{{ m.home.parts.fedIn(eur(solarParts.fedIn.eur), num(solarParts.fedIn.kwh, 1)) }}<template v-if="!solarParts.fedIn.counted"> {{ m.home.parts.notCounted }}</template></span>
+          </template>
         </div>
         <div>
           <span class="f-label">{{ m.home.priceNow }}</span>
@@ -292,12 +295,17 @@ const sceneHouseW = computed(() => {
 const state = computed(() => (totalPower.value > 5 ? 'charging' : totalPower.value < -5 ? 'discharging' : 'idle'))
 const batteryToday = computed(() => d.value?.today?.savingNaive ?? 0)
 // Solar stored in the batteries is counted once, in the battery saving (stored solar counts as free there)
-const { solarValue } = useSolarCount()
+const { count: solarCount, solarValue } = useSolarCount()
 const solarToday = computed(() => solarValue(d.value?.solarToday))
-// Solar the house used the moment it was made (not stored, not fed in): the kWh behind the solar figure
-const solarDirect = computed(() => {
+// Today's solar in euros and kWh: used by the house straight away, and fed in. Solar that went into the
+// batteries is in the battery line. Which of the two count in the total follows the solar setting.
+const solarParts = computed(() => {
   const s = d.value?.solarToday
-  return s && s.producedKwh > 0.05 ? { used: s.selfUsedKwh ?? 0, produced: s.producedKwh } : null
+  if (!s || !(s.producedKwh > 0.05)) return null
+  return {
+    house: { eur: s.valueSelfUsed ?? 0, kwh: s.selfUsedKwh ?? 0, counted: solarCount.value !== 'fed_in' },
+    fedIn: { eur: s.valueExported ?? 0, kwh: s.exportedKwh ?? 0, counted: solarCount.value !== 'house' },
+  }
 })
 const savedToday = computed(() => batteryToday.value + solarToday.value)
 const savedTodayT = useTweened(() => savedToday.value)
