@@ -147,3 +147,47 @@ export function sonosAudioClip(auth: SonosAuth, playerId: string, clip: AudioCli
     volume: Math.round(Math.min(100, Math.max(0, clip.volume))),
   })
 }
+
+/** A Sonos favorite or Sonos playlist: what the morning music can start */
+export interface SonosMusicItem {
+  id: string
+  name: string
+  /** Spotify, Sonos Radio, … when Sonos says */
+  service?: string
+}
+
+export async function sonosFavorites(auth: SonosAuth, householdId: string): Promise<SonosMusicItem[]> {
+  const r = await call<{ items?: Array<{ id?: string; name?: string; service?: { name?: string } }> }>('GET', `/households/${encodeURIComponent(householdId)}/favorites`, auth)
+  return (r.items ?? []).filter((i) => i?.id).map((i) => ({ id: String(i.id), name: String(i.name ?? '').trim() || 'Favoriet', ...(i.service?.name ? { service: String(i.service.name) } : {}) }))
+}
+
+export async function sonosPlaylists(auth: SonosAuth, householdId: string): Promise<SonosMusicItem[]> {
+  const r = await call<{ playlists?: Array<{ id?: string; name?: string }> }>('GET', `/households/${encodeURIComponent(householdId)}/playlists`, auth)
+  return (r.playlists ?? []).filter((p) => p?.id).map((p) => ({ id: String(p.id), name: String(p.name ?? '').trim() || 'Playlist' }))
+}
+
+/**
+ * Put these players together in one group (taking them out of the groups they were in) and return its ID.
+ * A soundbar showing TV leaves the TV for the group: that's the point in the morning.
+ */
+export async function sonosCreateGroup(auth: SonosAuth, householdId: string, playerIds: string[]): Promise<string> {
+  const r = await call<{ group?: { id?: string } }>('POST', `/households/${encodeURIComponent(householdId)}/groups/createGroup`, auth, { playerIds })
+  const id = r.group?.id
+  if (!id) throw new SonosError('Sonos made no group', 200, 'other')
+  return id
+}
+
+export function sonosPlayerVolume(auth: SonosAuth, playerId: string, volume: number) {
+  return call('POST', `/players/${encodeURIComponent(playerId)}/playerVolume`, auth, { volume: Math.round(Math.min(100, Math.max(0, volume))) })
+}
+
+/** Replace what the group plays with a favorite or a Sonos playlist, and start it */
+export function sonosLoadMusic(auth: SonosAuth, groupId: string, kind: 'favorite' | 'playlist', id: string, opts: { shuffle?: boolean } = {}) {
+  const body = {
+    ...(kind === 'favorite' ? { favoriteId: id } : { playlistId: id }),
+    action: 'REPLACE',
+    playOnCompletion: true,
+    ...(opts.shuffle ? { playModes: { shuffle: true } } : {}),
+  }
+  return call('POST', `/groups/${encodeURIComponent(groupId)}/${kind === 'favorite' ? 'favorites' : 'playlists'}`, auth, body)
+}
