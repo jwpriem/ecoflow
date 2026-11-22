@@ -212,6 +212,8 @@ export const nl: Messages = {
     sunrise: (t) => `zonsopkomst ${t}`,
     sunUp: 'zon op',
     sunDown: 'zon onder',
+    weather: { clear: 'helder', partly: 'half bewolkt', cloudy: 'bewolkt', fog: 'mist', drizzle: 'motregen', rain: 'regen', snow: 'sneeuw', thunder: 'onweer' },
+    outside: (temp, weather) => `Buiten ${temp}, ${weather}`,
   },
   home: {
     stale: (t) => `Niet bijgewerkt sinds ${t}: de server reageert niet. WattsWise probeert het elke 30 seconden opnieuw.`,

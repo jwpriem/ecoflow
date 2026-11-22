@@ -39,3 +39,24 @@ export async function openMeteoIrradiance(lat: number, lon: number, opts: { past
   })
   return out
 }
+
+export interface CurrentWeather {
+  /** Air temperature 2 m above ground, °C */
+  tempC: number
+  /** WMO weather interpretation code (0 clear … 99 thunderstorm with hail) */
+  code: number
+  /** Model time the values hold for */
+  at: Date
+}
+
+/** The weather right now at the location: temperature and the WMO weather code, from the same free API */
+export async function openMeteoCurrent(lat: number, lon: number, opts: { timeoutMs?: number } = {}): Promise<CurrentWeather | null> {
+  const qs = new URLSearchParams({ latitude: String(lat), longitude: String(lon), current: 'temperature_2m,weather_code', timezone: 'GMT' })
+  const res = await providerCall('openmeteo', (signal) => fetch(`${API}?${qs}`, { headers: { Accept: 'application/json' }, signal }), { retries: 0, timeoutMs: opts.timeoutMs ?? 8000 })
+  const data = (await res.json().catch(() => ({}))) as { current?: { time?: string; temperature_2m?: number | null; weather_code?: number | null }; reason?: string }
+  if (!res.ok) throw new Error(`Open-Meteo: ${data.reason ?? `HTTP ${res.status}`}`)
+  const c = data.current
+  if (typeof c?.temperature_2m !== 'number' || !Number.isFinite(c.temperature_2m) || typeof c.weather_code !== 'number') return null
+  const at = Date.parse(`${c.time}Z`)
+  return { tempC: c.temperature_2m, code: c.weather_code, at: new Date(Number.isNaN(at) ? Date.now() : at) }
+}
