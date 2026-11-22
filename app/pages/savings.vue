@@ -39,7 +39,8 @@
           <template v-if="pickedSlot">
             <b>{{ pickedSlot.title }}</b>
             <span class="num">{{ eur(pickedSlot.battery + pickedSlot.solar) }}</span>
-            <span v-if="!detail" class="muted">{{ m.savings.readout(eur(pickedSlot.battery), eur(pickedSlot.solar)) }}</span>
+            <span v-if="!detail && splitFedIn" class="muted">{{ m.savings.readoutSplit(eur(pickedSlot.battery), eur(pickedSlot.solar - (pickedSlot.fedIn ?? 0)), eur(pickedSlot.fedIn ?? 0)) }}</span>
+            <span v-else-if="!detail" class="muted">{{ m.savings.readout(eur(pickedSlot.battery), eur(pickedSlot.solar)) }}</span>
           </template>
         </p>
         <SavingsChart
@@ -48,7 +49,10 @@
         />
         <ul class="legend">
           <li v-if="detail !== 'solar'"><i class="sw" style="background: var(--text)" />{{ m.savings.batteries }}</li>
-          <li v-if="detail !== 'battery'"><i class="sw" style="background: var(--sun)" />{{ m.savings.solar }}</li>
+          <template v-if="detail !== 'battery'">
+            <li><i class="sw" style="background: var(--sun)" />{{ splitFedIn ? m.savings.solarHouse : m.savings.solar }}</li>
+            <li v-if="splitFedIn"><i class="sw" style="background: var(--sun); opacity: 0.45" />{{ m.savings.solarFedIn }}</li>
+          </template>
           <li v-if="average != null"><i class="avg-sw" />{{ m.savings.average(eur(average), bucket) }}</li>
         </ul>
       </section>
@@ -397,6 +401,9 @@ const projected = computed(() => {
   return p != null && headline.value > 0 ? p : null
 })
 
+// With solar counting both what the house used and what was fed in, the chart shows the fed-in part
+// lighter on top: that part is worth far less once netting ends in 2027
+const splitFedIn = computed(() => solarCount.value === 'both')
 // The chart: every day (or month) of the period, the ones still to come as stubs
 const slotDates = computed(() => slotsOf(range.value))
 const chartSlots = computed(() =>
@@ -406,6 +413,7 @@ const chartSlots = computed(() =>
       label: tickLabel(d),
       battery: detail.value === 'solar' ? 0 : batterySaving(batteryBy.value.get(k)),
       solar: detail.value === 'battery' ? 0 : solarSaving(solarBy.value.get(k)),
+      fedIn: splitFedIn.value && detail.value !== 'battery' ? (solarBy.value.get(k)?.valueExported ?? 0) : 0,
       future: d > now.value,
     }
   }),
