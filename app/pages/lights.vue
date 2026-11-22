@@ -15,7 +15,7 @@
       <section v-if="!state.signedIn" class="nothing">
         <h2>{{ state.connected ? m.lights.signInTitle : m.lights.connectTitle }}</h2>
         <p>{{ state.connected ? m.lights.signInText : m.lights.connectText }}</p>
-        <NuxtLink to="/settings" class="go">{{ m.common.openSettings }}</NuxtLink>
+        <NuxtLink to="/settings/connections" class="go">{{ m.common.openSettings }}</NuxtLink>
       </section>
       <p v-else-if="!state.lights.length" class="foot">{{ m.lights.empty }}</p>
 

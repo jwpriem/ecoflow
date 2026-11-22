@@ -61,7 +61,7 @@ export default defineEventHandler(async (event) => {
   // Started in the iOS app: the sign-in sheet closes on the app's scheme and the app shows the result
   if (fromState?.app) return sendRedirect(event, appReturnUrl('solaredge', error ?? 'ok'))
   // Back to where the sign-in started: onboarding while that's still going, otherwise Settings
-  const back = site?.onboarding ? '/onboarding' : '/settings'
+  const back = site?.onboarding ? '/onboarding' : '/settings/connections'
   return sendRedirect(event, `${back}?solaredge=${encodeURIComponent(error ?? 'ok')}`)
 })
 
@@ -86,7 +86,7 @@ async function hueCallback(event: H3Event) {
   }
   console.log(`[hue] callback state=${fromState ? 'ok' : 'invalid'} result=${error ?? 'ok'}`)
   if (fromState?.app) return sendRedirect(event, appReturnUrl('hue', error ?? 'ok'))
-  return sendRedirect(event, `/settings?hue=${encodeURIComponent(error ?? 'ok')}`)
+  return sendRedirect(event, `/settings/connections?hue=${encodeURIComponent(error ?? 'ok')}`)
 }
 
 /** Google sends ?code&state (or ?error=access_denied) back from the Partner Connections Manager */
@@ -110,7 +110,7 @@ async function nestCallback(event: H3Event) {
   }
   console.log(`[nest] callback state=${fromState ? 'ok' : 'invalid'} result=${error ?? 'ok'}`)
   if (fromState?.app) return sendRedirect(event, appReturnUrl('nest', error ?? 'ok'))
-  return sendRedirect(event, `/settings?nest=${encodeURIComponent(error ?? 'ok')}`)
+  return sendRedirect(event, `/settings/connections?nest=${encodeURIComponent(error ?? 'ok')}`)
 }
 
 /** Sonos sends ?code&state back (or ?error when the owner said no) */
@@ -134,5 +134,5 @@ async function sonosCallback(event: H3Event) {
   }
   console.log(`[sonos] callback state=${fromState ? 'ok' : 'invalid'} result=${error ?? 'ok'}`)
   if (fromState?.app) return sendRedirect(event, appReturnUrl('sonos', error ?? 'ok'))
-  return sendRedirect(event, `/settings?sonos=${encodeURIComponent(error ?? 'ok')}`)
+  return sendRedirect(event, `/settings/connections?sonos=${encodeURIComponent(error ?? 'ok')}`)
 }

@@ -3,7 +3,7 @@
     <header class="page-head">
       <h1>{{ m.cars.title }}</h1>
       <!-- Name, capacity and the Tibber car are set in Settings -->
-      <NuxtLink v-if="cars?.length" to="/settings#cars" class="to-settings">{{ m.cars.editInSettings }}<AppIcon name="chevron" /></NuxtLink>
+      <NuxtLink v-if="cars?.length" to="/settings/cars" class="to-settings">{{ m.cars.editInSettings }}<AppIcon name="chevron" /></NuxtLink>
     </header>
     <LoadError v-if="loadError" :error="loadError" :what="m.cars.what" :busy="busy === 'load'" @retry="retryLoad" />
 
@@ -12,7 +12,7 @@
       <section v-if="!cars.length" class="nothing">
         <h2>{{ m.cars.connectTitle }}</h2>
         <p>{{ m.cars.connectText }}</p>
-        <NuxtLink to="/settings" class="go">{{ m.common.openSettings }}</NuxtLink>
+        <NuxtLink to="/settings/connections" class="go">{{ m.common.openSettings }}</NuxtLink>
       </section>
 
       <!-- With more than one car, one sentence says where they all are first -->

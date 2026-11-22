@@ -86,7 +86,7 @@ export function integrationErrorMessage(provider: string, error: string): Locali
   return (l) => {
     const name = PROVIDER_NAME[provider]?.[l] ?? provider
     // The error itself comes from the provider and stays as it is
-    return { title: l === 'nl' ? `Verbindingsprobleem met ${name}` : `${name} connection problem`, body: error.slice(0, 180), url: '/settings', tag: `error-${provider}` }
+    return { title: l === 'nl' ? `Verbindingsprobleem met ${name}` : `${name} connection problem`, body: error.slice(0, 180), url: '/settings/connections', tag: `error-${provider}` }
   }
 }
 
@@ -103,7 +103,7 @@ export function dailyMessage(t: { savingNaive: number; dischargedKwh: number; ch
 
 /** Sent from Settings to check that notifications reach this device */
 export const testMessage: LocalizedPush = (l) =>
-  l === 'nl' ? { title: 'WattsWise', body: 'Meldingen werken 🎉', url: '/settings', tag: 'test' } : { title: 'WattsWise', body: 'Notifications work 🎉', url: '/settings', tag: 'test' }
+  l === 'nl' ? { title: 'WattsWise', body: 'Meldingen werken 🎉', url: '/settings/general', tag: 'test' } : { title: 'WattsWise', body: 'Notifications work 🎉', url: '/settings/general', tag: 'test' }
 
 const when = (d: Date, now: Date, timeZone: string, l: Locale) => {
   const day = (x: Date) => x.toLocaleDateString('en-CA', { timeZone })
@@ -129,13 +129,13 @@ export function pulseDownMessage(since: Date, now: Date, timeZone: string): Loca
       ? {
           title: 'Tibber Pulse geeft geen data',
           body: `Sinds ${when(since, now, timeZone, l)} komen er geen meterstanden binnen. Kijk of de Pulse nog brandt of haal hem even uit de meter. Je krijgt bericht als hij terug is.`,
-          url: '/settings',
+          url: '/settings/connections',
           tag: 'pulse',
         }
       : {
           title: 'Tibber Pulse sends no data',
           body: `No meter readings since ${when(since, now, timeZone, l)}. Check whether the Pulse is lit, or unplug it from the meter for a moment. You'll hear when it's back.`,
-          url: '/settings',
+          url: '/settings/connections',
           tag: 'pulse',
         }
 }

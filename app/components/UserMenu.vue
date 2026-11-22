@@ -1,5 +1,5 @@
 <template>
-  <!-- Top right on every app page: the account's initials; the menu under it holds Settings and Log out -->
+  <!-- Top right on every app page: the account's initials; the menu under it holds the parts of Settings and Log out -->
   <div ref="root" class="account" @keydown.esc="close(true)">
     <button
       ref="button" type="button" class="avatar" :class="{ open }"
@@ -10,10 +10,11 @@
     <Transition name="menu">
       <div v-if="open" id="account-menu" ref="menu" class="menu" role="menu" :aria-label="m.account.menu" @keydown="arrows">
         <p v-if="me?.email" class="who">{{ me.email }}</p>
-        <NuxtLink to="/settings" role="menuitem" class="item" @click="close()">
-          <AppIcon name="gear" />{{ m.account.settings }}
+        <!-- Each part of Settings straight from here; the page under it has the same list -->
+        <NuxtLink v-for="s in sections" :key="s" :to="`/settings/${s}`" role="menuitem" class="item" :class="{ here: route.path === `/settings/${s}` }" @click="close()">
+          <AppIcon :name="SETTINGS_ICONS[s]" />{{ m.settings.sections[s] }}
         </NuxtLink>
-        <button type="button" role="menuitem" class="item" :disabled="busy" @click="logOut">
+        <button type="button" role="menuitem" class="item logout" :disabled="busy" @click="logOut">
           <AppIcon name="logout" />{{ m.account.logOut }}
         </button>
       </div>
@@ -22,7 +23,9 @@
 </template>
 
 <script setup lang="ts">
-const { me } = useAuth()
+import { SETTINGS_ICONS, visibleSettingsSections } from '~/utils/settingsSections'
+
+const { me, experimental } = useAuth()
 const { m } = useLocale()
 const logout = useLogout()
 const route = useRoute()
@@ -33,6 +36,7 @@ const root = ref<HTMLElement>()
 const button = ref<HTMLButtonElement>()
 const menu = ref<HTMLElement>()
 const letters = computed(() => initials(me.value?.email))
+const sections = computed(() => visibleSettingsSections({ experimental: experimental.value, owner: me.value?.member === 'owner' }))
 
 const items = () => [...(menu.value?.querySelectorAll<HTMLElement>('[role=menuitem]') ?? [])]
 
@@ -119,6 +123,10 @@ watch(() => route.fullPath, () => close())
 .item svg { width: 18px; height: 18px; color: var(--text-2); flex: none; }
 .item:hover, .item:focus-visible { background: var(--fill-2); outline: none; }
 .item:active { transform: none; background: var(--fill); }
+.item.here { font-weight: 650; }
+.item.here svg { color: var(--text); }
+.logout { margin-top: 4px; position: relative; }
+.logout::before { content: ''; position: absolute; top: -3px; left: 10px; right: 10px; height: 1px; background: var(--rule); }
 
 /* Opens from the button: a short drop and scale up from its corner; closes faster than it opens */
 .menu-enter-active { transition: opacity var(--dur-2) var(--ease-out), transform var(--dur-3) var(--ease-out); }

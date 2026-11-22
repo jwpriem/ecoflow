@@ -10,7 +10,7 @@
       <section v-if="!state.signedIn" class="nothing">
         <h2>{{ state.connected ? m.security.signInTitle : m.security.connectTitle }}</h2>
         <p>{{ state.connected ? m.security.signInText : m.security.connectText }}</p>
-        <NuxtLink to="/settings" class="go">{{ m.common.openSettings }}</NuxtLink>
+        <NuxtLink to="/settings/connections" class="go">{{ m.common.openSettings }}</NuxtLink>
       </section>
       <p v-else-if="!state.cameras.length" class="foot">{{ m.security.empty }}</p>
 
@@ -34,7 +34,7 @@
           </NuxtErrorBoundary>
         </div>
         <p class="foot">{{ m.security.foot }}</p>
-        <NuxtLink v-if="state.chime && me?.member === 'owner'" to="/settings#doorbell" class="to-chime">{{ m.security.chime }}<AppIcon name="chevron" /></NuxtLink>
+        <NuxtLink v-if="state.chime && me?.member === 'owner'" to="/settings/sonos#doorbell" class="to-chime">{{ m.security.chime }}<AppIcon name="chevron" /></NuxtLink>
       </template>
     </template>
 
