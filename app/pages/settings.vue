@@ -263,27 +263,40 @@
             <span class="stack-text"><span class="title">{{ m.settings.sonosMorning.enabled }}</span><span class="small muted">{{ m.settings.sonosMorning.enabledHelp }}</span></span>
             <span class="switch"><input v-model="morning.enabled" type="checkbox" :disabled="!morning.playerIds.length || !morning.source" @change="saveMorning({ enabled: morning.enabled })" /><span /></span>
           </label>
-          <label class="field">
-            <span>{{ m.settings.sonosMorning.time }}</span>
-            <input v-model="morning.time" type="time" step="60" required @change="morning.time && saveMorning({ time: morning.time })" />
+          <label class="field-row">
+            <span class="title">{{ m.settings.sonosMorning.time }}</span>
+            <input v-model="morning.time" class="time" type="time" step="60" required @change="morning.time && saveMorning({ time: morning.time })" />
           </label>
           <div class="field">
-            <span>{{ m.settings.sonosMorning.days }}</span>
-            <div class="days">
-              <label v-for="d in [1, 2, 3, 4, 5, 6, 0]" :key="d" class="day">
-                <input type="checkbox" :checked="morning.days.includes(d)" @change="toggleDay(d)" /><span>{{ m.settings.sonosMorning.dayNames[d] }}</span>
+            <span class="field-label">{{ m.settings.sonosMorning.days }}</span>
+            <!-- One row of day toggles, Monday first, in the ink of the segmented controls -->
+            <div class="days" role="group" :aria-label="m.settings.sonosMorning.days">
+              <button
+                v-for="d in [1, 2, 3, 4, 5, 6, 0]" :key="d" type="button" class="day" :class="{ on: morning.days.includes(d) }"
+                :aria-pressed="morning.days.includes(d)" @click="toggleDay(d)"
+              >
+                {{ m.settings.sonosMorning.dayNames[d] }}
+              </button>
+            </div>
+          </div>
+          <div class="field">
+            <span class="field-label">{{ m.settings.sonosMorning.speakers }}</span>
+            <div class="speakers">
+              <label v-for="s in sonosSpeakerList(sonos.meta)" :key="s.id" class="speaker">
+                <span>{{ s.name }}</span>
+                <span class="switch"><input type="checkbox" :checked="morning.playerIds.includes(s.id)" @change="toggleSpeaker(s.id)" /><span /></span>
               </label>
             </div>
           </div>
           <div class="field">
-            <span>{{ m.settings.sonosMorning.speakers }}</span>
-            <label v-for="s in sonosSpeakerList(sonos.meta)" :key="s.id" class="check-row">
-              <input type="checkbox" :checked="morning.playerIds.includes(s.id)" @change="toggleSpeaker(s.id)" /><span>{{ s.name }}</span>
-            </label>
-          </div>
-          <label class="field">
-            <span>{{ m.settings.sonosMorning.music }}</span>
-            <select :value="morning.source ? `${morning.source.kind}:${morning.source.id}` : ''" @focus="loadMusic" @change="pickMusic(($event.target as HTMLSelectElement).value)">
+            <div class="field-head">
+              <label for="morning-music" class="field-label">{{ m.settings.sonosMorning.music }}</label>
+              <button type="button" class="plain small" :disabled="busy === 'sonos-music'" @click="loadMusic(true)">
+                {{ busy === 'sonos-music' ? m.settings.sonosMorning.loadingMusic : m.settings.sonosMorning.loadMusic }}
+              </button>
+            </div>
+            <select
+              id="morning-music" :value="morning.source ? `${morning.source.kind}:${morning.source.id}` : ''" @focus="loadMusic" @change="pickMusic(($event.target as HTMLSelectElement).value)">
               <option value="">{{ m.settings.sonosMorning.pickMusic }}</option>
               <option v-if="morning.source && !musicHas(morning.source)" :value="`${morning.source.kind}:${morning.source.id}`">{{ morning.source.name }}</option>
               <optgroup v-if="music.favorites.length" :label="m.settings.sonosMorning.favorites">
@@ -293,11 +306,6 @@
                 <option v-for="p in music.playlists" :key="p.id" :value="`playlist:${p.id}`">{{ p.name }}</option>
               </optgroup>
             </select>
-          </label>
-          <div class="row">
-            <button type="button" class="plain small" :disabled="busy === 'sonos-music'" @click="loadMusic(true)">
-              {{ busy === 'sonos-music' ? m.settings.sonosMorning.loadingMusic : m.settings.sonosMorning.loadMusic }}
-            </button>
           </div>
           <p v-if="musicLoaded && !music.favorites.length && !music.playlists.length" class="small muted">{{ m.settings.sonosMorning.noMusic }}</p>
           <label class="field">
@@ -1131,9 +1139,20 @@ function onVisible() {
 .doorbell .field-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
 .doorbell .range { width: 100%; }
 .doorbell p { margin: 4px 0 0; }
-.days { display: flex; flex-wrap: wrap; gap: 6px; }
-.day { display: inline-flex; align-items: center; gap: 4px; }
-.check-row { display: flex; align-items: center; gap: 8px; min-height: 32px; }
+.doorbell .field { margin-bottom: 12px; }
+.doorbell .field-label { display: block; font-size: 14px; color: var(--text-2); margin: 0 2px 6px; }
+/* iOS gives a time input a wide native minimum: keep it compact, on the right like the switches */
+.doorbell .time { width: auto; min-width: 0; max-width: 140px; flex: none; text-align: center; padding: 8px 12px; -webkit-appearance: none; appearance: none; }
+.field-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.field-head .field-label { margin-bottom: 6px; }
+.field-head button { font-size: 13px; padding: 0 2px; }
+.days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.day { padding: 8px 0; font-size: 14px; font-weight: 500; color: var(--text-2); min-width: 0; }
+.day.on { background: var(--text); border-color: var(--text); color: var(--bg); font-weight: 600; }
+.day.on:hover { background: var(--text); }
+.speakers { border: 1px solid var(--rule); border-radius: var(--radius-sm); }
+.speaker { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 48px; padding: 8px 12px; cursor: pointer; }
+.speaker + .speaker { border-top: 1px solid var(--rule); }
 .sounds { display: flex; flex-direction: column; gap: 2px; margin: 0 0 6px; }
 .sound-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .sound-row .plain { padding: 4px 0; }
