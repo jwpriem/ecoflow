@@ -1,14 +1,62 @@
 <template>
-  <div v-stagger>
-    <header class="page-head"><h1>{{ m.settings.title }}</h1></header>
+  <!-- One part of Settings; the page /settings/<section> picks which. All parts share the loading and saving below -->
+  <div v-stagger class="groups">
     <LoadError v-if="loadError" :error="loadError" :what="m.load.what.settings" :busy="busy === 'load'" @retry="retryLoad" />
-
-    <!-- On a large screen: how WattsWise runs on the left, what it connects to (accounts, batteries, this device) on the right.
-         On a phone the groups keep one column, in the order set by --o -->
-    <div class="groups">
-      <div v-stagger class="col">
-      <!-- Who steers: one decision with three outcomes -->
-      <section v-if="control && devs.length" class="group" style="--o: 2">
+    <template v-if="section === 'general'">
+      <section class="group">
+        <h3 class="section-title">{{ m.settings.language }}</h3>
+        <div class="list" role="radiogroup" :aria-label="m.settings.language">
+          <button
+            v-for="o in LANGUAGES" :key="o.value" type="button" role="radio" class="list-row indent row-btn" :lang="o.value"
+            :aria-checked="locale === o.value" @click="pickLocale(o.value)"
+          >
+            <span class="lead">
+              <span class="icon-tile lang-tile">{{ o.value.toUpperCase() }}</span>
+              <span class="title">{{ o.label }}</span>
+            </span>
+            <AppIcon v-if="locale === o.value" name="check" class="check" />
+          </button>
+        </div>
+        <p class="foot">{{ m.settings.languageFoot }}</p>
+      </section>
+      <section class="group">
+        <h3 class="section-title">{{ m.settings.notifications }}</h3>
+        <div class="list">
+          <div v-if="push.state.value === 'loading'" class="list-row"><span class="muted">{{ m.settings.checking }}</span></div>
+          <div v-else-if="push.state.value === 'install'" class="list-row stack">
+            <span class="title">{{ m.settings.installTitle }}</span>
+            <span class="small muted">{{ m.settings.installText }}</span>
+          </div>
+          <div v-else-if="push.state.value === 'unsupported'" class="list-row"><span class="small muted">{{ m.settings.unsupported }}</span></div>
+          <div v-else-if="push.state.value === 'denied'" class="list-row stack">
+            <span class="title">{{ m.settings.blocked }}</span>
+            <span class="small muted">{{ push.isIos() ? m.settings.blockedIos : m.settings.blockedWeb }}</span>
+          </div>
+          <div v-else-if="push.state.value === 'off'" class="list-row"><button class="plain" :disabled="push.busy.value" @click="push.enable()">{{ push.busy.value ? m.settings.turningOn : m.settings.turnOn }}</button></div>
+          <template v-else>
+            <label v-for="t in pushTopics" :key="t" class="list-row">
+              <span class="stack-text"><span class="title">{{ m.push.topics[t].label }}</span><span class="small muted">{{ m.push.topics[t].help }}</span></span>
+              <span class="switch"><input type="checkbox" :checked="push.topics.value.includes(t)" @change="push.toggleTopic(t, ($event.target as HTMLInputElement).checked)" /><span /></span>
+            </label>
+            <div class="list-row"><button class="plain" :disabled="push.busy.value" @click="push.test()">{{ push.busy.value ? m.settings.sending : m.settings.sendTest }}</button></div>
+            <div class="list-row"><button class="plain danger" @click="push.disable()">{{ m.settings.turnOff }}</button></div>
+          </template>
+        </div>
+        <p v-if="push.error.value" class="foot error">{{ push.error.value }}</p>
+      </section>
+      <section class="group">
+        <h3 class="section-title">{{ m.settings.display }}</h3>
+        <div class="list">
+          <label class="list-row">
+            <span class="title">{{ m.settings.animate }}</span>
+            <span class="switch"><input type="checkbox" :checked="flow.animate.value" @change="flow.setAnimate(($event.target as HTMLInputElement).checked)" /><span /></span>
+          </label>
+        </div>
+        <p class="foot">{{ m.settings.displayFoot }}</p>
+      </section>
+    </template>
+    <template v-if="section === 'steering'">
+      <section v-if="control && devs.length" class="group">
         <h3 class="section-title">{{ m.settings.whoSteers }}</h3>
         <div class="list" role="radiogroup" :aria-label="m.settings.whoSteers">
           <button
@@ -22,7 +70,7 @@
         <p class="foot" :class="{ error: controlMsg && !controlMsg.ok }" role="status">{{ busy === 'control' ? m.settings.switching : controlMsg?.text ?? (isOwner ? m.settings.controlFoot : m.settings.ownerOnly) }}</p>
         <SteeringConsent ref="consent" />
       </section>
-      <section v-if="strategy" class="group" style="--o: 3">
+      <section v-if="strategy" class="group">
         <h3 class="section-title">{{ m.settings.strategy }}</h3>
         <div class="list" @change="saveStrategySoon">
           <div class="list-row stack">
@@ -70,25 +118,25 @@
             <span class="unit-in"><input v-model.number="strategy.dailyCycleKwh" type="number" step="0.1" inputmode="decimal" /> kWh</span>
           </label>
         </div>
-
-        <h3 class="section-title">{{ m.settings.feedIn }}</h3>
-        <div class="list" @change="saveStrategySoon">
-          <label class="list-row">
-            <span class="stack-text"><span class="title">{{ m.settings.nettingUntil }}</span><span class="small muted">{{ m.settings.help.nettingUntil }}</span></span>
-            <input v-model="strategy.feedIn.nettingUntil" type="date" />
-          </label>
-          <label class="list-row">
-            <span class="stack-text"><span class="title">{{ m.settings.afterFactor }}</span><span class="small muted">{{ m.settings.help.afterFactor }}</span></span>
-            <span class="unit-in">× <input v-model.number="strategy.feedIn.factor" type="number" step="0.05" inputmode="decimal" /></span>
-          </label>
-          <label class="list-row">
-            <span class="stack-text"><span class="title">{{ m.settings.fee }}</span><span class="small muted">{{ m.settings.help.fee }}</span></span>
-            <span class="unit-in">€ <input v-model.number="strategy.feedIn.feeEur" type="number" step="0.005" inputmode="decimal" /> /kWh</span>
-          </label>
-        </div>
         <p class="foot" :class="{ error: strategyMsg && !strategyMsg.ok }" role="status">{{ strategyMsg?.text ?? m.settings.strategyFoot }}</p>
       </section>
-      <section class="group" style="--o: 4">
+      <section class="group">
+        <template v-for="d in devs" :key="d.id">
+          <h3 class="section-title">{{ d.name || m.settings.battery }}</h3>
+          <div class="list" @change="saveDevice(d)">
+            <label class="list-row"><span class="title">{{ m.settings.name }}</span><input v-model="d.name" /></label>
+            <label class="list-row"><span class="title">{{ m.settings.capacity }}</span><span class="unit-in"><input v-model.number="d.capacityWh" type="number" inputmode="numeric" /> Wh</span></label>
+            <label class="list-row"><span class="title">{{ m.settings.maxCharge }}</span><span class="unit-in"><input v-model.number="d.maxChargeW" type="number" inputmode="numeric" /> W</span></label>
+            <label class="list-row"><span class="title">{{ m.settings.maxDischarge }}</span><span class="unit-in"><input v-model.number="d.maxDischargeW" type="number" inputmode="numeric" /> W</span></label>
+          </div>
+          <p v-if="deviceMsg?.id === d.id" class="foot" :class="{ error: deviceMsg?.ok === false }" role="status">{{ deviceMsg?.text }}</p>
+        </template>
+        <p v-if="!devs.length && !loadError" class="foot">{{ m.settings.noBatteries }}</p>
+        <p v-else class="foot">{{ m.settings.batteriesFoot }}</p>
+      </section>
+    </template>
+    <template v-if="section === 'solar'">
+      <section class="group">
         <h3 class="section-title">{{ m.settings.solarSavings }}</h3>
         <div class="list" role="radiogroup" :aria-label="m.settings.solarAria">
           <button
@@ -106,9 +154,69 @@
         <h3 class="section-title">{{ m.location.section }}</h3>
         <SolarLocation />
       </section>
-      </div>
-      <div v-stagger class="col">
-      <section class="group" style="--o: 5">
+      <section v-if="strategy" class="group">
+        <h3 class="section-title">{{ m.settings.feedIn }}</h3>
+        <div class="list" @change="saveStrategySoon">
+          <label class="list-row">
+            <span class="stack-text"><span class="title">{{ m.settings.nettingUntil }}</span><span class="small muted">{{ m.settings.help.nettingUntil }}</span></span>
+            <input v-model="strategy.feedIn.nettingUntil" type="date" />
+          </label>
+          <label class="list-row">
+            <span class="stack-text"><span class="title">{{ m.settings.afterFactor }}</span><span class="small muted">{{ m.settings.help.afterFactor }}</span></span>
+            <span class="unit-in">× <input v-model.number="strategy.feedIn.factor" type="number" step="0.05" inputmode="decimal" /></span>
+          </label>
+          <label class="list-row">
+            <span class="stack-text"><span class="title">{{ m.settings.fee }}</span><span class="small muted">{{ m.settings.help.fee }}</span></span>
+            <span class="unit-in">€ <input v-model.number="strategy.feedIn.feeEur" type="number" step="0.005" inputmode="decimal" /> /kWh</span>
+          </label>
+        </div>
+        <p class="foot" :class="{ error: strategyMsg && !strategyMsg.ok }" role="status">{{ strategyMsg?.text ?? m.settings.strategyFoot }}</p>
+      </section>
+    </template>
+    <template v-if="section === 'cars'">
+      <!-- The cars, set up like the batteries; the Cars tab links here -->
+      <section v-if="cars.length" id="cars" class="group">
+        <template v-for="c in cars" :key="c.id">
+          <h3 class="section-title">{{ c.name }}</h3>
+          <div class="list" @change="saveCar(c)">
+            <label class="list-row"><span class="title">{{ m.cars.name }}</span><input v-model="c.name" /></label>
+            <label class="list-row">
+              <span class="title">{{ m.cars.capacity }}</span>
+              <span class="unit-in"><input v-model.number="c.capacityKwh" type="number" step="0.5" inputmode="decimal" /> kWh</span>
+            </label>
+            <label v-if="tibberCars.length" class="list-row">
+              <span class="title">{{ m.cars.tibberCar }}</span>
+              <select v-model="c.tibberVehicleId">
+                <option :value="null">{{ m.cars.tibberNone }}</option>
+                <option v-for="t in tibberCars" :key="t.id" :value="t.id">{{ t.name }}</option>
+              </select>
+            </label>
+            <label v-if="abrpOn && isOwner" class="list-row">
+              <span class="stack-text"><span class="title">{{ m.cars.abrpToken }}</span><span class="small muted">{{ m.cars.abrpTokenHelp }}</span></span>
+              <input v-model="abrpTokens[c.id]" type="password" autocomplete="off" :placeholder="c.abrp?.linked ? m.cars.abrpTokenSaved : ''" />
+            </label>
+          </div>
+          <p v-if="abrpOn && c.abrp?.linked" class="foot" :class="{ error: !!c.abrp.lastError }">
+            {{ m.cars.abrpStatus(c.abrp.lastSentAt ? time(c.abrp.lastSentAt) : null, c.abrp.lastError) }}
+            <button v-if="isOwner" type="button" class="plain danger small" @click="removeAbrp(c)">{{ m.cars.abrpRemove }}</button>
+          </p>
+          <p v-if="carMsg?.id === c.id" class="foot" :class="{ error: carMsg?.ok === false }" role="status">{{ carMsg?.text }}</p>
+        </template>
+        <!-- What ERE certificates earn per kWh charged: the charging plan on the Cars tab shows its cost after them -->
+        <template v-if="cars.some((c) => c.tibberVehicleId)">
+          <div class="list" @change="saveEre">
+            <label class="list-row">
+              <span class="stack-text"><span class="title">{{ m.cars.ere.label }}</span><span class="small muted">{{ m.cars.ere.help }}</span></span>
+              <span class="unit-in">€ <input v-model.number="ere" type="number" step="0.01" min="0" max="1" inputmode="decimal" /> /kWh</span>
+            </label>
+          </div>
+          <p v-if="ereMsg" class="foot" :class="{ error: !ereMsg.ok }" role="status">{{ ereMsg.text }}</p>
+        </template>
+        <p class="foot">{{ m.settings.carsFoot }}</p>
+      </section>
+    </template>
+    <template v-if="section === 'connections'">
+      <section class="group">
         <h3 class="section-title">{{ m.settings.connections }}</h3>
         <div class="list">
           <details v-for="i in integrations" :key="i.provider" class="conn" :open="['solaredge', 'hue', 'nest', 'sonos'].includes(i.provider) && !!results[i.provider]">
@@ -126,7 +234,7 @@
             <form class="conn-body" @submit.prevent="save(i.provider)">
               <p class="small muted">
                 {{ m.settings.info[i.provider]!.help }}
-                <NuxtLink v-if="GUIDE_FOR[i.provider]" :to="`/guides/${GUIDE_FOR[i.provider]}?from=/settings`" class="guide-link">{{ m.guides.howTo }}</NuxtLink>
+                <NuxtLink v-if="GUIDE_FOR[i.provider]" :to="`/guides/${GUIDE_FOR[i.provider]}?from=/settings/connections`" class="guide-link">{{ m.guides.howTo }}</NuxtLink>
               </p>
               <p v-if="!isOwner" class="small muted">{{ m.settings.ownerOnly }}</p>
               <p v-if="i.lastError" class="error">{{ i.lastError }}</p>
@@ -158,7 +266,7 @@
               <template v-if="i.provider === 'sonos'">
                 <p class="small muted">{{ m.settings.sonosCallback }} <code class="copy">{{ i.redirectUri }}</code></p>
                 <p v-if="i.configured" class="small muted">{{ i.meta.authorized ? m.settings.sonosSpeakers(sonosSpeakerList(i.meta).length) : m.settings.sonosNotSignedIn }}</p>
-                <p v-if="i.configured && i.meta.authorized && isOwner" class="small muted">{{ m.settings.doorbellBelow }}</p>
+                <p v-if="i.configured && i.meta.authorized && isOwner" class="small muted">{{ m.settings.doorbellBelow }} <NuxtLink to="/settings/sonos">{{ m.settings.sections.sonos }}</NuxtLink>.</p>
               </template>
               <p v-if="i.provider === 'tibber_app' && i.configured" class="small muted">
                 {{ m.settings.tibberApp((i.meta.vehicles as any[])?.length ?? 0, (i.meta.chargers as any[])?.length ?? 0) }}
@@ -196,9 +304,15 @@
           </details>
         </div>
       </section>
+    </template>
+    <template v-if="section === 'sonos'">
+      <!-- Sonos not signed in yet (or a member, who can't change it): where to start -->
+      <section v-if="!loadError && (!sonos?.meta.authorized || !isOwner)" class="group">
+        <p class="foot">{{ isOwner ? m.settings.sonosFirst : m.settings.ownerOnly }} <NuxtLink v-if="isOwner" to="/settings/connections">{{ m.settings.sections.connections }}</NuxtLink></p>
+      </section>
       <!-- The doorbell: which speaker plays it and what it sounds like. A section of its own, where you look for it;
-           the Security tab links here (/settings#doorbell) -->
-      <section v-if="sonos?.configured && sonos.meta.authorized && isOwner" id="doorbell" class="group" style="--o: 5">
+           the Security tab links here (/settings/sonos#doorbell) -->
+      <section v-if="sonos?.configured && sonos.meta.authorized && isOwner" id="doorbell" class="group">
         <h3 class="section-title">{{ m.settings.doorbellTitle }}</h3>
         <!-- The doorbell on a speaker: saved as it changes, like the other settings -->
         <div class="doorbell">
@@ -256,7 +370,7 @@
       </section>
       <!-- Morning music: a favorite or playlist at a set time on speakers grouped together. The Sonos app's own alarm
            can only use one speaker, and its presets can't be scheduled -->
-      <section v-if="sonos?.configured && sonos.meta.authorized && isOwner" id="morning" class="group" style="--o: 5">
+      <section v-if="sonos?.configured && sonos.meta.authorized && isOwner" id="morning" class="group">
         <h3 class="section-title">{{ m.settings.morningTitle }}</h3>
         <div class="doorbell">
           <label class="field-row">
@@ -328,113 +442,10 @@
           <p v-if="lastMorning" class="small muted">{{ lastMorningText(lastMorning) }}</p>
         </div>
       </section>
-      <section class="group" style="--o: 6">
-        <template v-for="d in devs" :key="d.id">
-          <h3 class="section-title">{{ d.name || m.settings.battery }}</h3>
-          <div class="list" @change="saveDevice(d)">
-            <label class="list-row"><span class="title">{{ m.settings.name }}</span><input v-model="d.name" /></label>
-            <label class="list-row"><span class="title">{{ m.settings.capacity }}</span><span class="unit-in"><input v-model.number="d.capacityWh" type="number" inputmode="numeric" /> Wh</span></label>
-            <label class="list-row"><span class="title">{{ m.settings.maxCharge }}</span><span class="unit-in"><input v-model.number="d.maxChargeW" type="number" inputmode="numeric" /> W</span></label>
-            <label class="list-row"><span class="title">{{ m.settings.maxDischarge }}</span><span class="unit-in"><input v-model.number="d.maxDischargeW" type="number" inputmode="numeric" /> W</span></label>
-          </div>
-          <p v-if="deviceMsg?.id === d.id" class="foot" :class="{ error: deviceMsg?.ok === false }" role="status">{{ deviceMsg?.text }}</p>
-        </template>
-        <p v-if="!devs.length && !loadError" class="foot">{{ m.settings.noBatteries }}</p>
-        <p v-else class="foot">{{ m.settings.batteriesFoot }}</p>
-      </section>
-      <!-- The cars, set up like the batteries; the Cars tab links here -->
-      <section v-if="cars.length" id="cars" class="group" style="--o: 6">
-        <template v-for="c in cars" :key="c.id">
-          <h3 class="section-title">{{ c.name }}</h3>
-          <div class="list" @change="saveCar(c)">
-            <label class="list-row"><span class="title">{{ m.cars.name }}</span><input v-model="c.name" /></label>
-            <label class="list-row">
-              <span class="title">{{ m.cars.capacity }}</span>
-              <span class="unit-in"><input v-model.number="c.capacityKwh" type="number" step="0.5" inputmode="decimal" /> kWh</span>
-            </label>
-            <label v-if="tibberCars.length" class="list-row">
-              <span class="title">{{ m.cars.tibberCar }}</span>
-              <select v-model="c.tibberVehicleId">
-                <option :value="null">{{ m.cars.tibberNone }}</option>
-                <option v-for="t in tibberCars" :key="t.id" :value="t.id">{{ t.name }}</option>
-              </select>
-            </label>
-            <label v-if="abrpOn && isOwner" class="list-row">
-              <span class="stack-text"><span class="title">{{ m.cars.abrpToken }}</span><span class="small muted">{{ m.cars.abrpTokenHelp }}</span></span>
-              <input v-model="abrpTokens[c.id]" type="password" autocomplete="off" :placeholder="c.abrp?.linked ? m.cars.abrpTokenSaved : ''" />
-            </label>
-          </div>
-          <p v-if="abrpOn && c.abrp?.linked" class="foot" :class="{ error: !!c.abrp.lastError }">
-            {{ m.cars.abrpStatus(c.abrp.lastSentAt ? time(c.abrp.lastSentAt) : null, c.abrp.lastError) }}
-            <button v-if="isOwner" type="button" class="plain danger small" @click="removeAbrp(c)">{{ m.cars.abrpRemove }}</button>
-          </p>
-          <p v-if="carMsg?.id === c.id" class="foot" :class="{ error: carMsg?.ok === false }" role="status">{{ carMsg?.text }}</p>
-        </template>
-        <!-- What ERE certificates earn per kWh charged: the charging plan on the Cars tab shows its cost after them -->
-        <template v-if="cars.some((c) => c.tibberVehicleId)">
-          <div class="list" @change="saveEre">
-            <label class="list-row">
-              <span class="stack-text"><span class="title">{{ m.cars.ere.label }}</span><span class="small muted">{{ m.cars.ere.help }}</span></span>
-              <span class="unit-in">€ <input v-model.number="ere" type="number" step="0.01" min="0" max="1" inputmode="decimal" /> /kWh</span>
-            </label>
-          </div>
-          <p v-if="ereMsg" class="foot" :class="{ error: !ereMsg.ok }" role="status">{{ ereMsg.text }}</p>
-        </template>
-        <p class="foot">{{ m.settings.carsFoot }}</p>
-      </section>
-      <section class="group" style="--o: 7">
-        <h3 class="section-title">{{ m.settings.notifications }}</h3>
-        <div class="list">
-          <div v-if="push.state.value === 'loading'" class="list-row"><span class="muted">{{ m.settings.checking }}</span></div>
-          <div v-else-if="push.state.value === 'install'" class="list-row stack">
-            <span class="title">{{ m.settings.installTitle }}</span>
-            <span class="small muted">{{ m.settings.installText }}</span>
-          </div>
-          <div v-else-if="push.state.value === 'unsupported'" class="list-row"><span class="small muted">{{ m.settings.unsupported }}</span></div>
-          <div v-else-if="push.state.value === 'denied'" class="list-row stack">
-            <span class="title">{{ m.settings.blocked }}</span>
-            <span class="small muted">{{ push.isIos() ? m.settings.blockedIos : m.settings.blockedWeb }}</span>
-          </div>
-          <div v-else-if="push.state.value === 'off'" class="list-row"><button class="plain" :disabled="push.busy.value" @click="push.enable()">{{ push.busy.value ? m.settings.turningOn : m.settings.turnOn }}</button></div>
-          <template v-else>
-            <label v-for="t in pushTopics" :key="t" class="list-row">
-              <span class="stack-text"><span class="title">{{ m.push.topics[t].label }}</span><span class="small muted">{{ m.push.topics[t].help }}</span></span>
-              <span class="switch"><input type="checkbox" :checked="push.topics.value.includes(t)" @change="push.toggleTopic(t, ($event.target as HTMLInputElement).checked)" /><span /></span>
-            </label>
-            <div class="list-row"><button class="plain" :disabled="push.busy.value" @click="push.test()">{{ push.busy.value ? m.settings.sending : m.settings.sendTest }}</button></div>
-            <div class="list-row"><button class="plain danger" @click="push.disable()">{{ m.settings.turnOff }}</button></div>
-          </template>
-        </div>
-        <p v-if="push.error.value" class="foot error">{{ push.error.value }}</p>
-      </section>
-      <section class="group" style="--o: 8">
-        <h3 class="section-title">{{ m.settings.display }}</h3>
-        <div class="list">
-          <label class="list-row">
-            <span class="title">{{ m.settings.animate }}</span>
-            <span class="switch"><input type="checkbox" :checked="flow.animate.value" @change="flow.setAnimate(($event.target as HTMLInputElement).checked)" /><span /></span>
-          </label>
-        </div>
-        <p class="foot">{{ m.settings.displayFoot }}</p>
-      </section>
-      <section class="group" style="--o: 1">
-        <h3 class="section-title">{{ m.settings.language }}</h3>
-        <div class="list" role="radiogroup" :aria-label="m.settings.language">
-          <button
-            v-for="o in LANGUAGES" :key="o.value" type="button" role="radio" class="list-row indent row-btn" :lang="o.value"
-            :aria-checked="locale === o.value" @click="pickLocale(o.value)"
-          >
-            <span class="lead">
-              <span class="icon-tile lang-tile">{{ o.value.toUpperCase() }}</span>
-              <span class="title">{{ o.label }}</span>
-            </span>
-            <AppIcon v-if="locale === o.value" name="check" class="check" />
-          </button>
-        </div>
-        <p class="foot">{{ m.settings.languageFoot }}</p>
-      </section>
-      <HouseholdSection style="--o: 9" />
-      <section class="group" style="--o: 9">
+    </template>
+    <template v-if="section === 'account'">
+      <HouseholdSection />
+      <section class="group">
         <h3 class="section-title">{{ m.settings.account }}</h3>
         <div class="list">
           <div class="list-row indent">
@@ -464,7 +475,7 @@
             <button class="plain" :disabled="busy === 'export'" @click="downloadData">{{ busy === 'export' ? m.settings.preparing : m.settings.downloadData }}</button>
             <span v-if="exportError" class="small error" role="status">{{ exportError }}</span>
           </div>
-          <NuxtLink v-for="doc in ['privacy', 'terms', 'steering'] as const" :key="doc" :to="`/legal/${doc}?from=/settings`" class="list-row indent">
+          <NuxtLink v-for="doc in ['privacy', 'terms', 'steering'] as const" :key="doc" :to="`/legal/${doc}?from=/settings/account`" class="list-row indent">
             <span class="title">{{ m.legal.docs[doc] }}</span>
             <AppIcon name="chevron" class="chev" />
           </NuxtLink>
@@ -484,13 +495,15 @@
           </details>
         </div>
       </section>
-      </div>
-    </div>
+    </template>
   </div>
 </template>
 
 <script setup lang="ts">
 import type { Locale } from '~/composables/useLocale'
+import type { SettingsSection } from '~/utils/settingsSections'
+
+defineProps<{ section: SettingsSection }>()
 const flow = useFlowView()
 const solar = useSolarCount()
 const { m, locale, setLocale, serverText } = useLocale()
@@ -1069,14 +1082,14 @@ async function retryLoad() {
 }
 
 onMounted(async () => {
-  // Back from SolarEdge Connect: /settings?solaredge=ok or ?solaredge=<error>
+  // Back from SolarEdge Connect: /settings/connections?solaredge=ok or ?solaredge=<error>
   const route = useRoute()
   const se = route.query.solaredge
   if (typeof se === 'string') {
     results.solaredge = seResult(se)
     navigateTo({ query: {} }, { replace: true })
   }
-  // Back from signing in with Hue: /settings?hue=ok or ?hue=<error>
+  // Back from signing in with Hue: /settings/connections?hue=ok or ?hue=<error>
   if (typeof route.query.hue === 'string') {
     results.hue = seResult(route.query.hue)
     navigateTo({ query: {} }, { replace: true })
@@ -1093,8 +1106,8 @@ onMounted(async () => {
   }
   push.init().catch(() => (push.state.value = 'unsupported'))
   await safeLoad()
-  // From the Cars tab (/settings#cars) or the Security tab (/settings#doorbell): the group only exists once loaded, so scroll to it now
-  if (route.hash === '#cars' || route.hash === '#doorbell') nextTick(() => document.getElementById(route.hash.slice(1))?.scrollIntoView({ block: 'start' }))
+  // A link to one group (the Security tab goes to /settings/sonos#doorbell): it only exists once loaded, so scroll to it now
+  if (/^#[a-z]+$/.test(route.hash)) nextTick(() => document.getElementById(route.hash.slice(1))?.scrollIntoView({ block: 'start' }))
   // Sign-in may finish in another window or on another device: refresh when the page is shown again
   document.addEventListener('visibilitychange', onVisible)
 })
@@ -1167,15 +1180,8 @@ function onVisible() {
 .range:focus-visible::-webkit-slider-thumb { outline: 2px solid var(--text); outline-offset: 2px; }
 .list-row input.range:focus { box-shadow: none; }
 
-/* Groups are spaced by a gap, not their margins, so the spacing is the same in one column and in two */
-.groups { display: flex; flex-direction: column; gap: 28px; }
-.col { display: contents; }
-.group { order: var(--o); }
+/* Groups are spaced by a gap, not their margins */
+.groups { display: flex; flex-direction: column; gap: 28px; max-width: 640px; }
 .group > .section-title:first-child { margin-top: 0; }
 .group > :last-child { margin-bottom: 0; }
-@media (min-width: 1024px) {
-  .groups { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 56px; align-items: start; }
-  .col { display: flex; flex-direction: column; gap: 36px; }
-  .group { order: 0; }
-}
 </style>

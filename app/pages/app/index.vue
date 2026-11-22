@@ -18,7 +18,7 @@
       <section v-if="!d.devices.length" class="status" style="--o: 2">
         <h1 class="headline">{{ m.home.connectTitle }}</h1>
         <p class="detail">{{ m.home.connectText }}</p>
-        <NuxtLink to="/settings" class="go">{{ m.common.openSettings }}</NuxtLink>
+        <NuxtLink to="/settings/connections" class="go">{{ m.common.openSettings }}</NuxtLink>
       </section>
 
       <!-- What the batteries are doing, in words -->

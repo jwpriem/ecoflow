@@ -9,14 +9,14 @@
         <button v-if="data.override" type="button" class="pill-btn" :disabled="busy" @click="endOverride">{{ m.plan.endOverride }}</button>
         <button v-else-if="canOverride && data.slots.length" type="button" class="pill-btn" @click="openSheet">{{ m.plan.steerSelf }}</button>
       </div>
-      <p v-if="data.steering === 'ecoflow_ai'" class="hint lead">{{ m.plan.aiSteers }} <NuxtLink to="/settings">{{ m.plan.changeInSettings }}</NuxtLink></p>
-      <p v-else-if="data.controlMode === 'manual'" class="hint lead">{{ m.plan.monitorOnly }} <NuxtLink to="/settings">{{ m.plan.changeInSettings }}</NuxtLink></p>
+      <p v-if="data.steering === 'ecoflow_ai'" class="hint lead">{{ m.plan.aiSteers }} <NuxtLink to="/settings/steering">{{ m.plan.changeInSettings }}</NuxtLink></p>
+      <p v-else-if="data.controlMode === 'manual'" class="hint lead">{{ m.plan.monitorOnly }} <NuxtLink to="/settings/steering">{{ m.plan.changeInSettings }}</NuxtLink></p>
 
       <!-- No prices: nothing to plan with -->
       <section v-if="!data.slots.length" class="no-prices">
         <h2>{{ m.plan.noPrices }}</h2>
         <p>{{ m.plan.noPricesText }}</p>
-        <NuxtLink to="/settings">{{ m.common.openSettings }}</NuxtLink>
+        <NuxtLink to="/settings/connections">{{ m.common.openSettings }}</NuxtLink>
       </section>
 
       <div v-else v-stagger class="cols">
