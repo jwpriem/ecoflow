@@ -228,7 +228,12 @@ export const nl: Messages = {
     openPlan: 'Open plan',
     noPrices: 'Nog geen prijzen. Voeg je Tibber-token toe in Instellingen: de kwartierprijzen van vandaag en het plan verschijnen binnen een minuut.',
     savedToday: 'Vandaag bespaard',
-    split: (b, s) => `Batterijen ${b}, zon ${s}`,
+    parts: {
+      battery: (e) => `Batterijen ${e}`,
+      house: (e, k) => `Zon in huis ${e} · ${k} kWh`,
+      fedIn: (e, k) => `Teruglevering ${e} · ${k} kWh`,
+      notCounted: '(niet in totaal)',
+    },
     priceNow: 'Prijs nu',
     feedInNow: (c) => `Je krijgt ${c} voor teruglevering`,
     noPriceNow: 'Nog geen prijs voor dit kwartier',
