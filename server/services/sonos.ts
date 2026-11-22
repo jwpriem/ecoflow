@@ -19,11 +19,24 @@ import {
   sniffAudio,
   type SonosSpeaker,
   sonosSpeakers,
+  isClockTime,
+  isMusicId,
+  localClock,
+  type MorningRun,
+  type MorningSettings,
+  morningDue,
+  morningSettings,
 } from '../lib/sonos'
 import {
   type SonosAuth,
   sonosAudioClip,
+  sonosCreateGroup,
   type SonosCredentials,
+  sonosFavorites,
+  sonosLoadMusic,
+  type SonosMusicItem,
+  sonosPlayerVolume,
+  sonosPlaylists,
   SonosError,
   sonosExchangeCode,
   sonosHouseholds,
@@ -281,6 +294,132 @@ export async function soundByToken(db: Db, token: string) {
   if (!/^[A-Za-z0-9_-]{32}$/.test(token)) return null
   const [row] = await db.select({ mime: doorbellSounds.mime, audio: doorbellSounds.audio }).from(doorbellSounds).where(eq(doorbellSounds.token, token))
   return row ? { mime: row.mime, audio: Buffer.from(row.audio, 'base64') } : null
+}
+
+/** What the morning music can play, per household: the Sonos favorites and Sonos playlists */
+export function listMusic(db: Db, site: Site, key: string) {
+  return withSonos(db, site, key, async (auth) => {
+    const ids = await sonosHouseholds(auth)
+    return Promise.all(
+      ids.map(async (householdId) => {
+        const [favorites, playlists] = await Promise.all([sonosFavorites(auth, householdId), sonosPlaylists(auth, householdId).catch((): SonosMusicItem[] => [])])
+        return { householdId, favorites, playlists }
+      }),
+    )
+  })
+}
+
+/** Change the morning music. Speakers must be ones we listed, all in one household; the music is checked against Sonos. */
+export async function saveMorning(db: Db, site: Site, key: string, patch: Record<string, any>): Promise<MorningSettings> {
+  const sonos = await getIntegration<SonosCredentials>(db, site.id, 'sonos', key)
+  if (!sonos) throw createError({ statusCode: 400, statusMessage: 'Connect Sonos in Settings first' })
+  const next: MorningSettings = { ...morningSettings(sonos.meta) }
+  if (patch.enabled !== undefined) next.enabled = patch.enabled === true
+  if (patch.shuffle !== undefined) next.shuffle = patch.shuffle === true
+  if (patch.time !== undefined) {
+    if (!isClockTime(patch.time)) throw createError({ statusCode: 400, statusMessage: 'Give a time like 07:00' })
+    next.time = patch.time
+  }
+  if (patch.days !== undefined) {
+    if (!Array.isArray(patch.days) || patch.days.some((d: unknown) => !Number.isInteger(d) || (d as number) < 0 || (d as number) > 6))
+      throw createError({ statusCode: 400, statusMessage: 'Unknown day' })
+    next.days = [...new Set<number>(patch.days)].sort()
+  }
+  if (patch.volume !== undefined) {
+    const v = Number(patch.volume)
+    if (!Number.isFinite(v)) throw createError({ statusCode: 400, statusMessage: 'Volume must be a number' })
+    next.volume = Math.round(Math.min(100, Math.max(5, v)))
+  }
+  if (patch.playerIds !== undefined) {
+    if (!Array.isArray(patch.playerIds) || !patch.playerIds.every(isPlayerId)) throw createError({ statusCode: 400, statusMessage: 'Unknown speaker' })
+    const speakers = (sonos.meta.speakers ?? []) as SonosSpeaker[]
+    const picked = [...new Set<string>(patch.playerIds)].map((id) => speakers.find((s) => s.id === id))
+    if (picked.some((s) => !s)) throw createError({ statusCode: 400, statusMessage: 'Unknown speaker' })
+    const households = new Set(picked.map((s) => s!.householdId))
+    if (households.size > 1) throw createError({ statusCode: 400, statusMessage: 'These speakers are in different Sonos households' })
+    if (picked.length && next.source && next.householdId && picked[0]!.householdId !== next.householdId) next.source = null
+    next.players = picked.map((s) => ({ id: s!.id, name: s!.name }))
+    next.householdId = picked[0]?.householdId ?? next.householdId
+  }
+  if (patch.source !== undefined) {
+    if (patch.source === null) next.source = null
+    else {
+      const { kind, id } = patch.source ?? {}
+      if ((kind !== 'favorite' && kind !== 'playlist') || !isMusicId(id)) throw createError({ statusCode: 400, statusMessage: 'Unknown music' })
+      const households = await listMusic(db, site, key)
+      const h = households.find((x) => x.householdId === next.householdId) ?? (next.householdId ? undefined : households[0])
+      const item = h?.[kind === 'favorite' ? 'favorites' : 'playlists'].find((i) => i.id === id)
+      if (!h || !item) throw createError({ statusCode: 400, statusMessage: 'Unknown music' })
+      next.source = { kind, id, name: item.name }
+      next.householdId = h.householdId
+    }
+  }
+  if (next.enabled && !next.players.length) throw createError({ statusCode: 400, statusMessage: 'Pick a speaker first' })
+  if (next.enabled && !next.source) throw createError({ statusCode: 400, statusMessage: 'Pick the music first' })
+  const fresh = (await getIntegration<SonosCredentials>(db, site.id, 'sonos', key)) ?? sonos
+  await updateIntegration(db, fresh.row.id, { meta: { ...fresh.meta, morning: next } }, key)
+  return next
+}
+
+/**
+ * Start the morning music: group the speakers, set each one's volume, then play the favorite or playlist. If a speaker's
+ * ID is unknown now (re-added to the household), list the speakers once and find it by name.
+ */
+async function playMorning(auth: SonosAuth, s: MorningSettings): Promise<Array<{ id: string; name: string }> | null> {
+  const run = async (players: Array<{ id: string; name: string }>) => {
+    const ids = players.map((p) => p.id)
+    const groupId = await sonosCreateGroup(auth, s.householdId!, ids)
+    // Volume first, so the first second isn't at last night's TV volume
+    await Promise.all(ids.map((id) => sonosPlayerVolume(auth, id, s.volume)))
+    await sonosLoadMusic(auth, groupId, s.source!.kind, s.source!.id, { shuffle: s.shuffle })
+  }
+  try {
+    await run(s.players)
+    return null
+  } catch (err) {
+    if (!(err instanceof SonosError && err.kind === 'gone')) throw err
+    const speakers = await listSpeakers(auth)
+    const found = s.players.map((p) => findSpeaker(speakers, { playerId: p.id, playerName: p.name }))
+    const missing = s.players.filter((_, i) => !found[i])
+    if (missing.length) throw new SonosError(`Sonos: ${missing.map((p) => p.name).join(', ')} is not in the household any more`, 404, 'gone')
+    const players = found.map((p) => ({ id: p!.id, name: p!.name }))
+    await run(players)
+    return players
+  }
+}
+
+/**
+ * The scheduled tick (or the owner pressing Test): start the music if it's time. Scheduled starts are kept in
+ * lastMorning, so each morning plays once; a test goes to lastMorningTest and never counts as this morning's.
+ */
+export async function startMorning(db: Db, site: Site, key: string, opts: { test?: boolean; now?: Date } = {}) {
+  const test = !!opts.test
+  const now = opts.now ?? new Date()
+  const sonos = await getIntegration<SonosCredentials>(db, site.id, 'sonos', key)
+  if (!sonos || !sonos.creds.refreshToken) return test ? { outcome: 'failed' as const, error: 'Sign in with Sonos in Settings first' } : { skipped: 'no sonos' }
+  const s = morningSettings(sonos.meta)
+  const last = (sonos.meta.lastMorning ?? null) as MorningRun | null
+  if (!test && !morningDue(s, last, now, site.timezone)) return { skipped: 'not now' }
+  if (test && !s.players.length) return { outcome: 'failed' as const, error: 'Pick a speaker first' }
+  if (test && !s.source) return { outcome: 'failed' as const, error: 'Pick the music first' }
+  const date = localClock(now, site.timezone).date
+  const attempts = !test && last && last.date === date ? last.attempts + 1 : 1
+  let run: MorningRun
+  try {
+    const moved = await withSonos(db, site, key, (auth) => playMorning(auth, s))
+    run = { at: now.toISOString(), date, outcome: 'played', test, attempts }
+    if (moved) {
+      const cur = await getIntegration<SonosCredentials>(db, site.id, 'sonos', key)
+      if (cur) await updateIntegration(db, cur.row.id, { meta: { ...cur.meta, morning: { ...morningSettings(cur.meta), players: moved } } }, key)
+    }
+  } catch (err) {
+    const message = (err as any)?.statusMessage ?? (err as Error).message
+    run = { at: now.toISOString(), date, outcome: 'failed', test, attempts, error: String(message).slice(0, 200) }
+  }
+  const fresh = await getIntegration<SonosCredentials>(db, site.id, 'sonos', key)
+  if (fresh) await updateIntegration(db, fresh.row.id, { meta: { ...fresh.meta, [test ? 'lastMorningTest' : 'lastMorning']: run } }, key)
+  // A failed scheduled start shows up in the job's health (it has an error) and is retried for a few minutes
+  return run
 }
 
 /** Sonos errors as HTTP answers the app can show */

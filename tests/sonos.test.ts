@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { existsSync } from 'node:fs'
-import { customSoundId, DEFAULT_DOORBELL, DOORBELL_SOUNDS, doorbellSettings, findSpeaker, isDoorbellSound, isPlayerId, seasonOn, sniffAudio, SOUND_FILES, sonosSpeakers } from '../server/lib/sonos'
+import { customSoundId, DEFAULT_DOORBELL, DEFAULT_MORNING, localClock, MORNING_MAX_ATTEMPTS, MORNING_WINDOW_MIN, morningDue, morningSettings, DOORBELL_SOUNDS, doorbellSettings, findSpeaker, isDoorbellSound, isPlayerId, seasonOn, sniffAudio, SOUND_FILES, sonosSpeakers } from '../server/lib/sonos'
 import { resetProviders } from '../server/providers/http'
-import { sonosAudioClip, sonosAuthorizeUrl, SonosError, sonosExchangeCode, sonosPlayersOf, sonosRefresh, sonosTokenNeedsRefresh } from '../server/providers/sonos'
+import { sonosAudioClip, sonosAuthorizeUrl, sonosCreateGroup, SonosError, sonosFavorites, sonosLoadMusic, sonosPlayerVolume, sonosExchangeCode, sonosPlayersOf, sonosRefresh, sonosTokenNeedsRefresh } from '../server/providers/sonos'
 
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -180,5 +180,95 @@ describe('doorbell sounds', () => {
     expect(seasonOn(new Date('2026-12-01T08:00:00Z'), tz)).toBe('kerst')
     expect(seasonOn(new Date('2026-12-26T20:00:00Z'), tz)).toBe('kerst')
     expect(seasonOn(new Date('2026-12-27T08:00:00Z'), tz)).toBeNull()
+  })
+})
+
+describe('morning music', () => {
+  const base = morningSettings({
+    morning: {
+      enabled: true,
+      time: '07:00',
+      days: [1, 2, 3, 4, 5],
+      players: [{ id: 'RINCON_BEAM', name: 'Woonkamer' }, { id: 'RINCON_MOVE', name: 'Move' }],
+      householdId: 'HH1',
+      source: { kind: 'favorite', id: 'FV:2/31', name: 'Ochtend' },
+      volume: 18,
+    },
+  })
+  const tz = 'Europe/Amsterdam'
+  // Monday 23 November 2026, 07:00 in Amsterdam (winter time, UTC+1)
+  const mon0700 = new Date('2026-11-23T06:00:00Z')
+  const at = (min: number) => new Date(mon0700.getTime() + min * 60_000)
+
+  it('fills in defaults and drops odd values', () => {
+    expect(morningSettings({})).toEqual(DEFAULT_MORNING)
+    expect(morningSettings({ morning: { time: '25:00', days: [1, 9, 1], volume: 0, source: { kind: 'radio', id: 'x' }, players: [{ id: '../x' }] } })).toMatchObject({
+      time: '07:00',
+      days: [1],
+      volume: 5,
+      source: null,
+      players: [],
+    })
+    expect(base.volume).toBe(18)
+  })
+
+  it('reads the local date, weekday and minute', () => {
+    expect(localClock(mon0700, tz)).toEqual({ date: '2026-11-23', weekday: 1, minutes: 7 * 60 })
+    expect(localClock(new Date('2026-07-05T05:30:00Z'), tz)).toEqual({ date: '2026-07-05', weekday: 0, minutes: 7 * 60 + 30 })
+  })
+
+  it('is due from the set time for a few minutes, on the chosen days', () => {
+    expect(morningDue(base, null, at(-1), tz)).toBe(false)
+    expect(morningDue(base, null, at(0), tz)).toBe(true)
+    expect(morningDue(base, null, at(MORNING_WINDOW_MIN - 1), tz)).toBe(true)
+    expect(morningDue(base, null, at(MORNING_WINDOW_MIN), tz)).toBe(false)
+    // Sunday
+    expect(morningDue(base, null, new Date('2026-11-22T06:00:00Z'), tz)).toBe(false)
+    expect(morningDue({ ...base, enabled: false }, null, at(0), tz)).toBe(false)
+    expect(morningDue({ ...base, source: null }, null, at(0), tz)).toBe(false)
+  })
+
+  it('plays once a morning, and retries a failed start a few times', () => {
+    const played = { at: at(0).toISOString(), date: '2026-11-23', outcome: 'played' as const, test: false, attempts: 1 }
+    expect(morningDue(base, played, at(1), tz)).toBe(false)
+    expect(morningDue(base, { ...played, date: '2026-11-20' }, at(1), tz)).toBe(true)
+    const failed = { ...played, outcome: 'failed' as const }
+    expect(morningDue(base, failed, at(1), tz)).toBe(true)
+    expect(morningDue(base, { ...failed, attempts: MORNING_MAX_ATTEMPTS }, at(2), tz)).toBe(false)
+  })
+})
+
+describe('Sonos group playback', () => {
+  it('groups the speakers, sets their volume and loads a favorite', async () => {
+    const calls: Array<{ url: string; method: string; body: any }> = []
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init: RequestInit) => {
+        calls.push({ url, method: String(init.method), body: init.body ? JSON.parse(String(init.body)) : undefined })
+        if (url.endsWith('/groups/createGroup')) return new Response(JSON.stringify({ group: { id: 'RINCON_BEAM:123', playerIds: ['RINCON_BEAM', 'RINCON_MOVE'] } }), { status: 200 })
+        if (url.endsWith('/favorites') && init.method === 'GET') return new Response(JSON.stringify({ items: [{ id: 'FV:2/31', name: 'Ochtend', service: { name: 'Spotify' } }] }), { status: 200 })
+        return new Response('{}', { status: 200 })
+      }),
+    )
+    expect(await sonosFavorites(auth, 'HH1')).toEqual([{ id: 'FV:2/31', name: 'Ochtend', service: 'Spotify' }])
+    const groupId = await sonosCreateGroup(auth, 'HH1', ['RINCON_BEAM', 'RINCON_MOVE'])
+    expect(groupId).toBe('RINCON_BEAM:123')
+    await sonosPlayerVolume(auth, 'RINCON_MOVE', 130)
+    await sonosLoadMusic(auth, groupId, 'favorite', 'FV:2/31', { shuffle: true })
+    expect(calls[1]).toMatchObject({ method: 'POST', body: { playerIds: ['RINCON_BEAM', 'RINCON_MOVE'] } })
+    expect(calls[2]).toMatchObject({ url: expect.stringContaining('/players/RINCON_MOVE/playerVolume'), body: { volume: 100 } })
+    expect(calls[3]).toMatchObject({
+      url: expect.stringContaining('/groups/RINCON_BEAM%3A123/favorites'),
+      body: { favoriteId: 'FV:2/31', action: 'REPLACE', playOnCompletion: true, playModes: { shuffle: true } },
+    })
+  })
+
+  it('loads a Sonos playlist through the playlists endpoint', async () => {
+    const fetchMock = vi.fn(async () => new Response('{}', { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+    await sonosLoadMusic(auth, 'G1', 'playlist', '7')
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
+    expect(url).toMatch(/\/groups\/G1\/playlists$/)
+    expect(JSON.parse(String(init.body))).toEqual({ playlistId: '7', action: 'REPLACE', playOnCompletion: true })
   })
 })

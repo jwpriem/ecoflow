@@ -108,3 +108,97 @@ export const isPlayerId = (id: unknown): id is string => typeof id === 'string' 
 export function findSpeaker(speakers: SonosSpeaker[], s: Pick<DoorbellSettings, 'playerId' | 'playerName'>): SonosSpeaker | null {
   return speakers.find((p) => p.id === s.playerId) ?? (s.playerName ? speakers.find((p) => p.name === s.playerName) : undefined) ?? null
 }
+
+/** What the morning music plays: a Sonos favorite or a Sonos playlist, by its ID in the household */
+export interface MorningSource {
+  kind: 'favorite' | 'playlist'
+  id: string
+  name: string
+}
+
+/** Music at a set time on one or more speakers together, kept in the Sonos integration's meta */
+export interface MorningSettings {
+  enabled: boolean
+  /** Local time, HH:MM */
+  time: string
+  /** Days it plays: 0 = Sunday … 6 = Saturday */
+  days: number[]
+  /** Played together as one group */
+  players: Array<{ id: string; name: string }>
+  householdId: string | null
+  source: MorningSource | null
+  volume: number
+  shuffle: boolean
+}
+
+export const DEFAULT_MORNING: MorningSettings = {
+  enabled: false,
+  time: '07:00',
+  days: [1, 2, 3, 4, 5],
+  players: [],
+  householdId: null,
+  source: null,
+  volume: 20,
+  shuffle: false,
+}
+
+export const isClockTime = (t: unknown): t is string => typeof t === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(t)
+/** Favorite and playlist IDs are short tokens; anything else never reaches Sonos */
+export const isMusicId = (id: unknown): id is string => typeof id === 'string' && /^[A-Za-z0-9_.:#/-]{1,100}$/.test(id)
+
+/** The stored settings, with anything missing or odd replaced by the default */
+export function morningSettings(meta: Record<string, unknown> | null | undefined): MorningSettings {
+  const d = (meta?.morning ?? {}) as Partial<MorningSettings>
+  const volume = Number(d.volume)
+  const days = Array.isArray(d.days) ? [...new Set(d.days.filter((n) => Number.isInteger(n) && n >= 0 && n <= 6))].sort() : DEFAULT_MORNING.days
+  const players = Array.isArray(d.players) ? d.players.filter((p) => p && isPlayerId(p.id)).map((p) => ({ id: p.id, name: String(p.name ?? '') })) : []
+  const s = d.source
+  const source = s && (s.kind === 'favorite' || s.kind === 'playlist') && isMusicId(s.id) ? { kind: s.kind, id: s.id, name: String(s.name ?? '') } : null
+  return {
+    enabled: d.enabled === true,
+    time: isClockTime(d.time) ? d.time : DEFAULT_MORNING.time,
+    days,
+    players,
+    householdId: typeof d.householdId === 'string' && d.householdId ? d.householdId : null,
+    source,
+    volume: Number.isFinite(volume) ? Math.round(Math.min(100, Math.max(5, volume))) : DEFAULT_MORNING.volume,
+    shuffle: d.shuffle === true,
+  }
+}
+
+/** The household's own date, weekday and minute of the day */
+export function localClock(at: Date, timeZone: string): { date: string; weekday: number; minutes: number } {
+  const parts = new Intl.DateTimeFormat('en-US', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(at)
+  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? ''
+  const weekday = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(get('weekday'))
+  return { date: `${get('year')}-${get('month')}-${get('day')}`, weekday, minutes: Number(get('hour')) * 60 + Number(get('minute')) }
+}
+
+/** The last morning start, shown in Settings and used so a morning plays once */
+export interface MorningRun {
+  at: string
+  /** The household's date it was for */
+  date: string
+  outcome: 'played' | 'failed'
+  test: boolean
+  /** Tries that day; a speaker that was asleep gets a few more minutes */
+  attempts: number
+  error?: string
+}
+
+/** After the set time it may still start this long, for a missed tick or a retry */
+export const MORNING_WINDOW_MIN = 10
+export const MORNING_MAX_ATTEMPTS = 3
+
+/** Should the music start now? Once a day, on the chosen days, from the set time for a few minutes. */
+export function morningDue(s: MorningSettings, last: MorningRun | null | undefined, at: Date, timeZone: string): boolean {
+  if (!s.enabled || !s.players.length || !s.source || !s.householdId) return false
+  const now = localClock(at, timeZone)
+  if (!s.days.includes(now.weekday)) return false
+  const [h, m] = s.time.split(':').map(Number) as [number, number]
+  const since = now.minutes - (h * 60 + m)
+  if (since < 0 || since >= MORNING_WINDOW_MIN) return false
+  const today = last && !last.test && last.date === now.date ? last : null
+  if (!today) return true
+  return today.outcome === 'failed' && today.attempts < MORNING_MAX_ATTEMPTS
+}

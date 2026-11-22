@@ -254,6 +254,72 @@
           <p v-if="sonos.meta.lastRing" class="small muted">{{ lastRingText(sonos.meta.lastRing as any) }}</p>
         </div>
       </section>
+      <!-- Morning music: a favorite or playlist at a set time on speakers grouped together. The Sonos app's own alarm
+           can only use one speaker, and its presets can't be scheduled -->
+      <section v-if="sonos?.configured && sonos.meta.authorized && isOwner" id="morning" class="group" style="--o: 5">
+        <h3 class="section-title">{{ m.settings.morningTitle }}</h3>
+        <div class="doorbell">
+          <label class="field-row">
+            <span class="stack-text"><span class="title">{{ m.settings.sonosMorning.enabled }}</span><span class="small muted">{{ m.settings.sonosMorning.enabledHelp }}</span></span>
+            <span class="switch"><input v-model="morning.enabled" type="checkbox" :disabled="!morning.playerIds.length || !morning.source" @change="saveMorning({ enabled: morning.enabled })" /><span /></span>
+          </label>
+          <label class="field">
+            <span>{{ m.settings.sonosMorning.time }}</span>
+            <input v-model="morning.time" type="time" step="60" required @change="morning.time && saveMorning({ time: morning.time })" />
+          </label>
+          <div class="field">
+            <span>{{ m.settings.sonosMorning.days }}</span>
+            <div class="days">
+              <label v-for="d in [1, 2, 3, 4, 5, 6, 0]" :key="d" class="day">
+                <input type="checkbox" :checked="morning.days.includes(d)" @change="toggleDay(d)" /><span>{{ m.settings.sonosMorning.dayNames[d] }}</span>
+              </label>
+            </div>
+          </div>
+          <div class="field">
+            <span>{{ m.settings.sonosMorning.speakers }}</span>
+            <label v-for="s in sonosSpeakerList(sonos.meta)" :key="s.id" class="check-row">
+              <input type="checkbox" :checked="morning.playerIds.includes(s.id)" @change="toggleSpeaker(s.id)" /><span>{{ s.name }}</span>
+            </label>
+          </div>
+          <label class="field">
+            <span>{{ m.settings.sonosMorning.music }}</span>
+            <select :value="morning.source ? `${morning.source.kind}:${morning.source.id}` : ''" @focus="loadMusic" @change="pickMusic(($event.target as HTMLSelectElement).value)">
+              <option value="">{{ m.settings.sonosMorning.pickMusic }}</option>
+              <option v-if="morning.source && !musicHas(morning.source)" :value="`${morning.source.kind}:${morning.source.id}`">{{ morning.source.name }}</option>
+              <optgroup v-if="music.favorites.length" :label="m.settings.sonosMorning.favorites">
+                <option v-for="f in music.favorites" :key="f.id" :value="`favorite:${f.id}`">{{ f.service ? `${f.name} · ${f.service}` : f.name }}</option>
+              </optgroup>
+              <optgroup v-if="music.playlists.length" :label="m.settings.sonosMorning.playlists">
+                <option v-for="p in music.playlists" :key="p.id" :value="`playlist:${p.id}`">{{ p.name }}</option>
+              </optgroup>
+            </select>
+          </label>
+          <div class="row">
+            <button type="button" class="plain small" :disabled="busy === 'sonos-music'" @click="loadMusic(true)">
+              {{ busy === 'sonos-music' ? m.settings.sonosMorning.loadingMusic : m.settings.sonosMorning.loadMusic }}
+            </button>
+          </div>
+          <p v-if="musicLoaded && !music.favorites.length && !music.playlists.length" class="small muted">{{ m.settings.sonosMorning.noMusic }}</p>
+          <label class="field">
+            <span>{{ m.settings.sonosMorning.volume(morning.volume) }}</span>
+            <input
+              v-model.number="morning.volume" type="range" min="5" max="100" step="5" class="range" :style="{ '--p': (morning.volume - 5) / 95 }"
+              @change="saveMorning({ volume: morning.volume })"
+            />
+          </label>
+          <label class="field-row">
+            <span class="title">{{ m.settings.sonosMorning.shuffle }}</span>
+            <span class="switch"><input v-model="morning.shuffle" type="checkbox" @change="saveMorning({ shuffle: morning.shuffle })" /><span /></span>
+          </label>
+          <div class="row">
+            <button type="button" :disabled="!morning.playerIds.length || !morning.source || busy === 'sonos-morning'" @click="testMorning">
+              {{ busy === 'sonos-morning' ? m.settings.sonosMorning.testing : m.settings.sonosMorning.test }}
+            </button>
+            <span v-if="morningMsg" class="small" :class="morningMsg.ok ? 'pos' : 'error'" role="status">{{ morningMsg.text }}</span>
+          </div>
+          <p v-if="lastMorning" class="small muted">{{ lastMorningText(lastMorning) }}</p>
+        </div>
+      </section>
       <section class="group" style="--o: 6">
         <template v-for="d in devs" :key="d.id">
           <h3 class="section-title">{{ d.name || m.settings.battery }}</h3>
@@ -542,6 +608,7 @@ async function load() {
   const t = integrations.value.find((i) => i.provider === 'tibber')
   homeId.value = (t?.meta.homeId as string) ?? ''
   setDoorbell(integrations.value.find((i) => i.provider === 'sonos')?.meta)
+  setMorning(integrations.value.find((i) => i.provider === 'sonos')?.meta)
   await loadSounds()
   devs.value = await api('/api/devices')
   const plan: any = await api('/api/plan')
@@ -727,6 +794,96 @@ async function testDoorbell() {
     doorbellMsg.value = { ok: false, text: serverText(e?.data?.statusMessage) || m.value.common.failed }
   }
   haptic(doorbellMsg.value?.ok ? 'success' : 'error')
+  busy.value = ''
+}
+// Morning music on Sonos: time, days, speakers grouped together, a favorite or playlist, volume
+type MusicItem = { id: string; name: string; service?: string }
+type MorningSource = { kind: 'favorite' | 'playlist'; id: string; name: string }
+const morning = reactive<{ enabled: boolean; time: string; days: number[]; playerIds: string[]; source: MorningSource | null; volume: number; shuffle: boolean }>({
+  enabled: false,
+  time: '07:00',
+  days: [1, 2, 3, 4, 5],
+  playerIds: [],
+  source: null,
+  volume: 20,
+  shuffle: false,
+})
+const morningMsg = ref<Msg>(null)
+function setMorning(meta: Record<string, any> | undefined) {
+  const d = meta?.morning ?? {}
+  Object.assign(morning, {
+    enabled: d.enabled === true,
+    time: d.time ?? '07:00',
+    days: Array.isArray(d.days) ? d.days : [1, 2, 3, 4, 5],
+    playerIds: Array.isArray(d.players) ? d.players.map((p: any) => p.id) : [],
+    source: d.source ?? null,
+    volume: Number(d.volume ?? 20),
+    shuffle: d.shuffle === true,
+  })
+}
+async function saveMorning(patch: Record<string, unknown>) {
+  morningMsg.value = null
+  try {
+    const r: any = await api('/api/sonos/morning', { method: 'PUT', body: patch })
+    setMorning({ morning: r })
+    morningMsg.value = { ok: true, text: m.value.settings.sonosMorning.saved }
+  } catch (e: any) {
+    morningMsg.value = { ok: false, text: whyNot(e) }
+    setMorning(sonos.value?.meta)
+  }
+}
+function toggleDay(d: number) {
+  const days = morning.days.includes(d) ? morning.days.filter((x) => x !== d) : [...morning.days, d]
+  saveMorning({ days })
+}
+function toggleSpeaker(id: string) {
+  const playerIds = morning.playerIds.includes(id) ? morning.playerIds.filter((x) => x !== id) : [...morning.playerIds, id]
+  // No speakers left switches the music off too
+  saveMorning(playerIds.length ? { playerIds } : { playerIds, enabled: false })
+}
+// Favorites and playlists come from Sonos when the list is opened, not on every visit to Settings
+const music = reactive<{ favorites: MusicItem[]; playlists: MusicItem[] }>({ favorites: [], playlists: [] })
+const musicLoaded = ref(false)
+async function loadMusic(force: boolean | Event = false) {
+  if ((musicLoaded.value && force !== true) || busy.value === 'sonos-music') return
+  busy.value = 'sonos-music'
+  try {
+    const households: Array<{ householdId: string; favorites: MusicItem[]; playlists: MusicItem[] }> = await api('/api/sonos/music')
+    const own = sonos.value?.meta.morning?.householdId
+    const h = households.find((x) => x.householdId === own) ?? households[0]
+    Object.assign(music, { favorites: h?.favorites ?? [], playlists: h?.playlists ?? [] })
+    musicLoaded.value = true
+  } catch (e: any) {
+    morningMsg.value = { ok: false, text: serverText(e?.data?.statusMessage) || m.value.common.failed }
+  }
+  busy.value = ''
+}
+const musicHas = (s: MorningSource) => (s.kind === 'favorite' ? music.favorites : music.playlists).some((i) => i.id === s.id)
+function pickMusic(value: string) {
+  if (!value) return saveMorning({ source: null, enabled: false })
+  const i = value.indexOf(':')
+  saveMorning({ source: { kind: value.slice(0, i), id: value.slice(i + 1) } })
+}
+type MorningRun = { at: string; outcome: string; test: boolean; error?: string }
+const lastMorning = computed<MorningRun | null>(() => {
+  const runs = [sonos.value?.meta.lastMorning, sonos.value?.meta.lastMorningTest].filter(Boolean) as MorningRun[]
+  return runs.sort((a, b) => b.at.localeCompare(a.at))[0] ?? null
+})
+function lastMorningText(r: MorningRun) {
+  const when = new Date(r.at).toLocaleString(m.value.dateLocale, { dateStyle: 'short', timeStyle: 'short' })
+  return m.value.settings.sonosMorning.last(when, r.test, r.outcome === 'played', r.error ? serverText(r.error) : undefined)
+}
+async function testMorning() {
+  busy.value = 'sonos-morning'
+  morningMsg.value = null
+  try {
+    const r: any = await api('/api/sonos/morning/test', { method: 'POST' })
+    morningMsg.value = r.outcome === 'played' ? { ok: true, text: m.value.settings.sonosMorning.played } : { ok: false, text: serverText(r.error) || m.value.common.failed }
+    await safeLoad()
+  } catch (e: any) {
+    morningMsg.value = { ok: false, text: serverText(e?.data?.statusMessage) || m.value.common.failed }
+  }
+  haptic(morningMsg.value?.ok ? 'success' : 'error')
   busy.value = ''
 }
 /** "Laatste keer: 13-11-2026 10:42, afgespeeld" */
@@ -974,6 +1131,9 @@ function onVisible() {
 .doorbell .field-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
 .doorbell .range { width: 100%; }
 .doorbell p { margin: 4px 0 0; }
+.days { display: flex; flex-wrap: wrap; gap: 6px; }
+.day { display: inline-flex; align-items: center; gap: 4px; }
+.check-row { display: flex; align-items: center; gap: 8px; min-height: 32px; }
 .sounds { display: flex; flex-direction: column; gap: 2px; margin: 0 0 6px; }
 .sound-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .sound-row .plain { padding: 4px 0; }

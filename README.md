@@ -33,6 +33,7 @@ Background jobs (`server/tasks`):
 | `strategy` | every 15 min | rebuilds the plan and sends the current mode to the batteries |
 | `prices` | hourly at :05 | Tibber today + tomorrow |
 | `digest` | hourly at :00 | at 21:00 local time: push today's savings |
+| `morning` | every minute | at the owner's set time: Sonos morning music, a favorite or playlist on speakers grouped together (Settings → Morning music) |
 
 ## Local development
 
