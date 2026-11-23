@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import type { Db } from '../db/client'
 import { vehicleSamples, vehicles, type sites } from '../db/schema'
 import { SOLAR_LOCATION } from '../lib/solarForecast'
@@ -6,7 +6,9 @@ import {
   type VehicleReading,
   type ZeekrCredentials,
   type ZeekrSession,
+  isChargeLimitPct,
   zeekrLogin,
+  zeekrSetChargeLimit,
   zeekrVehicleList,
   zeekrVehicleReading,
 } from '../providers/zeekr'
@@ -28,6 +30,18 @@ export interface VehicleState extends VehicleReading {
   pluggedInAt?: string
   /** Last read that saw the car driving or moved: while recent, cars linked to ABRP are read every minute */
   movedAt?: string
+  /** The charge limit last set from WattsWise (0-1) and when: the car can report the old one for a few minutes */
+  limitSet?: { soc: number; at: string }
+}
+
+/** How long a charge limit set from WattsWise wins over a different one the car still reports */
+const LIMIT_SETTLE_MS = 15 * 60_000
+
+/** The charge limit to keep: the one just set from WattsWise while the car may still report the old one. */
+export function settledTarget(read: number | null, limitSet: VehicleState['limitSet'], now: Date): number | null {
+  if (!limitSet) return read
+  const fresh = now.getTime() - new Date(limitSet.at).getTime() < LIMIT_SETTLE_MS
+  return fresh && (read == null || Math.abs(read - limitSet.soc) > 0.004) ? limitSet.soc : read
 }
 
 /** Moving this far between two reads counts as driving, for cars that don't report it */
@@ -165,14 +179,16 @@ export async function readZeekrVehicles(db: Db, site: Site, key: string, now = n
       }
       const prev = (row.state ?? {}) as Partial<VehicleState>
       const state: VehicleState = { ...reading, atHome: isAtHome(reading, home), ts: now.toISOString(), movedAt: movedAt(reading, prev, now) }
+      if (prev.limitSet && now.getTime() - new Date(prev.limitSet.at).getTime() < LIMIT_SETTLE_MS) state.limitSet = prev.limitSet
       if (opts.live) {
         // The light read has no charge limit: keep the last one
-        state.targetSoc = reading.targetSoc ?? prev.targetSoc ?? null
+        state.targetSoc = settledTarget(reading.targetSoc ?? prev.targetSoc ?? null, state.limitSet, now)
         readings.push({ row, state })
         states.push(state)
         if (!state.atHome && !state.pluggedIn) await db.update(vehicles).set({ state: state as unknown as Record<string, unknown> }).where(eq(vehicles.id, row.id))
         continue
       }
+      state.targetSoc = settledTarget(state.targetSoc, state.limitSet, now)
       // Just plugged in at home: ask when the car has to leave
       if (state.atHome && state.pluggedIn && prev.ts && !(prev.atHome && prev.pluggedIn)) {
         await askDeparture(db, site, key, row).catch(() => undefined)
@@ -217,6 +233,39 @@ export async function readZeekrVehicles(db: Db, site: Site, key: string, now = n
   live.set(site.id, states)
   await markIntegration(db, integ.row.id, states.length ? undefined : failure)
   return states
+}
+
+/**
+ * Set a car's charge limit in the car (pct 50-100, steps of 5) and keep it in its state. When the car is plugged in
+ * at home and linked to Tibber, its battery level goes to Tibber again, worked out with the new limit, so Tibber
+ * plans only what the car will take. Returns the new state and whether Tibber got the new level.
+ */
+export async function setZeekrChargeLimit(db: Db, site: Site, key: string, vehicleId: number, pct: number, now = new Date()): Promise<{ state: Partial<VehicleState>; tibber: boolean }> {
+  if (!isChargeLimitPct(pct)) throw new Error('Bad charge limit')
+  const integ = await credentials(db, site, key)
+  if (!integ) throw new Error('Zeekr is not connected')
+  const [row] = await db.select().from(vehicles).where(and(eq(vehicles.id, vehicleId), eq(vehicles.siteId, site.id)))
+  if (!row) throw new Error('Car not found')
+
+  let sess = await session(site.id, integ.creds)
+  try {
+    await zeekrSetChargeLimit(integ.creds, sess, row.vin, pct)
+  } catch {
+    // Token likely expired: log in once more and try again (setting the same limit twice is harmless)
+    sess = await session(site.id, integ.creds, true)
+    await zeekrSetChargeLimit(integ.creds, sess, row.vin, pct)
+  }
+
+  const soc = pct / 100
+  const prev = (row.state ?? {}) as Partial<VehicleState>
+  const state: Partial<VehicleState> = { ...prev, targetSoc: soc, limitSet: { soc, at: now.toISOString() } }
+  await db.update(vehicles).set({ state: state as unknown as Record<string, unknown> }).where(eq(vehicles.id, row.id))
+
+  let tibber = false
+  if (state.atHome && state.pluggedIn && state.soc != null) {
+    tibber = await pushPluggedCarToTibber(db, site, key, row, state.soc, soc, true).catch(() => false)
+  }
+  return { state, tibber }
 }
 
 export function stopZeekr(siteId: number) {

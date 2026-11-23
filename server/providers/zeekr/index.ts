@@ -3,8 +3,9 @@ import { appSignatureHeaders, encryptPassword, encryptVin, hmacHeaders } from '.
 
 /**
  * Client for the Zeekr app API (the same undocumented gateway the Zeekr phone app uses),
- * ported from github.com/Fryyyyy/zeekr_ev_api. Read-only: it logs in, lists the vehicles on
- * the account (including shared cars) and reads each car's status. No command is ever sent.
+ * ported from github.com/Fryyyyy/zeekr_ev_api. It logs in, lists the vehicles on the account
+ * (including shared cars) and reads each car's status. The one command it sends is the charge
+ * limit (`zeekrSetChargeLimit`), set by hand from the Auto tab.
  *
  * The six signing secrets are extracted once from the Android app; see the project memory.
  * A region lookup picks the EU hosts and login server for EU accounts.
@@ -29,6 +30,7 @@ const VEHLIST_PATH = 'ms-app-bff/api/v4.0/veh/vehicle-list'
 const VEHSTATUS_PATH = 'ms-vehicle-status/api/v1.0/vehicle/status/latest'
 const VEHCHARGE_PATH = 'ms-vehicle-status/api/v1.0/vehicle/status/qrvs'
 const CHARGELIMIT_PATH = 'ms-charge-manage/api/v1.0/charge/getLatestSoc'
+const CHARGECONTROL_PATH = 'ms-charge-manage/api/v1.0/charge/control'
 
 const CLIENT_ID = '1JwLroFkFFIpgFGdTRrm4_nzkkwDkfHj7RxJQb7J8tc'
 
@@ -324,6 +326,34 @@ export async function zeekrVehicleReading(creds: ZeekrCredentials, session: Zeek
     statusAt: data.updateTime ? String(data.updateTime) : null,
     ...zeekrExtras(data),
   }
+}
+
+/** The charge limits the Zeekr app offers: 50% to 100% in steps of 5 */
+export const isChargeLimitPct = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v) && v >= 50 && v <= 100 && v % 5 === 0
+
+/**
+ * The charge-control command that sets the charge limit, as github.com/Fryyyyy/zeekr_homeassistant sends it:
+ * service RCS with the limit in percent x 10 (75% -> "750").
+ */
+export function chargeLimitCommand(pct: number): Json {
+  return {
+    command: 'start',
+    serviceId: 'RCS',
+    setting: {
+      serviceParameters: [
+        { key: 'soc', value: String(Math.round(pct * 10)) },
+        { key: 'rcs.setting', value: '1' },
+        { key: 'altCurrent', value: '1' },
+      ],
+    },
+  }
+}
+
+/** Sets the car's charge limit (percent, 50-100). Throws when the gateway refuses it. */
+export async function zeekrSetChargeLimit(creds: ZeekrCredentials, session: ZeekrSession, vin: string, pct: number): Promise<void> {
+  if (!isChargeLimitPct(pct)) throw new ZeekrError(`Bad charge limit ${pct}`)
+  const res = await appCall(creds, session, 'POST', `${session.regionLoginServer}${CHARGECONTROL_PATH}`, chargeLimitCommand(pct), vin)
+  if (!res.success) throw new ZeekrError(`Setting the charge limit failed: ${res.msg ?? res.code ?? 'unknown'}`)
 }
 
 /**

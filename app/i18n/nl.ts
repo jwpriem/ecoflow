@@ -51,6 +51,19 @@ export const nl: Messages = {
       saving: 'Bezig…',
       failed: 'Kon de vertrektijd niet in Tibber zetten',
     },
+    limit: {
+      unset: 'Instellen',
+      title: (name: string) => `Tot hoever moet ${name} laden?`,
+      help: 'Wordt via Zeekr in de auto gezet. WattsWise geeft Tibber het accuniveau door met deze limiet, zodat Tibber alleen plant wat de auto nog laadt.',
+      quick: (p: number) => (p === 100 ? 'Vol (100%)' : `${p}%`),
+      other: 'Anders',
+      now: (p: number) => `Nu in de auto: ${p}%`,
+      cancel: 'Annuleren',
+      save: (p: number) => `Zet op ${p}%`,
+      saving: 'Naar de auto sturen…',
+      failed: 'Kon de laadlimiet niet in de auto zetten',
+      tibber: 'Tibber heeft het accuniveau opnieuw gekregen met de nieuwe limiet.',
+    },
     plan: {
       title: 'Laadplan van Tibber',
       loading: 'Laadplan ophalen…',
@@ -912,6 +925,8 @@ export const nl: Messages = {
     testFailed: 'Test mislukt',
   },
   server: {
+    'Zeekr is not connected': 'Zeekr is niet gekoppeld',
+    'Bad charge limit': 'Kies een laadlimiet van 50% tot 100%',
     'Connect Sonos in Settings first': 'Koppel eerst Sonos bij Instellingen',
     'Sign in with Sonos in Settings first': 'Log eerst bij Instellingen in bij Sonos',
     'Save the Sonos key and secret first': 'Sla eerst de key en het secret van Sonos op',
