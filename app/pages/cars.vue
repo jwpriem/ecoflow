@@ -42,7 +42,7 @@
           />
 
           <!-- Only what matters now: plug and charge power are in the status line, the times in the note below -->
-          <div v-if="c.state.rangeKm != null || c.state.targetSoc != null || c.tibberVehicleId" class="list">
+          <div class="list">
             <div v-if="c.state.rangeKm != null" class="list-row">
               <span class="title">{{ m.cars.rangeLabel }}</span>
               <span class="detail">
@@ -50,15 +50,17 @@
                 <span v-if="fullRange(c)" class="full">{{ m.cars.fullRange(fullRange(c)!) }}</span>
               </span>
             </div>
-            <div v-if="c.state.targetSoc != null" class="list-row">
+            <!-- The charge limit is set in the car through Zeekr -->
+            <button type="button" class="list-row" @click="limiting = c">
               <span class="title">{{ m.cars.target }}</span>
-              <span class="detail">{{ Math.round(c.state.targetSoc * 100) }}%</span>
-            </div>
+              <span class="detail row-end">{{ c.state.targetSoc != null ? `${Math.round(c.state.targetSoc * 100)}%` : m.cars.limit.unset }}<AppIcon name="chevron" class="chev" /></span>
+            </button>
             <button v-if="c.tibberVehicleId" type="button" class="list-row" @click="asking = c">
               <span class="title">{{ m.cars.departure.row }}</span>
               <span class="detail row-end">{{ c.departure ? departureText(c.departure) : m.cars.departure.unset }}<AppIcon name="chevron" class="chev" /></span>
             </button>
           </div>
+          <p v-if="limitNote?.id === c.id" class="note" role="status">{{ limitNote?.text }}</p>
           <ChargePlan v-if="showPlan(c)" :plan="plans[c.id] ?? null" :error="planErrors[c.id]" />
           <p v-if="c.state.ts" class="stamps">{{ m.cars.stamps(time(c.state.ts), c.state.tibberSyncedAt ? time(c.state.tibberSyncedAt) : null, c.abrp?.lastSentAt ? time(c.abrp.lastSentAt) : null) }}</p>
         </section>
@@ -66,6 +68,7 @@
 
       <p v-if="cars.length" class="foot">{{ m.cars.foot }}</p>
       <DepartureSheet :car="asking" @close="closeSheet" @saved="afterDeparture" />
+      <ChargeLimitSheet :car="limiting" @close="limiting = null" @saved="afterLimit" />
     </template>
 
     <template v-else>
@@ -86,6 +89,9 @@ const loadError = ref<any>(null)
 const route = useRoute()
 const router = useRouter()
 const asking = ref<any | null>(null)
+// The car whose charge limit is being set
+const limiting = ref<any | null>(null)
+const limitNote = ref<{ id: number; text: string } | null>(null)
 
 const DAY_INDEX: Record<string, number> = { sunday: 0, monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6 }
 function departureText(d: { day: string; time: string }) {
@@ -149,6 +155,15 @@ async function afterDeparture() {
   // Tibber replans after a new departure time: look again shortly
   setTimeout(() => loadPlans(), 20_000)
 }
+async function afterLimit(r: { targetSoc: number; tibber: boolean }) {
+  const car = limiting.value
+  if (car) car.state = { ...car.state, targetSoc: r.targetSoc }
+  if (!car || !r.tibber) return
+  limitNote.value = { id: car.id, text: m.value.cars.limit.tibber }
+  setTimeout(() => (limitNote.value = null), 8000)
+  // Tibber replans with the new level: look again shortly
+  setTimeout(() => loadPlans(), 20_000)
+}
 async function safeLoad() {
   try {
     await load()
@@ -210,6 +225,7 @@ button.list-row { color: var(--text); }
 .row-end { display: inline-flex; align-items: center; gap: 4px; }
 .chev { width: 16px; height: 16px; color: var(--muted); }
 .stamps { font-size: 13px; color: var(--text-2); margin: 8px 16px 0; font-variant-numeric: tabular-nums; }
+.note { font-size: 13px; color: var(--cheap); margin: 8px 16px 0; }
 .foot { font-size: 13px; color: var(--text-2); margin: 4px 2px 0; max-width: 60ch; }
 
 /* Large screens: cars side by side */

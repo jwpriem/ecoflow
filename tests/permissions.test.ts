@@ -59,6 +59,7 @@ const ACCESS: Record<string, 'owner' | 'household' | 'account' | 'public' | 'adm
   'devices/[id].put.ts': 'household',
   'vehicles/[id].put.ts': 'household',
   'vehicles/[id]/departure.put.ts': 'household',
+  'vehicles/[id]/charge-limit.put.ts': 'household',
   'vehicles/ere.put.ts': 'household',
   // The lamps are for everyone at home: switching them and making groups of them
   'lights/light/[id].put.ts': 'household',
