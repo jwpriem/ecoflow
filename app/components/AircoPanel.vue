@@ -14,12 +14,16 @@
       <p v-if="!a.online" class="small muted">{{ m.settings.airco.offline }}</p>
       <p v-if="!a.state" class="error">{{ m.settings.airco.noStatus(a.error ?? '') }}</p>
       <template v-else>
-        <label class="field-row">
-          <span class="title">{{ m.settings.airco.power }}</span>
-          <span class="switch">
-            <input type="checkbox" :checked="a.state.running" :disabled="busy === a.id" @change="change(a, { running: ($event.target as HTMLInputElement).checked })" /><span />
-          </span>
-        </label>
+        <!-- A round power button: lit when the unit is on -->
+        <div class="field-row">
+          <span class="title">{{ a.state.running ? m.settings.airco.on : m.settings.airco.off }}</span>
+          <button
+            type="button" class="power" :class="{ on: a.state.running }" :aria-pressed="a.state.running" :aria-label="m.settings.airco.power"
+            :disabled="busy === a.id" @click="change(a, { running: !a.state.running })"
+          >
+            <AppIcon name="power" />
+          </button>
+        </div>
         <!-- Five modes don't fit side by side on a phone: a list, like the fan -->
         <label class="field">
           <span class="field-label">{{ m.settings.airco.mode }}</span>
@@ -147,6 +151,10 @@ onMounted(() => load())
 .field-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
 .field { margin-bottom: 12px; }
 .field-label { display: block; font-size: 14px; color: var(--text-2); margin: 0 2px 6px; }
+.power { width: 56px; height: 56px; padding: 0; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; flex: none; background: transparent; border: 1.5px solid var(--rule); color: var(--muted); transition: background-color var(--dur-2) var(--ease-out), border-color var(--dur-2), color var(--dur-2), box-shadow var(--dur-3); }
+.power svg { width: 26px; height: 26px; stroke-width: 2.2; }
+.power.on { background: var(--cta); border-color: var(--cta); color: #fff; box-shadow: 0 0 0 4px color-mix(in srgb, var(--cta) 22%, transparent); }
+.power:disabled { opacity: 0.6; }
 .stepper { display: inline-flex; align-items: center; gap: 10px; }
 .stepper button { width: 36px; height: 36px; padding: 0; border-radius: 50%; font-size: 18px; line-height: 1; }
 .stepper .value { min-width: 7ch; text-align: center; font-variant-numeric: tabular-nums; font-weight: 600; }
