@@ -110,6 +110,10 @@
       <circle cx="18" cy="5" r="2" />
       <path d="M8 19h8.5a3.5 3.5 0 0 0 0-7h-9a3.5 3.5 0 0 1 0-7H16" />
     </template>
+    <template v-else-if="name === 'snowflake'">
+      <path d="M12 2v20M3.3 7l17.4 10M3.3 17 20.7 7" />
+      <path d="m9.5 3.5 2.5 2 2.5-2M9.5 20.5l2.5-2 2.5 2M4 10.5l3-.5-1-3M20 13.5l-3 .5 1 3M4 13.5l3 .5-1 3M20 10.5l-3-.5 1-3" />
+    </template>
     <template v-else-if="name === 'plug'">
       <path d="M9 2v6M15 2v6" />
       <path d="M6 8h12v3a6 6 0 0 1-12 0Z" />
