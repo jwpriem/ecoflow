@@ -87,12 +87,13 @@ export default defineEventHandler(async (event) => {
       // Experimental connections stay invisible to a household without them, even with credentials still stored
       integrations: (experimental ? ints : ints.filter((i) => !isExperimentalProvider(i.provider))).map(({ provider, status }) => ({ provider, status })),
     },
-    // Around the house on Home: whether there are lights and cameras to show, and the last ring at the door
+    // Around the house on Home: whether there are lights, cameras and air conditioners to show, and the last ring at the door
     around: experimental
       ? {
           lights: !!ints.find((i) => i.provider === 'hue')?.meta.authorized,
           security: !!ints.find((i) => i.provider === 'nest')?.meta.authorized,
           doorbell: lastRing(ints.find((i) => i.provider === 'nest')?.meta ?? {}),
+          airco: ints.some((i) => i.provider === 'midea'),
         }
       : null,
   }
