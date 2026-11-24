@@ -132,8 +132,9 @@
         </NuxtLink>
       </section>
 
-      <!-- The house itself, one line each: which lamps are on (and all off in one tap), and the last ring at the door -->
-      <section v-if="lightsSum || d.around?.security" class="block house" style="--o: 9">
+      <!-- The house itself, one line each: which lamps are on (and all off in one tap), each air conditioner
+           (on and off with its round button, the rest in Settings) and the last ring at the door -->
+      <section v-if="lightsSum || aircos.length || d.around?.security" class="block house" style="--o: 9">
         <div v-if="lightsSum" class="house-row">
           <NuxtLink to="/lights" class="hr-main">
             <span class="hr-glow" :style="glow(lightsSum.rgb, lightsSum.brightness)" aria-hidden="true" />
@@ -143,6 +144,21 @@
             </span>
           </NuxtLink>
           <button v-if="lightsSum.on && house?.allId" type="button" class="hr-act" :aria-label="m.home.allOffLabel" @click="allOff">{{ m.home.allOff }}</button>
+        </div>
+        <div v-for="a in aircos" :key="a.id" class="house-row">
+          <NuxtLink to="/settings/airco" class="hr-main">
+            <span class="hr-icon" :class="{ on: a.state?.running }" aria-hidden="true"><AppIcon :name="a.state?.running && a.state.mode === 'heat' ? 'sun' : 'snowflake'" /></span>
+            <span class="hr-text">
+              <span class="hr-title">{{ a.name }}</span>
+              <span class="hr-detail" :class="{ error: aircoError === a.id }" role="status">{{ aircoError === a.id ? m.home.aircoFailed : aircoText(a) }}</span>
+            </span>
+          </NuxtLink>
+          <button
+            v-if="a.state" type="button" class="hr-power" :class="{ on: a.state.running }" :aria-pressed="a.state.running"
+            :aria-label="m.home.aircoPower(a.name, a.state.running)" :disabled="aircoBusy === a.id" @click="toggleAirco(a)"
+          >
+            <AppIcon name="power" />
+          </button>
         </div>
         <div v-if="d.around?.security" class="house-row">
           <NuxtLink :to="ring ? `/security?live=${encodeURIComponent(ring.cameraId)}` : '/security'" class="hr-main">
@@ -211,6 +227,7 @@ async function load() {
     if (v) cars.value = v as any[]
     error.value = null
     loadLights()
+    loadAircos()
   } catch (e) {
     error.value = e
   } finally {
@@ -256,6 +273,45 @@ async function allOff() {
     lightsError.value = m.value.home.lightsFailed
     haptic('error')
     loadLights(true)
+  }
+}
+
+// The air conditioners for the same block. Midea is reached through its cloud too, so the same pace as the lamps.
+interface Airco { id: string; name: string; online: boolean; state: { running: boolean; mode: string | null; targetC: number; indoorC: number | null } | null }
+const aircos = ref<Airco[]>([])
+const aircoBusy = ref('')
+const aircoError = ref('')
+let aircoAt = 0
+async function loadAircos(force = false) {
+  if (!d.value?.around?.airco || (!force && Date.now() - aircoAt < 120_000)) return
+  aircoAt = Date.now()
+  try {
+    aircos.value = (await api<{ aircos: Airco[] }>(`/api/airco${force ? '?fresh=1' : ''}`)).aircos
+  } catch {
+    // Home stays as it is; Settings › Air conditioner says what is wrong with Midea
+  }
+}
+const degC = (c: number | null | undefined) => (c == null ? '–' : `${num(c, c % 1 ? 1 : 0)} °C`)
+function aircoText(a: Airco): string {
+  const s = a.state
+  if (!s) return m.value.settings.airco.offline
+  const head = s.running ? m.value.home.aircoOn(m.value.settings.airco.modes[s.mode ?? 'auto'] ?? '', degC(s.targetC)) : m.value.home.aircoOff
+  return s.indoorC == null ? head : `${head} · ${m.value.home.aircoIndoor(degC(s.indoorC))}`
+}
+/** On or off straight away; the reply is the unit's new state */
+async function toggleAirco(a: Airco) {
+  if (!a.state || aircoBusy.value) return
+  aircoBusy.value = a.id
+  aircoError.value = ''
+  try {
+    const r = await api<{ airco: Airco }>(`/api/airco/${a.id}`, { method: 'PUT', body: { running: !a.state.running } })
+    aircos.value = aircos.value.map((x) => (x.id === a.id ? r.airco : x))
+    haptic('success')
+  } catch {
+    aircoError.value = a.id
+    haptic('error')
+  } finally {
+    aircoBusy.value = ''
   }
 }
 
@@ -459,6 +515,11 @@ onBeforeUnmount(() => {
 .hr-title { font-weight: 600; line-height: 1.25; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .hr-detail { margin-top: 2px; font-size: 14px; color: var(--text-2); font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .hr-detail.error { color: var(--dear); }
+.hr-icon.on { background: color-mix(in srgb, var(--cta) 16%, transparent); color: var(--cta); }
+.hr-power { flex: none; width: 40px; height: 40px; padding: 0; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: transparent; border: 1.5px solid var(--rule); color: var(--muted); transition: background-color var(--dur-2) var(--ease-out), border-color var(--dur-2), color var(--dur-2), box-shadow var(--dur-3); }
+.hr-power svg { width: 20px; height: 20px; stroke-width: 2.2; }
+.hr-power.on { background: var(--cta); border-color: var(--cta); color: #fff; box-shadow: 0 0 0 3px color-mix(in srgb, var(--cta) 22%, transparent); }
+.hr-power:disabled { opacity: 0.6; }
 .hr-act { flex: none; border-radius: 999px; padding: 7px 14px; font-size: 14px; }
 
 .sources { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; color: var(--text-2); }
