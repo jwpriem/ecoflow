@@ -20,13 +20,13 @@
             <input type="checkbox" :checked="a.state.running" :disabled="busy === a.id" @change="change(a, { running: ($event.target as HTMLInputElement).checked })" /><span />
           </span>
         </label>
-        <div class="field">
+        <!-- Five modes don't fit side by side on a phone: a list, like the fan -->
+        <label class="field">
           <span class="field-label">{{ m.settings.airco.mode }}</span>
-          <Segmented
-            full :options="modeOptions" :model-value="a.state.mode ?? 'auto'"
-            @update:model-value="(v) => v !== a.state!.mode && change(a, { mode: v })"
-          />
-        </div>
+          <select :value="a.state.mode ?? 'auto'" :disabled="busy === a.id" @change="change(a, { mode: ($event.target as HTMLSelectElement).value as Mode })">
+            <option v-for="o in modeOptions" :key="o.value" :value="o.value">{{ o.label }}</option>
+          </select>
+        </label>
         <div class="field-row">
           <span class="title">{{ m.settings.airco.target }}</span>
           <span class="stepper">
