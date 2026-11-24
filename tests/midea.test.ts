@@ -13,7 +13,10 @@ import {
 } from '../server/providers/midea/crypto'
 import { isMideaServer, MideaError, mideaAcSet, mideaAcStatus, mideaAppliances, mideaLogin } from '../server/providers/midea'
 import { resetProviders } from '../server/providers/http'
-import { controlFor, parseAircoChange } from '../server/services/midea'
+import { aircoHistory, controlFor, parseAircoChange } from '../server/services/midea'
+import { aircoSamples } from '../server/db/schema'
+import { createAccount } from '../server/services/setup'
+import { freshDb } from './support/pglite'
 
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -237,5 +240,27 @@ describe('air conditioner changes', () => {
   it('keeps the rest of the settings when one thing changes', () => {
     const st = parseStatus(fromHex('c00196660000000c0010005136000025000000000000000000'))
     expect(controlFor(st, { running: false })).toMatchObject({ running: false, mode: 'heat', targetC: 22.5, fanSpeed: 102, eco: true, swing: 0x0c })
+  })
+})
+
+describe('aircoHistory', () => {
+  it('gives the readings of the asked hours per air conditioner, oldest first', async () => {
+    const db = await freshDb()
+    const { site } = await createAccount(db, 'airco@example.com', 'a-long-password')
+    const other = await createAccount(db, 'other@example.com', 'a-long-password')
+    const now = new Date('2026-11-24T19:00:00Z')
+    const ago = (h: number) => new Date(now.getTime() - h * 3_600_000)
+    await db.insert(aircoSamples).values([
+      { siteId: site.id, applianceId: 'A', ts: ago(1), running: true, mode: 'heat', targetC: 22, indoorC: 16, outdoorC: 2 },
+      { siteId: site.id, applianceId: 'A', ts: ago(2), running: false, mode: 'heat', targetC: 22, indoorC: 15, outdoorC: 2.5 },
+      { siteId: site.id, applianceId: 'A', ts: ago(30), running: false, indoorC: 14 },
+      { siteId: site.id, applianceId: 'B', ts: ago(3), running: false, indoorC: 19 },
+      { siteId: other.site.id, applianceId: 'A', ts: ago(1), running: true, indoorC: 25 },
+    ])
+    const h = await aircoHistory(db, site.id, 24, now)
+    expect(Object.keys(h).sort()).toEqual(['A', 'B'])
+    expect(h.A!.map((p) => p.indoorC)).toEqual([15, 16])
+    expect(h.A![1]).toEqual({ ts: ago(1).toISOString(), running: true, targetC: 22, indoorC: 16, outdoorC: 2 })
+    expect((await aircoHistory(db, site.id, 48, now)).A).toHaveLength(3)
   })
 })

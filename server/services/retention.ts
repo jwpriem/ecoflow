@@ -1,6 +1,6 @@
 import { and, eq, isNull, isNotNull, lt, or, sql } from 'drizzle-orm'
 import type { Db } from '../db/client'
-import { authTokens, batteryPool, commandsLog, devices, householdInvites, jobRuns, samples, sessions, type sites, vehicleSamples } from '../db/schema'
+import { aircoSamples, authTokens, batteryPool, commandsLog, devices, householdInvites, jobRuns, samples, sessions, type sites, vehicleSamples } from '../db/schema'
 import { KEEP, MAX_DAYS_PER_RUN, thinUntil } from '../lib/retention'
 import { addMs } from '../lib/time'
 
@@ -79,5 +79,6 @@ export async function purgeExpired(db: Db, now = new Date()) {
     jobRuns: await n(db.delete(jobRuns).where(lt(jobRuns.startedAt, ago(KEEP.jobRunDays))).returning({ id: jobRuns.id })),
     commands: await n(db.delete(commandsLog).where(lt(commandsLog.ts, ago(KEEP.commandDays))).returning({ id: commandsLog.id })),
     vehicleSamples: await n(db.delete(vehicleSamples).where(lt(vehicleSamples.ts, ago(KEEP.vehicleSampleDays))).returning({ id: vehicleSamples.id })),
+    aircoSamples: await n(db.delete(aircoSamples).where(lt(aircoSamples.ts, ago(KEEP.aircoSampleDays))).returning({ id: aircoSamples.id })),
   }
 }

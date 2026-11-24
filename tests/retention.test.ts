@@ -89,8 +89,12 @@ describe('purgeExpired', () => {
       { siteId: site.id, vehicleId: car!.id, ts: days(401) },
       { siteId: site.id, vehicleId: car!.id, ts: days(10) },
     ])
+    await db.insert(schema.aircoSamples).values([
+      { siteId: site.id, applianceId: '1', ts: days(401) },
+      { siteId: site.id, applianceId: '1', ts: days(10) },
+    ])
     const r = await purgeExpired(db, now)
-    expect(r).toMatchObject({ sessions: 1, authTokens: 1, jobRuns: 1, vehicleSamples: 1 })
+    expect(r).toMatchObject({ sessions: 1, authTokens: 1, jobRuns: 1, vehicleSamples: 1, aircoSamples: 1 })
     expect((await db.select().from(schema.sessions)).map((s) => s.tokenHash)).toEqual(['live'])
     expect((await db.select().from(schema.authTokens)).map((t) => t.tokenHash)).toEqual(['fresh'])
   })
