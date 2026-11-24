@@ -74,7 +74,7 @@ export default defineNuxtConfig({
     experimental: { tasks: true, websocket: false },
     scheduledTasks: {
       '* * * * *': ['collect', 'vehiclesLive', 'morning'],
-      '*/5 * * * *': ['vehicles', 'demo'],
+      '*/5 * * * *': ['vehicles', 'demo', 'airco'],
       '*/15 * * * *': ['ledger', 'strategy'],
       '5 * * * *': ['prices'],
       '0 * * * *': ['digest'],

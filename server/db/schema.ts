@@ -255,6 +255,24 @@ export const vehicleSamples = pgTable(
   (t) => [index('vehicle_samples_vehicle_ts').on(t.vehicleId, t.ts)],
 )
 
+/** One reading of a Midea air conditioner (every 5 minutes), for the temperature chart on the Air conditioner page */
+export const aircoSamples = pgTable(
+  'airco_samples',
+  {
+    id: bigserial('id', { mode: 'number' }).primaryKey(),
+    siteId: integer('site_id').notNull().references(() => sites.id, { onDelete: 'cascade' }),
+    /** Midea's appliance code */
+    applianceId: text('appliance_id').notNull(),
+    ts: ts('ts').notNull(),
+    running: boolean('running').notNull().default(false),
+    mode: text('mode'),
+    targetC: doublePrecision('target_c'),
+    indoorC: doublePrecision('indoor_c'),
+    outdoorC: doublePrecision('outdoor_c'),
+  },
+  (t) => [index('airco_samples_site_appliance_ts').on(t.siteId, t.applianceId, t.ts)],
+)
+
 /** Prices in EUR/kWh per slot. total = what you pay for importing (incl. energy tax + VAT). */
 export const prices = pgTable(
   'prices',

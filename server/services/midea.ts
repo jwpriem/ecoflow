@@ -1,6 +1,7 @@
+import { and, asc, eq, gte } from 'drizzle-orm'
 import { createError } from 'h3'
 import type { Db } from '../db/client'
-import type { sites } from '../db/schema'
+import { aircoSamples, type sites } from '../db/schema'
 import { AC_MODES, type AcControl, type AcMode, type AcState, isValidTarget } from '../providers/midea/ac'
 import { type MideaCredentials, MideaError, type MideaSession, mideaAcSet, mideaAcStatus, mideaAppliances, mideaLogin } from '../providers/midea'
 import { ProviderUnavailableError } from '../providers/http'
@@ -179,4 +180,39 @@ export function mideaHttpError(err: unknown): never {
   if (err instanceof MideaError) throw createError({ statusCode: err.kind === 'other' ? 502 : 409, statusMessage: err.message })
   if (err instanceof ProviderUnavailableError) throw createError({ statusCode: 503, statusMessage: err.message })
   throw err
+}
+
+/**
+ * The 5-minute job: read every air conditioner and keep indoor, outdoor and target temperature for the chart.
+ * Households without Midea are skipped; a unit without a status gets no row.
+ */
+export async function recordAircos(db: Db, site: Site, key: string): Promise<{ skipped: string } | { recorded: number }> {
+  if (!(await getIntegration(db, site.id, 'midea', key))) return { skipped: 'no Midea' }
+  const aircos = await readAircos(db, site, key, { fresh: true })
+  const ts = new Date()
+  const rows = aircos
+    .filter((a) => a.state)
+    .map((a) => ({ siteId: site.id, applianceId: a.id, ts, running: a.state!.running, mode: a.state!.mode, targetC: a.state!.targetC, indoorC: a.state!.indoorC, outdoorC: a.state!.outdoorC }))
+  if (rows.length) await db.insert(aircoSamples).values(rows)
+  return { recorded: rows.length }
+}
+
+export interface AircoPoint {
+  ts: string
+  running: boolean
+  targetC: number | null
+  indoorC: number | null
+  outdoorC: number | null
+}
+
+/** The readings of the last `hours`, per air conditioner, oldest first */
+export async function aircoHistory(db: Db, siteId: number, hours: number, now = new Date()): Promise<Record<string, AircoPoint[]>> {
+  const rows = await db
+    .select()
+    .from(aircoSamples)
+    .where(and(eq(aircoSamples.siteId, siteId), gte(aircoSamples.ts, new Date(now.getTime() - hours * 3_600_000))))
+    .orderBy(asc(aircoSamples.ts))
+  const out: Record<string, AircoPoint[]> = {}
+  for (const r of rows) (out[r.applianceId] ??= []).push({ ts: r.ts.toISOString(), running: r.running, targetC: r.targetC, indoorC: r.indoorC, outdoorC: r.outdoorC })
+  return out
 }

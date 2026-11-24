@@ -45,6 +45,18 @@
         <p v-if="a.state.errorCode" class="error">{{ m.settings.airco.unitError(a.state.errorCode) }}</p>
         <p class="small muted">{{ busy === a.id ? m.settings.airco.sending : a.readAt ? m.settings.airco.read(time(a.readAt)) : '' }}</p>
       </template>
+      <div class="history">
+        <div class="history-head">
+          <span class="field-label">{{ m.settings.airco.history }}</span>
+          <Segmented :options="rangeOptions" :model-value="hours" @update:model-value="setHours" />
+        </div>
+        <AircoChart :points="history[a.id] ?? []" :hours="hours" :label="`${m.settings.airco.history} ${a.name}`" :empty-text="m.settings.airco.historyEmpty" />
+        <div class="legend small muted">
+          <span><i class="key indoor" />{{ m.settings.airco.indoor }}</span>
+          <span><i class="key outdoor" />{{ m.settings.airco.outdoor }}</span>
+          <span><i class="key target" />{{ m.settings.airco.targetLegend }}</span>
+        </div>
+      </div>
     </div>
     <button v-if="aircos" type="button" class="plain small" :disabled="loading" @click="load(true)">{{ m.settings.airco.refresh }}</button>
     <p class="foot">{{ m.settings.airco.foot }}</p>
@@ -55,6 +67,7 @@
 type Mode = 'auto' | 'cool' | 'dry' | 'heat' | 'fan'
 interface AcState { running: boolean; mode: Mode | null; targetC: number; fanSpeed: number; indoorC: number | null; outdoorC: number | null; errorCode: number }
 interface Airco { id: string; name: string; online: boolean; state: AcState | null; error?: string; readAt: string | null }
+interface Point { ts: string; running: boolean; targetC: number | null; indoorC: number | null; outdoorC: number | null }
 type Change = Partial<Pick<AcState, 'running' | 'targetC' | 'fanSpeed'>> & { mode?: Mode }
 
 const MIN_C = 16
@@ -68,6 +81,26 @@ const aircos = ref<Airco[] | null>(null)
 const loading = ref(false)
 const busy = ref('')
 const error = ref('')
+// The temperature chart: the last day or week, from the readings every 5 minutes
+const hours = ref(24)
+const history = ref<Record<string, Point[]>>({})
+const rangeOptions = computed(() => [
+  { value: 24, label: m.value.settings.airco.day },
+  { value: 168, label: m.value.settings.airco.week },
+])
+
+async function loadHistory() {
+  try {
+    history.value = (await api<{ aircos: Record<string, Point[]> }>(`/api/airco/history?hours=${hours.value}`)).aircos
+  } catch {
+    // The chart just stays empty; the controls above still work
+  }
+}
+
+function setHours(h: number) {
+  hours.value = h
+  loadHistory()
+}
 
 const modeOptions = computed(() => (['auto', 'cool', 'dry', 'heat', 'fan'] as const).map((v) => ({ value: v, label: m.value.settings.airco.modes[v]! })))
 const deg = (c: number | null | undefined) => (c == null ? '–' : `${c.toLocaleString('nl-NL', { maximumFractionDigits: 1 })} °C`)
@@ -80,6 +113,7 @@ async function load(fresh = false) {
   try {
     const r = await api<{ aircos: Airco[] }>(`/api/airco${fresh ? '?fresh=1' : ''}`)
     aircos.value = r.aircos
+    await loadHistory()
   } catch (e: any) {
     error.value = serverText(e?.data?.statusMessage) || e?.message || m.value.common.failed
   } finally {
@@ -117,5 +151,14 @@ onMounted(() => load())
 .stepper button { width: 36px; height: 36px; padding: 0; border-radius: 50%; font-size: 18px; line-height: 1; }
 .stepper .value { min-width: 7ch; text-align: center; font-variant-numeric: tabular-nums; font-weight: 600; }
 .airco p { margin: 4px 0 0; }
+.history { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--rule); }
+.history-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+.history-head .field-label { margin: 0; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 6px; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.key { display: inline-block; width: 14px; height: 0; border-top: 2px solid; }
+.key.indoor { border-color: var(--text); }
+.key.outdoor { border-color: var(--sys-blue); }
+.key.target { border-top-style: dashed; border-color: var(--cta); }
 .foot { font-size: 13px; color: var(--text-2); margin: 8px 2px 0; max-width: 60ch; }
 </style>

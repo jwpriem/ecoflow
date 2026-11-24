@@ -34,4 +34,6 @@ export const KEEP = {
   /** Battery commands and car readings: a year and a month, so a year can be compared */
   commandDays: 400,
   vehicleSampleDays: 400,
+  /** Air conditioner readings: as long as the car readings */
+  aircoSampleDays: 400,
 } as const

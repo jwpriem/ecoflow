@@ -36,6 +36,8 @@ export const JOB_OPTIONS: Record<JobName, JobOptions> = {
   retention: { timeoutMs: 600_000, demo: 'include' },
   // Morning music on Sonos: three calls to Sonos, inside its minute
   morning: { timeoutMs: 45_000, skipEmpty: true },
+  // The air conditioners on Midea: one list and one status call per unit
+  airco: { timeoutMs: 90_000, skipEmpty: true },
   // The first run writes and books two months: well over a normal tick
   demo: { timeoutMs: 300_000, demo: 'only' },
 }

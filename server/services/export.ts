@@ -20,6 +20,7 @@ import {
   users,
   vehicleSamples,
   vehicles,
+  aircoSamples,
 } from '../db/schema'
 
 export const EXPORT_FORMAT = 'wattswise-export-1'
@@ -51,6 +52,7 @@ const SECTIONS: Section[] = [
   { name: 'doorbellSounds', table: doorbellSounds, key: doorbellSounds.id, where: (s) => eq(doorbellSounds.siteId, s) },
   { name: 'lightFloors', table: lightFloors, key: lightFloors.id, where: (s) => eq(lightFloors.siteId, s) },
   { name: 'vehicleSamples', table: vehicleSamples, key: vehicleSamples.id, where: (s) => eq(vehicleSamples.siteId, s) },
+  { name: 'aircoSamples', table: aircoSamples, key: aircoSamples.id, where: (s) => eq(aircoSamples.siteId, s) },
 ]
 
 /** The parts about a person or a connection: chosen field by field, so a new secret column never slips in. */
