@@ -1,8 +1,8 @@
 /**
  * Settings, split into pages under /settings/<section>. The account menu (top right) lists them in this order,
- * and /settings shows the same list. Cars and Sonos only exist with the experimental integrations; Sonos is the owner's.
+ * and /settings shows the same list. Cars, Sonos and the air conditioner only exist with the experimental integrations; Sonos is the owner's.
  */
-export const SETTINGS_SECTIONS = ['general', 'steering', 'solar', 'cars', 'connections', 'sonos', 'account'] as const
+export const SETTINGS_SECTIONS = ['general', 'steering', 'solar', 'cars', 'connections', 'sonos', 'airco', 'account'] as const
 export type SettingsSection = (typeof SETTINGS_SECTIONS)[number]
 
 export const SETTINGS_ICONS: Record<SettingsSection, string> = {
@@ -12,6 +12,7 @@ export const SETTINGS_ICONS: Record<SettingsSection, string> = {
   cars: 'car',
   connections: 'plug',
   sonos: 'speaker',
+  airco: 'snowflake',
   account: 'person',
 }
 
@@ -19,7 +20,7 @@ export const isSettingsSection = (s: unknown): s is SettingsSection => SETTINGS_
 
 /** The sections this person sees */
 export function visibleSettingsSections(o: { experimental: boolean; owner: boolean }): SettingsSection[] {
-  return SETTINGS_SECTIONS.filter((s) => (s !== 'cars' && s !== 'sonos') || (o.experimental && (s === 'cars' || o.owner)))
+  return SETTINGS_SECTIONS.filter((s) => (s !== 'cars' && s !== 'sonos' && s !== 'airco') || (o.experimental && (s !== 'sonos' || o.owner)))
 }
 
 /** Where an old /settings link goes: the hash named a group (#cars, #doorbell), the query came back from a sign-in */

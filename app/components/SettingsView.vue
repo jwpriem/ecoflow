@@ -268,6 +268,12 @@
                 <p v-if="i.configured" class="small muted">{{ i.meta.authorized ? m.settings.sonosSpeakers(sonosSpeakerList(i.meta).length) : m.settings.sonosNotSignedIn }}</p>
                 <p v-if="i.configured && i.meta.authorized && isOwner" class="small muted">{{ m.settings.doorbellBelow }} <NuxtLink to="/settings/sonos">{{ m.settings.sections.sonos }}</NuxtLink>.</p>
               </template>
+              <template v-if="i.provider === 'midea' && i.configured && i.status === 'ok'">
+                <p class="small muted">
+                  {{ m.settings.aircoFound(((i.meta.aircos as any[]) ?? []).length) }}
+                  {{ m.settings.aircoBelow }} <NuxtLink to="/settings/airco">{{ m.settings.sections.airco }}</NuxtLink>.
+                </p>
+              </template>
               <p v-if="i.provider === 'tibber_app' && i.configured" class="small muted">
                 {{ m.settings.tibberApp((i.meta.vehicles as any[])?.length ?? 0, (i.meta.chargers as any[])?.length ?? 0) }}
               </p>
@@ -443,6 +449,12 @@
         </div>
       </section>
     </template>
+    <template v-if="section === 'airco'">
+      <section v-if="!loadError && !midea?.configured" class="group">
+        <p class="foot">{{ isOwner ? m.settings.aircoFirst : m.settings.ownerOnly }} <NuxtLink v-if="isOwner" to="/settings/connections">{{ m.settings.sections.connections }}</NuxtLink></p>
+      </section>
+      <AircoPanel v-if="midea?.configured" />
+    </template>
     <template v-if="section === 'account'">
       <HouseholdSection />
       <section class="group">
@@ -546,10 +558,11 @@ const INFO: Record<string, { icon: string; tile: string; fields: Field[] }> = {
   nest: { icon: 'camera', tile: 'var(--surface-3)', fields: [{ key: 'projectId' }, { key: 'clientId' }, { key: 'clientSecret', secret: true }] },
   sonos: { icon: 'speaker', tile: 'var(--surface-3)', fields: [{ key: 'clientId' }, { key: 'clientSecret', secret: true }] },
   abrp: { icon: 'route', tile: 'var(--sys-blue)', fields: [{ key: 'apiKey', secret: true }] },
+  midea: { icon: 'snowflake', tile: 'var(--sys-blue)', fields: [{ key: 'email' }, { key: 'password', secret: true }] },
 }
 
 const integrations = ref<any[]>([])
-const forms = reactive<Record<string, Record<string, string>>>({ tibber: {}, solaredge: {}, ecoflow_official: {}, zeekr: {}, tibber_app: {}, hue: {}, nest: {}, sonos: {}, abrp: {} })
+const forms = reactive<Record<string, Record<string, string>>>({ tibber: {}, solaredge: {}, ecoflow_official: {}, zeekr: {}, tibber_app: {}, hue: {}, nest: {}, sonos: {}, abrp: {}, midea: {} })
 const results = reactive<Record<string, { ok: boolean; text: string } | undefined>>({})
 const busy = ref('')
 const homeId = ref('')
@@ -733,6 +746,7 @@ async function signInSonos() {
 // The doorbell on Sonos: which speaker, how loud, which sound
 type Speaker = { id: string; name: string; audioClip: boolean }
 const sonos = computed(() => integrations.value.find((i) => i.provider === 'sonos'))
+const midea = computed(() => integrations.value.find((i) => i.provider === 'midea'))
 const sonosSpeakerList = (meta: Record<string, any>): Speaker[] => (Array.isArray(meta.speakers) ? meta.speakers : [])
 const BUILTIN_SOUNDS = ['dingdong', 'westminster', 'drie-tonen', 'ouderwets', 'vrolijk', 'halloween', 'kerst', 'chime']
 const doorbell = reactive<{ enabled: boolean; playerId: string | null; volume: number; sound: string; seasonal: boolean }>({

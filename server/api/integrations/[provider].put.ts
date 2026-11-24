@@ -18,6 +18,7 @@ import { refreshIrradiance } from '../../services/solarForecast'
 import { runStrategy } from '../../services/strategy'
 import { syncTibberApp } from '../../services/tibberEv'
 import { readZeekrVehicles, syncZeekrVehicles } from '../../services/zeekr'
+import { stopMidea, syncMidea } from '../../services/midea'
 
 const FIELDS: Record<Provider, string[]> = {
   tibber: ['token'],
@@ -29,6 +30,7 @@ const FIELDS: Record<Provider, string[]> = {
   nest: ['projectId', 'clientId', 'clientSecret'],
   sonos: ['clientId', 'clientSecret'],
   abrp: ['apiKey'],
+  midea: ['email', 'password'],
 }
 
 /** Settings in `meta` the client may set, per provider, each with its check. Anything else in body.meta is ignored. */
@@ -150,6 +152,14 @@ export default defineEventHandler(async (event) => {
     const r = await syncZeekrVehicles(db, site, key)
     // Read the cars straight away so the Cars tab fills without waiting for the 5-minute job
     if (!r.error) await readZeekrVehicles(db, site, key).catch(() => undefined)
+    const synced = await getIntegration(db, site.id, provider, key)
+    return { ok: !r.error, error: r.error ?? null, meta: synced?.meta ?? meta }
+  }
+
+  // Signs in to Midea, lists the air conditioners on the account and reads each one
+  if (provider === 'midea') {
+    stopMidea(site.id)
+    const r = await syncMidea(db, site, key)
     const synced = await getIntegration(db, site.id, provider, key)
     return { ok: !r.error, error: r.error ?? null, meta: synced?.meta ?? meta }
   }

@@ -6,6 +6,7 @@ import { stopPulse } from '../../providers/tibberPulse'
 import { forgetSolarEdge } from '../../services/solaredge'
 import { assertExperimental } from '../../services/experimental'
 import { stopZeekr } from '../../services/zeekr'
+import { stopMidea } from '../../services/midea'
 
 export default defineEventHandler(async (event) => {
   const { site, experimental } = await requireOwner(event)
@@ -17,6 +18,7 @@ export default defineEventHandler(async (event) => {
   if (provider === 'ecoflow_official') stopEcoFlowMqtt(site.id)
   if (provider === 'solaredge') forgetSolarEdge(site.id)
   if (provider === 'tibber_app') forgetTibberApp()
+  if (provider === 'midea') stopMidea(site.id)
   if (provider === 'zeekr') {
     stopZeekr(site.id)
     await db.delete(vehicles).where(eq(vehicles.siteId, site.id))
