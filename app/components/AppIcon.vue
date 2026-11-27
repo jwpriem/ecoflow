@@ -98,6 +98,9 @@
       <path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" />
       <path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11" />
     </template>
+    <template v-else-if="name === 'play'">
+      <path d="M8 5.5v13l10.5-6.5z" />
+    </template>
     <template v-else-if="name === 'speaker-off'">
       <path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" />
       <path d="m16 9.5 5 5M21 9.5l-5 5" />
