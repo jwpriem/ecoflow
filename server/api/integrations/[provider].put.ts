@@ -19,6 +19,7 @@ import { runStrategy } from '../../services/strategy'
 import { syncTibberApp } from '../../services/tibberEv'
 import { readZeekrVehicles, syncZeekrVehicles } from '../../services/zeekr'
 import { stopMidea, syncMidea } from '../../services/midea'
+import { syncTuya } from '../../services/tuya'
 
 const FIELDS: Record<Provider, string[]> = {
   tibber: ['token'],
@@ -31,6 +32,7 @@ const FIELDS: Record<Provider, string[]> = {
   sonos: ['clientId', 'clientSecret'],
   abrp: ['apiKey'],
   midea: ['email', 'password'],
+  tuya: ['accessId', 'accessSecret', 'deviceId'],
 }
 
 /** Settings in `meta` the client may set, per provider, each with its check. Anything else in body.meta is ignored. */
@@ -160,6 +162,13 @@ export default defineEventHandler(async (event) => {
   if (provider === 'midea') {
     stopMidea(site.id)
     const r = await syncMidea(db, site, key)
+    const synced = await getIntegration(db, site.id, provider, key)
+    return { ok: !r.error, error: r.error ?? null, meta: synced?.meta ?? meta }
+  }
+
+  // Reads the Tuya sensor once, so a wrong ID or an expired cloud project shows straight away
+  if (provider === 'tuya') {
+    const r = await syncTuya(db, site, key)
     const synced = await getIntegration(db, site.id, provider, key)
     return { ok: !r.error, error: r.error ?? null, meta: synced?.meta ?? meta }
   }

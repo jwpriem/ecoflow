@@ -28,6 +28,7 @@ const PROVIDER_NAME: Record<string, Record<Locale, string>> = {
   sonos: { en: 'Sonos', nl: 'Sonos' },
   abrp: { en: 'A Better Routeplanner', nl: 'A Better Routeplanner' },
   midea: { en: 'Midea (air conditioner)', nl: 'Midea (airco)' },
+  tuya: { en: 'Tuya (indoor temperature)', nl: 'Tuya (binnentemperatuur)' },
 }
 
 /** Only grid charging and discharging are worth a notification; the other modes are the quiet default. */

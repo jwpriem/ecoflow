@@ -227,6 +227,7 @@ export const nl: Messages = {
     sunDown: 'zon onder',
     weather: { clear: 'helder', partly: 'half bewolkt', cloudy: 'bewolkt', fog: 'mist', drizzle: 'motregen', rain: 'regen', snow: 'sneeuw', thunder: 'onweer' },
     outside: (temp, weather) => `Buiten ${temp}, ${weather}`,
+    inside: (temp, humidity, name) => `Binnen ${temp}${humidity ? `, luchtvochtigheid ${humidity}` : ''} (${name})`,
   },
   home: {
     stale: (t) => `Niet bijgewerkt sinds ${t}: de server reageert niet. WattsWise probeert het elke 30 seconden opnieuw.`,
@@ -670,6 +671,7 @@ export const nl: Messages = {
     },
     sonosFirst: 'Koppel eerst Sonos en log daar in; daarna stel je hier de deurbel en wekmuziek in.',
     aircoFirst: 'Koppel eerst je Midea SmartHome-account.',
+    tuyaSensor: (name: string) => `Verbonden met ${name}.`,
     aircoFound: (n: number) => `Ingelogd, ${n === 1 ? '1 airco' : `${n} airco’s`} gevonden.`,
     aircoBelow: 'Bedienen doe je bij',
     airco: {
@@ -860,6 +862,10 @@ export const nl: Messages = {
         title: 'Midea (airco)',
         help: 'Het e-mailadres en wachtwoord van je Midea SmartHome-app. WattsWise logt in bij de Midea-cloud zoals de app dat doet en leest en bedient je airco’s van daaruit. Onofficieel: het kan na een update van de Midea-app ophouden met werken. Midea staat maar een paar ingelogde apparaten per account toe; weigert het, gebruik dan een tweede SmartHome-account waarmee de airco gedeeld is.',
       },
+      tuya: {
+        title: 'Tuya (binnentemperatuur)',
+        help: 'Leest een temperatuursensor van Tuya of Smart Life rechtstreeks uit de Tuya-cloud en toont de binnentemperatuur naast het weer op Home. Maak een gratis cloud-project op platform.tuya.com (data center Central Europe), koppel je Smart Life- of Tuya-app onder Devices > Link App Account en plak hier de Access ID en het Access Secret van het project en het device-ID van de sensor. De gratis proefperiode van de API moet je elk halfjaar (gratis) verlengen bij Tuya.',
+      },
       abrp: {
         title: 'A Better Routeplanner',
         help: 'Telemetry-API-sleutel van abetterrouteplanner.com/home/app/api-keys/telemetry (gratis). Plak daarna per auto de ABRP-token bij de auto-instellingen hieronder. WattsWise stuurt bij elke meting het accupercentage, laden, de locatie en de snelheid naar ABRP: elke 5 minuten, en elke minuut zolang een auto rijdt.',
@@ -886,6 +892,9 @@ export const nl: Messages = {
       email: 'E-mail',
       vinIv: 'VIN IV',
       apiKey: 'API-sleutel',
+      accessId: 'Access ID',
+      accessSecret: 'Access Secret',
+      deviceId: 'Device-ID',
     },
     battery: 'Batterij',
     name: 'Naam',

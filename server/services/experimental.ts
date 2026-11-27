@@ -6,10 +6,10 @@ import { experimentalEnabled } from './members'
 
 /**
  * Integrations only the owner's own household uses: Zeekr and the Tibber app, with the cars and Tibber's
- * EV charging behind them, Philips Hue for the Lights tab and Google Nest for the Security tab, Sonos for the doorbell chime, Midea for the air conditioner. A household without experimental on never sees or calls them; switching it off
+ * EV charging behind them, Philips Hue for the Lights tab and Google Nest for the Security tab, Sonos for the doorbell chime, Midea for the air conditioner, Tuya for the indoor temperature. A household without experimental on never sees or calls them; switching it off
  * keeps their credentials and data, they are just no longer used.
  */
-export const EXPERIMENTAL_PROVIDERS: readonly Provider[] = ['zeekr', 'tibber_app', 'hue', 'nest', 'sonos', 'abrp', 'midea']
+export const EXPERIMENTAL_PROVIDERS: readonly Provider[] = ['zeekr', 'tibber_app', 'hue', 'nest', 'sonos', 'abrp', 'midea', 'tuya']
 
 export const isExperimentalProvider = (provider: Provider) => EXPERIMENTAL_PROVIDERS.includes(provider)
 
