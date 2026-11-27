@@ -76,6 +76,16 @@ export const en = {
       perKwh: (price: string) => `${price}/kWh`,
       total: (blocks: number, energy: string, cost: string) => `${blocks === 1 ? '1 block' : `${blocks} blocks`}, ${energy} in total, about ${cost}`,
     },
+    rewards: {
+      title: 'Grid Rewards from Tibber',
+      month: 'This month',
+      allTime: 'In total',
+      delivering: 'Earning now: Tibber is using the car to balance the grid',
+      available: 'Ready: Tibber can use the car when the grid needs it',
+      unavailable: 'Not taking part right now',
+      failed: 'Could not get Grid Rewards from Tibber.',
+      foot: 'What Tibber pays for adjusting smart charging to help the grid, as the Tibber app shows it.',
+    },
     ere: {
       label: 'ERE certificates',
       help: 'What you get per kWh charged, for example through Lekker Laden',
