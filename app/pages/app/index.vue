@@ -133,8 +133,8 @@
       </section>
 
       <!-- The house itself, one line each: which lamps are on (and all off in one tap), each air conditioner
-           (on and off with its round button, the rest in Settings) and the last ring at the door -->
-      <section v-if="lightsSum || aircos.length || d.around?.security" class="block house" style="--o: 9">
+           (on and off with its round button, the rest in Settings), music on Sonos and the last ring at the door -->
+      <section v-if="lightsSum || aircos.length || music || d.around?.security" class="block house" style="--o: 9">
         <div v-if="lightsSum" class="house-row">
           <NuxtLink to="/lights" class="hr-main">
             <span class="hr-glow" :style="glow(lightsSum.rgb, lightsSum.brightness)" aria-hidden="true" />
@@ -160,6 +160,19 @@
             <AppIcon name="power" />
           </button>
         </div>
+        <!-- Music now: a sheet to pick the music and volume, starting from the morning music's -->
+        <div v-if="music" class="house-row">
+          <button type="button" class="hr-main hr-button" @click="musicOpen = true">
+            <span class="hr-icon" :class="{ on: musicStarted }" aria-hidden="true"><AppIcon name="speaker" /></span>
+            <span class="hr-text">
+              <span class="hr-title">{{ m.home.music.row }}</span>
+              <span class="hr-detail" role="status">{{ musicText }}</span>
+            </span>
+          </button>
+          <button type="button" class="hr-power" :class="{ on: musicStarted }" :aria-label="m.home.music.title" @click="musicOpen = true">
+            <AppIcon name="play" />
+          </button>
+        </div>
         <div v-if="d.around?.security" class="house-row">
           <NuxtLink :to="ring ? `/security?live=${encodeURIComponent(ring.cameraId)}` : '/security'" class="hr-main">
             <span class="hr-icon" aria-hidden="true"><AppIcon name="bell" /></span>
@@ -170,6 +183,8 @@
           </NuxtLink>
         </div>
       </section>
+
+      <MusicSheet :music="musicOpen ? music : null" @close="musicOpen = false" @started="afterMusic" />
 
       <footer class="sources" style="--o: 10">
         <span class="sources-clock"><span class="dot live" /> {{ time(d.now) }}</span>
@@ -313,6 +328,22 @@ async function toggleAirco(a: Airco) {
   } finally {
     aircoBusy.value = ''
   }
+}
+
+// Music on Sonos: the morning music's speakers, music and volume, for the owner only (the dashboard leaves it null otherwise)
+interface HomeMusic { speakers: string[]; source: { kind: 'favorite' | 'playlist'; id: string; name: string } | null; volume: number }
+const music = computed<HomeMusic | null>(() => d.value?.around?.music ?? null)
+const musicOpen = ref(false)
+// What was started last from here, until Home is left: Sonos itself isn't asked what is playing
+const musicStarted = ref<string | null>(null)
+const musicText = computed(() => {
+  if (musicStarted.value) return m.value.home.music.playing(musicStarted.value)
+  const v = music.value
+  if (!v?.speakers.length) return m.value.home.music.noSpeakers
+  return v.source ? `${v.source.name} · ${v.speakers.join(' + ')}` : v.speakers.join(' + ')
+})
+function afterMusic(r: { source: { name: string } }) {
+  musicStarted.value = r.source.name
 }
 
 // The last ring at the door, kept by the server from Nest's events
@@ -520,6 +551,9 @@ onBeforeUnmount(() => {
 .hr-power svg { width: 20px; height: 20px; stroke-width: 2.2; }
 .hr-power.on { background: var(--cta); border-color: var(--cta); color: #fff; box-shadow: 0 0 0 3px color-mix(in srgb, var(--cta) 22%, transparent); }
 .hr-power:disabled { opacity: 0.6; }
+button.hr-button { background: none; border: 0; border-radius: 0; padding: 0; text-align: left; color: inherit; font: inherit; }
+button.hr-button:hover { background: none; }
+button.hr-button:active { transform: none; }
 .hr-act { flex: none; border-radius: 999px; padding: 7px 14px; font-size: 14px; }
 
 .sources { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; color: var(--text-2); }

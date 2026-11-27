@@ -3,6 +3,7 @@ import { batteryPool, devices, integrations, plans, samples } from '../db/schema
 import type { DeviceState } from '../providers/ecoflow'
 import { slotStartOf, startOfLocalDay } from '../lib/time'
 import { lastRing } from '../lib/nest'
+import { morningSettings } from '../lib/sonos'
 import { liveState } from '../services/collector'
 import { isExperimentalProvider } from '../services/experimental'
 import { getPrices } from '../services/prices'
@@ -15,7 +16,7 @@ import { forecastLocation } from '../lib/location'
 import { SOLAR_LOCATION } from '../lib/solarForecast'
 
 export default defineEventHandler(async (event) => {
-  const { site, experimental } = await requireSite(event)
+  const { site, experimental, role } = await requireSite(event)
   const db = useDb()
   const now = new Date()
   const slot = slotStartOf(now)
@@ -87,14 +88,22 @@ export default defineEventHandler(async (event) => {
       // Experimental connections stay invisible to a household without them, even with credentials still stored
       integrations: (experimental ? ints : ints.filter((i) => !isExperimentalProvider(i.provider))).map(({ provider, status }) => ({ provider, status })),
     },
-    // Around the house on Home: whether there are lights, cameras and air conditioners to show, and the last ring at the door
+    // Around the house on Home: whether there are lights, cameras and air conditioners to show, the last ring at the door,
+    // and for the owner the morning music's speakers, music and volume, which the music button starts from
     around: experimental
       ? {
           lights: !!ints.find((i) => i.provider === 'hue')?.meta.authorized,
           security: !!ints.find((i) => i.provider === 'nest')?.meta.authorized,
           doorbell: lastRing(ints.find((i) => i.provider === 'nest')?.meta ?? {}),
           airco: ints.some((i) => i.provider === 'midea'),
+          music: role === 'owner' ? homeMusic(ints.find((i) => i.provider === 'sonos')?.meta) : null,
         }
       : null,
   }
 })
+
+function homeMusic(meta: Record<string, unknown> | undefined) {
+  if (!meta?.authorized) return null
+  const { players, source, volume } = morningSettings(meta)
+  return { speakers: players.map((p) => p.name), source, volume }
+}
