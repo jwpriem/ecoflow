@@ -229,6 +229,7 @@ export const en = {
     sunDown: 'sun down',
     weather: { clear: 'clear', partly: 'partly cloudy', cloudy: 'cloudy', fog: 'fog', drizzle: 'drizzle', rain: 'rain', snow: 'snow', thunder: 'thunderstorm' },
     outside: (temp: string, weather: string) => `Outside ${temp}, ${weather}`,
+    inside: (temp: string, humidity: string | null, name: string) => `Inside ${temp}${humidity ? `, humidity ${humidity}` : ''} (${name})`,
   },
   home: {
     stale: (t: string) => `Not updated since ${t}: the server isn't answering. WattsWise tries again every 30 seconds.`,
@@ -674,6 +675,7 @@ export const en = {
     },
     sonosFirst: 'Connect Sonos and sign in first; then you set up the doorbell and morning music here.',
     aircoFirst: 'Connect your Midea SmartHome account first.',
+    tuyaSensor: (name: string) => `Connected to ${name}.`,
     aircoFound: (n: number) => `Signed in, ${n === 1 ? '1 air conditioner' : `${n} air conditioners`} found.`,
     aircoBelow: 'Control it in',
     airco: {
@@ -864,6 +866,10 @@ export const en = {
         title: 'Midea (air conditioner)',
         help: 'The email and password of your Midea SmartHome app. WattsWise signs in to the Midea cloud the way the app does and reads and sets your air conditioners from there. Unofficial: it can stop working after a Midea app update. Midea allows only a few signed-in devices per account; if it refuses, use a second SmartHome account the air conditioner is shared with.',
       },
+      tuya: {
+        title: 'Tuya (indoor temperature)',
+        help: 'Reads a Tuya or Smart Life temperature sensor straight from Tuya’s cloud and shows the indoor temperature next to the weather on Home. Create a free cloud project on platform.tuya.com (data center Central Europe), link your Smart Life or Tuya app under Devices > Link App Account, and paste the project’s Access ID and Access Secret and the sensor’s device ID here. Tuya’s free trial of the API has to be renewed every six months (free).',
+      },
       abrp: {
         title: 'A Better Routeplanner',
         help: 'Telemetry API key from abetterrouteplanner.com/home/app/api-keys/telemetry (free). Then paste each car’s ABRP token in the car settings below. WattsWise sends the battery level, charging, location and speed to ABRP on every reading: every 5 minutes, and every minute while a car is driving.',
@@ -890,6 +896,9 @@ export const en = {
       email: 'Email',
       vinIv: 'VIN IV',
       apiKey: 'API key',
+      accessId: 'Access ID',
+      accessSecret: 'Access Secret',
+      deviceId: 'Device ID',
     } as Record<string, string>,
     battery: 'Battery',
     name: 'Name',

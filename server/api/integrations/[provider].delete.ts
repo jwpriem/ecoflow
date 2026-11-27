@@ -7,6 +7,7 @@ import { forgetSolarEdge } from '../../services/solaredge'
 import { assertExperimental } from '../../services/experimental'
 import { stopZeekr } from '../../services/zeekr'
 import { stopMidea } from '../../services/midea'
+import { stopTuya } from '../../services/tuya'
 
 export default defineEventHandler(async (event) => {
   const { site, experimental } = await requireOwner(event)
@@ -19,6 +20,7 @@ export default defineEventHandler(async (event) => {
   if (provider === 'solaredge') forgetSolarEdge(site.id)
   if (provider === 'tibber_app') forgetTibberApp()
   if (provider === 'midea') stopMidea(site.id)
+  if (provider === 'tuya') stopTuya(site.id)
   if (provider === 'zeekr') {
     stopZeekr(site.id)
     await db.delete(vehicles).where(eq(vehicles.siteId, site.id))

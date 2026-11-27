@@ -3,7 +3,7 @@
     <header class="top">
       <img class="logo" :src="`/brand/wattswise-logo-${sky === 'night' ? 'dark' : 'light'}.svg`" alt="WattsWise" />
       <span v-if="d" class="top-right">
-        <WeatherNow :weather="d.weather" :location="d.location" :now="d.now" class="top-weather" />
+        <WeatherNow :weather="d.weather" :indoor="d.indoor" :location="d.location" :now="d.now" class="top-weather" />
         <span class="clock"><span class="dot live" /> {{ time(d.now) }}</span>
       </span>
     </header>
@@ -188,7 +188,7 @@
 
       <footer class="sources" style="--o: 10">
         <span class="sources-clock"><span class="dot live" /> {{ time(d.now) }}</span>
-        <WeatherNow :weather="d.weather" :location="d.location" :now="d.now" class="sources-clock" />
+        <WeatherNow :weather="d.weather" :indoor="d.indoor" :location="d.location" :now="d.now" class="sources-clock" />
         <span><span class="dot" :class="d.sources.pulse.connected ? 'ok' : ''" /> Tibber Pulse</span>
         <span v-for="i in d.sources.integrations" :key="i.provider">
           <span class="dot" :class="i.status === 'ok' ? 'ok' : i.status === 'error' ? 'err' : ''" /> {{ PROVIDER[i.provider] ?? i.provider }}
@@ -223,7 +223,7 @@ const viewOptions = computed(() => [
   { value: 'clean' as const, label: m.value.home.viewClean },
   { value: 'detailed' as const, label: m.value.home.viewHouse },
 ])
-const PROVIDER: Record<string, string> = { tibber: 'Tibber', solaredge: 'SolarEdge', ecoflow_official: 'EcoFlow', zeekr: 'Zeekr', tibber_app: 'Tibber app', hue: 'Philips Hue', nest: 'Google Nest', sonos: 'Sonos', abrp: 'ABRP' }
+const PROVIDER: Record<string, string> = { tibber: 'Tibber', solaredge: 'SolarEdge', ecoflow_official: 'EcoFlow', zeekr: 'Zeekr', tibber_app: 'Tibber app', hue: 'Philips Hue', nest: 'Google Nest', sonos: 'Sonos', abrp: 'ABRP', midea: 'Midea', tuya: 'Tuya' }
 const cents = (p: number) => `${num(p * 100, 1)} ct`
 
 async function load() {

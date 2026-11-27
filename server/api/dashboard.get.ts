@@ -12,6 +12,7 @@ import { solarByPeriod } from '../services/solar'
 import { pulseStatus } from '../providers/tibberPulse'
 import { demoPulseStatus } from '../services/demoData'
 import { currentWeather } from '../services/weather'
+import { currentIndoor } from '../services/tuya'
 import { forecastLocation } from '../lib/location'
 import { SOLAR_LOCATION } from '../lib/solarForecast'
 
@@ -26,7 +27,7 @@ export default defineEventHandler(async (event) => {
   const cached = liveState(site.id)
 
   // None of these depend on each other: run them together, so Home waits for one round trip instead of ten
-  const [devs, pools, [price], next, [today], [solarToday], ints, grid, solar, weather] = await Promise.all([
+  const [devs, pools, [price], next, [today], [solarToday], ints, grid, solar, weather, indoor] = await Promise.all([
     db.select().from(devices).where(eq(devices.siteId, site.id)).orderBy(asc(devices.id)),
     db
       .select({ pool: batteryPool })
@@ -44,6 +45,8 @@ export default defineEventHandler(async (event) => {
     cached ? undefined : latest('solar'),
     // Never holds Home up for long, and never fails it: null when Open-Meteo is slow or down
     currentWeather(site),
+    // The indoor sensor (experimental): null without one, and like the weather it never holds Home up
+    experimental ? currentIndoor(db, site, encryptionKey()) : null,
   ])
 
   let live = cached
@@ -58,6 +61,8 @@ export default defineEventHandler(async (event) => {
     location: { ...forecastLocation(site.location), place: site.location?.place ?? (site.location ? null : SOLAR_LOCATION.name) },
     // Outdoor temperature (°C) and WMO weather code at that location
     weather: weather ? { tempC: weather.tempC, code: weather.code, at: weather.at.toISOString() } : null,
+    // Indoor temperature (°C) and humidity (%) from the Tuya sensor
+    indoor: indoor && indoor.tempC !== null ? { tempC: indoor.tempC, humidity: indoor.humidity, name: indoor.name, at: indoor.at } : null,
     devices: devs.map((d) => {
       const s = d.state as DeviceState
       const pool = pools.find((p) => p.deviceId === d.id)

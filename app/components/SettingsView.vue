@@ -274,6 +274,7 @@
                   {{ m.settings.aircoBelow }} <NuxtLink to="/settings/airco">{{ m.settings.sections.airco }}</NuxtLink>.
                 </p>
               </template>
+              <p v-if="i.provider === 'tuya' && i.configured && i.status === 'ok' && i.meta.sensor" class="small muted">{{ m.settings.tuyaSensor(String(i.meta.sensor)) }}</p>
               <p v-if="i.provider === 'tibber_app' && i.configured" class="small muted">
                 {{ m.settings.tibberApp((i.meta.vehicles as any[])?.length ?? 0, (i.meta.chargers as any[])?.length ?? 0) }}
               </p>
@@ -559,10 +560,11 @@ const INFO: Record<string, { icon: string; tile: string; fields: Field[] }> = {
   sonos: { icon: 'speaker', tile: 'var(--surface-3)', fields: [{ key: 'clientId' }, { key: 'clientSecret', secret: true }] },
   abrp: { icon: 'route', tile: 'var(--sys-blue)', fields: [{ key: 'apiKey', secret: true }] },
   midea: { icon: 'snowflake', tile: 'var(--sys-blue)', fields: [{ key: 'email' }, { key: 'password', secret: true }] },
+  tuya: { icon: 'house', tile: 'var(--surface-3)', fields: [{ key: 'accessId' }, { key: 'accessSecret', secret: true }, { key: 'deviceId' }] },
 }
 
 const integrations = ref<any[]>([])
-const forms = reactive<Record<string, Record<string, string>>>({ tibber: {}, solaredge: {}, ecoflow_official: {}, zeekr: {}, tibber_app: {}, hue: {}, nest: {}, sonos: {}, abrp: {}, midea: {} })
+const forms = reactive<Record<string, Record<string, string>>>({ tibber: {}, solaredge: {}, ecoflow_official: {}, zeekr: {}, tibber_app: {}, hue: {}, nest: {}, sonos: {}, abrp: {}, midea: {}, tuya: {} })
 const results = reactive<Record<string, { ok: boolean; text: string } | undefined>>({})
 const busy = ref('')
 const homeId = ref('')
