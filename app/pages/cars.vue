@@ -66,6 +66,8 @@
         </section>
       </div>
 
+      <!-- Grid Rewards are per home, not per car: once, below the cars -->
+      <GridRewards v-if="rewards || rewardsError" :rewards="rewards" :error="rewardsError" />
       <p v-if="cars.length" class="foot">{{ m.cars.foot }}</p>
       <DepartureSheet :car="asking" @close="closeSheet" @saved="afterDeparture" />
       <ChargeLimitSheet :car="limiting" @close="limiting = null" @saved="afterLimit" />
@@ -150,6 +152,18 @@ async function loadPlans() {
     }
   }
 }
+// Tibber Grid Rewards for the home (only with a car linked to Tibber; hidden when the home has none)
+const rewards = ref<any | null>(null)
+const rewardsError = ref(false)
+async function loadRewards() {
+  if (!cars.value?.some((c) => c.tibberVehicleId)) return
+  try {
+    rewards.value = (await api<{ rewards: any }>('/api/vehicles/grid-rewards')).rewards
+    rewardsError.value = false
+  } catch {
+    rewardsError.value = true
+  }
+}
 async function afterDeparture() {
   await safeLoad()
   // Tibber replans after a new departure time: look again shortly
@@ -183,9 +197,13 @@ let timer: ReturnType<typeof setInterval>
 let planTimer: ReturnType<typeof setInterval>
 onMounted(async () => {
   timer = setInterval(safeLoad, 60_000)
-  planTimer = setInterval(loadPlans, 5 * 60_000)
+  planTimer = setInterval(() => {
+    loadPlans()
+    loadRewards()
+  }, 5 * 60_000)
   await safeLoad()
   loadPlans()
+  loadRewards()
 })
 onBeforeUnmount(() => {
   clearInterval(timer)

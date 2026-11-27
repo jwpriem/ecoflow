@@ -416,3 +416,154 @@ export async function tibberAppCharging(creds: TibberAppCredentials, vehicleId: 
     periods,
   }
 }
+
+const GQL_WS_URL = 'wss://app.tibber.com/v4/gql/ws'
+
+/** Where a home or a car stands in Grid Rewards right now. */
+export type GridRewardState = 'delivering' | 'available' | 'unavailable' | null
+
+export interface TibberGridRewardDevice {
+  id: string
+  name: string
+  kind: 'vehicle' | 'battery'
+  pluggedIn: boolean | null
+  smart: boolean | null
+  state: GridRewardState
+  /** Tibber's reason codes, such as why the car can't take part now */
+  reasons: string[]
+}
+
+export interface TibberGridRewards {
+  state: GridRewardState
+  reasons: string[]
+  currency: string | null
+  /** Earned this calendar month and since joining, in `currency` */
+  currentMonth: number | null
+  allTime: number | null
+  devices: TibberGridRewardDevice[]
+}
+
+// As the Tibber app subscribes to it (field names from github.com/JohNan/homeassistant-tibber_grid_rewards)
+const GRID_REWARD_SUBSCRIPTION = `
+subscription gridRewardsSubscription($homeId: String!) {
+  gridRewardStatus(homeId: $homeId) { __typename ...gridReward }
+}
+fragment gridRewardState on GridRewardState {
+  __typename
+  ... on GridRewardAvailable { kind }
+  ... on GridRewardUnavailable { reasons }
+  ... on GridRewardDelivering { reason }
+}
+fragment gridReward on GridReward {
+  homeId
+  state { __typename ...gridRewardState }
+  rewardCurrency
+  rewardCurrentMonth
+  rewardAllTime
+  flexDevices {
+    __typename
+    ... on GridRewardVehicle { kind vehicleId shortName make isPluggedIn isSmartChargingEnabled state { __typename ...gridRewardState } }
+    ... on GridRewardBattery { kind batteryId shortName make isSmartModeEnabled state { __typename ...gridRewardState } }
+  }
+}`
+
+function rewardState(s: Json | null | undefined): { state: GridRewardState; reasons: string[] } {
+  const t = String(s?.__typename ?? '')
+  const reasons = [...(Array.isArray(s?.reasons) ? s.reasons : []), ...(s?.reason ? [s.reason] : [])].map(String)
+  if (t === 'GridRewardDelivering') return { state: 'delivering', reasons }
+  if (t === 'GridRewardAvailable') return { state: 'available', reasons }
+  if (t === 'GridRewardUnavailable') return { state: 'unavailable', reasons }
+  return { state: null, reasons }
+}
+
+/** Reads one `gridRewardStatus` message into our shape; null when the home has no Grid Rewards. */
+export function parseGridRewards(raw: Json | null | undefined): TibberGridRewards | null {
+  if (!raw) return null
+  const devices: TibberGridRewardDevice[] = []
+  for (const d of (raw.flexDevices ?? []) as Json[]) {
+    if (!d) continue
+    const battery = d.__typename === 'GridRewardBattery'
+    const id = battery ? d.batteryId : d.vehicleId
+    if (!id) continue
+    devices.push({
+      id: String(id),
+      name: [d.make, d.shortName].filter(Boolean).join(' ') || String(id),
+      kind: battery ? 'battery' : 'vehicle',
+      pluggedIn: battery ? null : typeof d.isPluggedIn === 'boolean' ? d.isPluggedIn : null,
+      smart: typeof (battery ? d.isSmartModeEnabled : d.isSmartChargingEnabled) === 'boolean' ? (battery ? d.isSmartModeEnabled : d.isSmartChargingEnabled) : null,
+      ...rewardState(d.state),
+    })
+  }
+  return {
+    ...rewardState(raw.state),
+    currency: str(raw.rewardCurrency),
+    currentMonth: num(raw.rewardCurrentMonth),
+    allTime: num(raw.rewardAllTime),
+    devices,
+  }
+}
+
+/**
+ * The home's Grid Rewards as the Tibber app shows them: what was earned this month and in all, and
+ * whether the car takes part right now. Tibber only offers this as a subscription, so this opens the
+ * app's websocket, takes the first message and closes it again.
+ */
+export async function tibberAppGridRewards(creds: TibberAppCredentials, homeId: string, timeoutMs = 15_000): Promise<TibberGridRewards | null> {
+  try {
+    return await gridRewardsOnce(creds, homeId, timeoutMs, false)
+  } catch (err) {
+    // Expired or revoked token: sign in once more
+    if (!/HTTP 401/.test((err as Error).message)) throw err
+    return gridRewardsOnce(creds, homeId, timeoutMs, true)
+  }
+}
+
+async function gridRewardsOnce(creds: TibberAppCredentials, homeId: string, timeoutMs: number, fresh: boolean): Promise<TibberGridRewards | null> {
+  const { default: WebSocket } = await import('ws')
+  const t = await token(creds, fresh)
+  return new Promise((resolve, reject) => {
+    const ws = new WebSocket(GQL_WS_URL, 'graphql-transport-ws', { headers: { Authorization: `Bearer ${t}`, 'User-Agent': UA } })
+    let done = false
+    const finish = (err: Error | null, value?: TibberGridRewards | null) => {
+      if (done) return
+      done = true
+      clearTimeout(timer)
+      try {
+        ws.close()
+      } catch {
+        // already closed
+      }
+      if (err) reject(err)
+      else resolve(value ?? null)
+    }
+    const timer = setTimeout(() => finish(new Error('Tibber app: no Grid Rewards answer in time')), timeoutMs)
+    ws.on('open', () => ws.send(JSON.stringify({ type: 'connection_init', payload: { token: t } })))
+    ws.on('message', (data) => {
+      let msg: { type?: string; id?: string; payload?: any }
+      try {
+        msg = JSON.parse(data.toString())
+      } catch {
+        return
+      }
+      if (msg.type === 'connection_ack') {
+        ws.send(JSON.stringify({ id: '1', type: 'subscribe', payload: { operationName: 'gridRewardsSubscription', query: GRID_REWARD_SUBSCRIPTION, variables: { homeId } } }))
+      } else if (msg.type === 'ping') {
+        ws.send(JSON.stringify({ type: 'pong' }))
+      } else if (msg.type === 'next') {
+        const errors = msg.payload?.errors as { message: string }[] | undefined
+        const raw = msg.payload?.data?.gridRewardStatus
+        if (!raw && errors?.length) finish(new Error(`Tibber app: ${errors.map((e) => e.message).join('; ')}`))
+        else finish(null, parseGridRewards(raw))
+      } else if (msg.type === 'error') {
+        const errors = (Array.isArray(msg.payload) ? msg.payload : [msg.payload]) as { message?: string }[]
+        finish(new Error(`Tibber app: ${errors.map((e) => e?.message ?? 'error').join('; ')}`))
+      } else if (msg.type === 'complete') {
+        // Ended without data: this home has no Grid Rewards
+        finish(null, null)
+      }
+    })
+    ws.on('unexpected-response', (_req, res) => finish(new Error(`Tibber app websocket HTTP ${res.statusCode}`)))
+    ws.on('error', (err) => finish(err))
+    ws.on('close', () => finish(new Error('Tibber app: websocket closed before Grid Rewards came')))
+  })
+}

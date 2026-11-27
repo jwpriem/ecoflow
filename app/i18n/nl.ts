@@ -74,6 +74,16 @@ export const nl: Messages = {
       perKwh: (price: string) => `${price}/kWh`,
       total: (blocks: number, energy: string, cost: string) => `${blocks === 1 ? '1 blok' : `${blocks} blokken`}, samen ${energy}, ongeveer ${cost}`,
     },
+    rewards: {
+      title: 'Grid Rewards van Tibber',
+      month: 'Deze maand',
+      allTime: 'In totaal',
+      delivering: 'Verdient nu: Tibber gebruikt de auto om het net in balans te houden',
+      available: 'Klaar: Tibber kan de auto inzetten zodra het net erom vraagt',
+      unavailable: 'Doet nu niet mee',
+      failed: 'Kon de Grid Rewards niet uit Tibber halen.',
+      foot: 'Wat Tibber betaalt voor het bijsturen van het slim laden ten gunste van het net, zoals de Tibber-app het toont.',
+    },
     ere: {
       label: 'ERE-certificaten',
       help: 'Wat je per geladen kWh krijgt, bijvoorbeeld via Lekker Laden',

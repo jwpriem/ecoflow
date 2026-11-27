@@ -8,7 +8,9 @@ import {
   type TibberAppItem,
   type TibberAppChargePeriod,
   type TibberAppSetting,
+  type TibberGridRewards,
   tibberAppCharging,
+  tibberAppGridRewards,
   tibberAppDiscover,
   tibberAppSetBatteryLevel,
   tibberAppSetChargerVehicle,
@@ -423,4 +425,24 @@ export async function setEreValue(db: Db, site: Site, key: string, eurPerKwh: nu
   if (!integ) throw new Error('Tibber app is not connected')
   const meta = (integ.meta ?? {}) as TibberAppMeta
   await updateIntegration(db, integ.row.id, { meta: { ...meta, ereEurPerKwh: eurPerKwh && eurPerKwh > 0 ? eurPerKwh : null } as Record<string, unknown> }, key)
+}
+
+// Grid Rewards per site for a while: the amounts change a few times a day at most
+const REWARDS_CACHE_MS = 10 * 60 * 1000
+const rewardsCache = new Map<number, { at: number; rewards: (TibberGridRewards & { fetchedAt: string }) | null }>()
+
+/**
+ * What the home earned with Tibber Grid Rewards (the car's smart charging sold as flexibility), as
+ * the Tibber app shows it. Null when the Tibber app is not connected or the home has no Grid Rewards.
+ */
+export async function getTibberGridRewards(db: Db, site: Site, key: string, now = new Date()): Promise<(TibberGridRewards & { fetchedAt: string }) | null> {
+  const integ = await getIntegration<TibberAppCredentials>(db, site.id, 'tibber_app', key)
+  const homeId = (integ?.meta as TibberAppMeta | undefined)?.homeId
+  if (!integ || !homeId) return null
+  const hit = rewardsCache.get(site.id)
+  if (hit && now.getTime() - hit.at < REWARDS_CACHE_MS) return hit.rewards
+  const found = await tibberAppGridRewards(integ.creds, homeId)
+  const rewards = found ? { ...found, fetchedAt: now.toISOString() } : null
+  rewardsCache.set(site.id, { at: now.getTime(), rewards })
+  return rewards
 }
