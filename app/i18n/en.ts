@@ -77,6 +77,7 @@ export const en = {
       total: (blocks: number, energy: string, cost: string) => `${blocks === 1 ? '1 block' : `${blocks} blocks`}, ${energy} in total, about ${cost}`,
     },
     rewards: {
+      tag: 'Earning Grid Rewards',
       title: 'Grid Rewards from Tibber',
       month: 'This month',
       allTime: 'In total',
