@@ -33,6 +33,7 @@
             <div class="level">
               <span class="pct"><template v-if="c.state.soc == null">–</template><CountUp v-else :value="c.state.soc * 100" v-bind="RISE" /><small>%</small></span>
               <p class="status-line" :class="carStatus(c).cls">{{ carStatus(c).text }}</p>
+              <span v-if="earning(c)" class="reward-tag">{{ m.cars.rewards.tag }}</span>
             </div>
           </header>
 
@@ -164,6 +165,13 @@ async function loadRewards() {
     rewardsError.value = true
   }
 }
+// A plugged-in car Tibber is using for Grid Rewards right now: its own state, or the home's when Tibber lists no device for it
+function earning(c: any) {
+  const r = rewards.value
+  if (!r || !c.tibberVehicleId || !(c.state.charging || c.state.pluggedIn)) return false
+  const device = r.devices?.find((d: any) => d.id === c.tibberVehicleId)
+  return (device ? device.state : r.state) === 'delivering'
+}
 async function afterDeparture() {
   await safeLoad()
   // Tibber replans after a new departure time: look again shortly
@@ -236,6 +244,7 @@ onBeforeUnmount(() => {
 .pct small { font-size: 18px; font-weight: 500; color: var(--text-2); margin-left: 1px; }
 .status-line { margin: 4px 0 0; font-size: 14px; font-weight: 600; color: var(--text-2); }
 .status-line.charging { color: var(--cheap); }
+.reward-tag { display: inline-block; margin-top: 6px; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; color: var(--cheap); border: 1px solid currentColor; }
 
 .list { margin-bottom: 0; }
 .detail .full { display: block; font-size: 13px; }

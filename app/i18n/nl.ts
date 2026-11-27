@@ -75,6 +75,7 @@ export const nl: Messages = {
       total: (blocks: number, energy: string, cost: string) => `${blocks === 1 ? '1 blok' : `${blocks} blokken`}, samen ${energy}, ongeveer ${cost}`,
     },
     rewards: {
+      tag: 'Verdient Grid Rewards',
       title: 'Grid Rewards van Tibber',
       month: 'Deze maand',
       allTime: 'In totaal',
